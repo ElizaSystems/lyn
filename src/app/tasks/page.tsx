@@ -4,15 +4,19 @@ import { Zap, Plus, Play, Pause, Settings, Trash2, Clock, CheckCircle, AlertCirc
 import { Button } from '@/components/ui/button'
 
 interface Task {
-  id: string
+  _id?: string
+  id?: string
+  userId?: string
   name: string
   description: string
   status: 'active' | 'paused' | 'completed' | 'failed'
   type: 'security-scan' | 'wallet-monitor' | 'price-alert' | 'auto-trade'
   frequency: string
-  lastRun: Date | string
-  nextRun: Date | string | null
+  lastRun?: Date | string
+  nextRun?: Date | string | null
   successRate: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export default function TasksPage() {
@@ -25,7 +29,18 @@ export default function TasksPage() {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch('/api/tasks')
+      const response = await fetch('/api/tasks', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        }
+      })
+      
+      if (response.status === 401) {
+        console.error('Authentication required')
+        setLoading(false)
+        return
+      }
+      
       const data = await response.json()
       setTasks(data)
       setLoading(false)
@@ -68,13 +83,16 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        },
         body: JSON.stringify({ action: 'toggle', id: taskId })
       })
       
       if (response.ok) {
         const updatedTask = await response.json()
-        setTasks(tasks.map(task => task.id === taskId ? updatedTask : task))
+        setTasks(tasks.map(task => (task._id || task.id) === taskId ? updatedTask : task))
       }
     } catch (error) {
       console.error('Failed to toggle task:', error)
@@ -85,12 +103,15 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        },
         body: JSON.stringify({ action: 'delete', id: taskId })
       })
       
       if (response.ok) {
-        setTasks(tasks.filter(task => task.id !== taskId))
+        setTasks(tasks.filter(task => (task._id || task.id) !== taskId))
       }
     } catch (error) {
       console.error('Failed to delete task:', error)
@@ -101,7 +122,10 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        },
         body: JSON.stringify({ action: 'create', ...taskData })
       })
       
@@ -204,7 +228,7 @@ export default function TasksPage() {
           </div>
         ) : (
           tasks.map((task) => (
-          <div key={task.id} className="glass-card p-6 rounded-xl border border-border/50 hover:border-primary/30 transition-all">
+          <div key={task._id || task.id} className="glass-card p-6 rounded-xl border border-border/50 hover:border-primary/30 transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4">
                 <div className="mt-1">
@@ -224,8 +248,8 @@ export default function TasksPage() {
                       <Clock className="w-3 h-3" />
                       <span>{task.frequency}</span>
                     </div>
-                    <div>Last run: {formatDate(task.lastRun)}</div>
-                    <div>Next run: {formatDate(task.nextRun)}</div>
+                    <div>Last run: {formatDate(task.lastRun || null)}</div>
+                    <div>Next run: {formatDate(task.nextRun || null)}</div>
                     <div className="flex items-center gap-1">
                       <div className="w-20 h-1 bg-border rounded-full overflow-hidden">
                         <div 
@@ -243,7 +267,7 @@ export default function TasksPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => toggleTaskStatus(task.id)}
+                  onClick={() => toggleTaskStatus(task._id || task.id || '')}
                   className="hover:bg-primary/10"
                 >
                   {task.status === 'active' ? (
@@ -262,7 +286,7 @@ export default function TasksPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => deleteTask(task.id)}
+                  onClick={() => deleteTask(task._id || task.id || '')}
                   className="hover:bg-red-500/10 text-red-500"
                 >
                   <Trash2 className="w-4 h-4" />

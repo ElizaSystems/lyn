@@ -93,7 +93,7 @@ export function Sidebar() {
     <aside className={`${collapsed ? 'w-16' : 'w-64'} transition-all duration-300 h-screen bg-sidebar border-r border-border flex flex-col`}>
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src="/logo.png" 

@@ -1,70 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
+import { getDatabase } from '@/lib/mongodb'
+import { ObjectId } from 'mongodb'
 
-interface Task {
-  id: string
+interface MongoTask {
+  _id?: ObjectId
+  userId: string
   name: string
   description: string
   status: 'active' | 'paused' | 'completed' | 'failed'
   type: 'security-scan' | 'wallet-monitor' | 'price-alert' | 'auto-trade'
   frequency: string
-  lastRun: Date
-  nextRun: Date | null
+  lastRun?: Date
+  nextRun?: Date | null
   successRate: number
   config?: Record<string, unknown>
+  createdAt: Date
+  updatedAt: Date
 }
 
-// In-memory task storage (in production, use a database)
-let tasks: Task[] = []
-
-// Task execution queue
-const taskQueue: Array<{ taskId: string; executeAt: Date }> = []
-
-// Simple task scheduler (runs every minute)
-if (typeof window === 'undefined') {
-  setInterval(() => {
-    const now = new Date()
-    taskQueue.forEach((queueItem, index) => {
-      if (queueItem.executeAt <= now) {
-        executeTask(queueItem.taskId)
-        taskQueue.splice(index, 1)
-      }
-    })
-  }, 60000) // Check every minute
-}
-
-async function executeTask(taskId: string) {
-  const task = tasks.find(t => t.id === taskId)
-  if (!task || task.status !== 'active') return
+export async function GET(req: NextRequest) {
+  const authResult = await requireAuth(req)
   
-  try {
-    // Simulate task execution
-    console.log(`Executing task: ${task.name}`)
-    
-    // Update task status
-    task.lastRun = new Date()
-    
-    // Schedule next run based on frequency
-    if (task.frequency.includes('hour')) {
-      const hours = parseInt(task.frequency.match(/\d+/)?.[0] || '24')
-      task.nextRun = new Date(Date.now() + hours * 60 * 60 * 1000)
-      taskQueue.push({ taskId: task.id, executeAt: task.nextRun })
-    } else if (task.frequency.includes('day')) {
-      const days = parseInt(task.frequency.match(/\d+/)?.[0] || '1')
-      task.nextRun = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
-      taskQueue.push({ taskId: task.id, executeAt: task.nextRun })
-    }
-    
-    // Update success rate (simulate 95-100% success)
-    task.successRate = 95 + Math.random() * 5
-    
-  } catch (error) {
-    console.error(`Task execution failed: ${task.name}`, error)
-    task.status = 'failed'
+  if (authResult.error) {
+    return NextResponse.json(
+      { error: authResult.error.message },
+      { status: authResult.error.status }
+    )
   }
-}
 
-export async function GET() {
   try {
+    const db = await getDatabase()
+    const tasksCollection = db.collection<MongoTask>('tasks')
+    
+    const tasks = await tasksCollection
+      .find({ userId: authResult.user.id })
+      .sort({ createdAt: -1 })
+      .toArray()
+    
     return NextResponse.json(tasks)
   } catch (error) {
     console.error('Tasks GET error:', error)
@@ -73,12 +46,23 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth(req)
+  
+  if (authResult.error) {
+    return NextResponse.json(
+      { error: authResult.error.message },
+      { status: authResult.error.status }
+    )
+  }
+
   try {
     const body = await req.json()
+    const db = await getDatabase()
+    const tasksCollection = db.collection<MongoTask>('tasks')
     
     if (body.action === 'create') {
-      const newTask: Task = {
-        id: Date.now().toString(),
+      const newTask: MongoTask = {
+        userId: authResult.user.id,
         name: body.name,
         description: body.description,
         status: 'active',
@@ -87,47 +71,78 @@ export async function POST(req: NextRequest) {
         lastRun: new Date(),
         nextRun: new Date(Date.now() + 24 * 60 * 60 * 1000),
         successRate: 100,
-        config: body.config
+        config: body.config,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
       
-      tasks.push(newTask)
+      const result = await tasksCollection.insertOne(newTask)
+      const insertedTask = { ...newTask, _id: result.insertedId }
       
-      // Schedule the task
-      if (newTask.nextRun) {
-        taskQueue.push({ taskId: newTask.id, executeAt: newTask.nextRun })
-      }
-      
-      return NextResponse.json(newTask)
+      return NextResponse.json(insertedTask)
     }
     
     if (body.action === 'update') {
-      const taskIndex = tasks.findIndex(t => t.id === body.id)
-      if (taskIndex === -1) {
+      const result = await tasksCollection.findOneAndUpdate(
+        { 
+          _id: new ObjectId(body.id), 
+          userId: authResult.user.id 
+        },
+        { 
+          $set: { 
+            ...body.updates, 
+            updatedAt: new Date() 
+          } 
+        },
+        { returnDocument: 'after' }
+      )
+      
+      if (!result) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
       
-      tasks[taskIndex] = { ...tasks[taskIndex], ...body.updates }
-      return NextResponse.json(tasks[taskIndex])
+      return NextResponse.json(result)
     }
     
     if (body.action === 'delete') {
-      tasks = tasks.filter(t => t.id !== body.id)
+      const result = await tasksCollection.deleteOne({
+        _id: new ObjectId(body.id),
+        userId: authResult.user.id
+      })
+      
+      if (result.deletedCount === 0) {
+        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+      }
+      
       return NextResponse.json({ success: true })
     }
     
     if (body.action === 'toggle') {
-      const task = tasks.find(t => t.id === body.id)
+      const task = await tasksCollection.findOne({
+        _id: new ObjectId(body.id),
+        userId: authResult.user.id
+      })
+      
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
       
-      task.status = task.status === 'active' ? 'paused' : 'active'
+      const newStatus = task.status === 'active' ? 'paused' : 'active'
+      const result = await tasksCollection.findOneAndUpdate(
+        { 
+          _id: new ObjectId(body.id), 
+          userId: authResult.user.id 
+        },
+        { 
+          $set: { 
+            status: newStatus, 
+            updatedAt: new Date() 
+          } 
+        },
+        { returnDocument: 'after' }
+      )
       
-      if (task.status === 'active' && task.nextRun) {
-        taskQueue.push({ taskId: task.id, executeAt: task.nextRun })
-      }
-      
-      return NextResponse.json(task)
+      return NextResponse.json(result)
     }
     
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
