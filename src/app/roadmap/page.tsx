@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Map, Check, Clock, Calendar, Users, Code, Sparkles, Shield, Smartphone, Globe, Zap } from 'lucide-react'
+import { Map, Check, Clock, Calendar, Users, Code, Sparkles, Globe } from 'lucide-react'
 
 interface RoadmapItem {
   id: string
@@ -292,7 +292,7 @@ export default function RoadmapPage() {
               <div>
                 <h3 className="font-semibold mb-2">Fixed Timeline Commitment</h3>
                 <p className="text-sm text-muted-foreground">
-                  This roadmap uses a fixed start date of August 18, 2025, regardless of when you're viewing it. 
+                  This roadmap uses a fixed start date of August 18, 2025, regardless of when you&apos;re viewing it. 
                   Timelines are aggressive but achievable with focused part-time development. Features may be reprioritized 
                   based on community needs, but delivery dates remain target-focused.
                 </p>

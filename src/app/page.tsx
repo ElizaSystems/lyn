@@ -85,7 +85,7 @@ export default function LandingPage() {
               </Link>
               <Link href="/wallet">
                 <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-primary/30 hover:bg-primary/10">
-                  View LYN's Wallet
+                  View LYN&apos;s Wallet
                 </Button>
               </Link>
             </div>
