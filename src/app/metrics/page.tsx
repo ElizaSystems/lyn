@@ -1,6 +1,7 @@
 'use client'
 import { BarChart3, Users, Globe, Zap, TrendingUp, Server, Shield, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 export default function MetricsPage() {
   const metrics = [
@@ -63,7 +64,11 @@ export default function MetricsPage() {
   }
 
   return (
-    <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <ComingSoonOverlay 
+      title="Advanced Metrics Coming Soon"
+      description="Comprehensive platform performance metrics including network health, security analytics, user engagement, and token economics. Real-time monitoring and alerting system."
+    >
+      <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -178,6 +183,7 @@ export default function MetricsPage() {
           </Button>
         </div>
       </div>
-    </div>
+      </div>
+    </ComingSoonOverlay>
   )
 }

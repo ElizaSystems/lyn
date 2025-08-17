@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Shield, Lock, Unlock, TrendingUp, Coins, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 export default function StakingPage() {
   const [stakingAmount, setStakingAmount] = useState('')
@@ -68,7 +69,11 @@ export default function StakingPage() {
   const rewards = calculateRewards(stakingAmount, selectedPoolData?.apy || '0')
 
   return (
-    <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <ComingSoonOverlay 
+      title="Staking Coming Soon"
+      description="Earn rewards by staking your LYN tokens. Multiple pool options with different lock periods and APY rates. Compound rewards and governance participation."
+    >
+      <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -245,6 +250,7 @@ export default function StakingPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ComingSoonOverlay>
   )
 }

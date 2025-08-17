@@ -15,7 +15,9 @@ import {
   X,
   Settings,
   MessageCircle,
-  Github
+  Github,
+  FileText,
+  Map
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -31,6 +33,11 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
 
   const agentItems: SidebarItem[] = [
+    { 
+      label: 'Chat', 
+      path: '/security', 
+      icon: <MessageCircle className="w-5 h-5" />
+    },
     { 
       label: 'Terminal', 
       path: '/terminal', 
@@ -82,6 +89,19 @@ export function Sidebar() {
       label: 'Staking', 
       path: '/staking', 
       icon: <Shield className="w-5 h-5" />
+    },
+  ]
+
+  const aboutItems: SidebarItem[] = [
+    { 
+      label: 'Litepaper', 
+      path: '/litepaper', 
+      icon: <FileText className="w-5 h-5" />
+    },
+    { 
+      label: 'Roadmap', 
+      path: '/roadmap', 
+      icon: <Map className="w-5 h-5" />
     },
   ]
 
@@ -152,6 +172,35 @@ export function Sidebar() {
           )}
           <nav className="space-y-1">
             {tokenItems.map((item) => (
+              <Link
+                key={item.path}
+                href={item.path}
+                className={`sidebar-item ${isActive(item.path) ? 'active' : ''}`}
+              >
+                {item.icon}
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span className={item.badgeType === 'pink' ? 'badge-pink' : 'badge-cyan'}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <div className="px-4 mb-6">
+          {!collapsed && (
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              ABOUT
+            </h3>
+          )}
+          <nav className="space-y-1">
+            {aboutItems.map((item) => (
               <Link
                 key={item.path}
                 href={item.path}

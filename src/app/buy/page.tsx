@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Coins, ExternalLink, Copy, ArrowRight, Shield, Zap, TrendingUp, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 export default function BuyLYNPage() {
   const [copiedAddress, setCopiedAddress] = useState(false)
@@ -27,7 +28,11 @@ export default function BuyLYNPage() {
   ]
 
   return (
-    <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <ComingSoonOverlay 
+      title="Buy LYN Coming Soon"
+      description="Purchase LYN tokens directly through our integrated exchange interface. Multiple payment methods, best prices, and secure transactions."
+    >
+      <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -193,6 +198,7 @@ export default function BuyLYNPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ComingSoonOverlay>
   )
 }

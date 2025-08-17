@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Flame, TrendingDown, Calendar, Info, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 export default function BurnTrackerPage() {
   const [timeRange, setTimeRange] = useState('all')
@@ -20,7 +21,11 @@ export default function BurnTrackerPage() {
   const burnPercentage = ((totalBurned / totalSupply) * 100).toFixed(3)
 
   return (
-    <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <ComingSoonOverlay 
+      title="Burn Tracker Coming Soon"
+      description="Track LYN token burns and deflationary metrics. This advanced analytics dashboard will show real-time burn events, supply reduction, and burn rate trends."
+    >
+      <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center">
@@ -161,6 +166,7 @@ export default function BurnTrackerPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ComingSoonOverlay>
   )
 }

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart3, TrendingUp, Users, Shield, Activity, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState('7d')
@@ -53,7 +54,11 @@ export default function AnalyticsPage() {
   const maxThreats = Math.max(...chartData.map(d => d.threats))
 
   return (
-    <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <ComingSoonOverlay 
+      title="Analytics Dashboard Coming Soon"
+      description="Advanced security analytics with threat intelligence, performance metrics, and comprehensive reporting. Real-time monitoring and export capabilities."
+    >
+      <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -229,6 +234,7 @@ export default function AnalyticsPage() {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </ComingSoonOverlay>
   )
 }
