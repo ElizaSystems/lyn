@@ -70,7 +70,7 @@ export default function LandingPage() {
             <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               AI-Powered Solana
               <br />
-              Trading Assistant
+              Security Assistant
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
               Revolutionize your crypto experience with advanced AI automation, 
