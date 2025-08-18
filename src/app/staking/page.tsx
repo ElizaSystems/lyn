@@ -23,7 +23,7 @@ export default function StakingPage() {
     totalRewards?: number
     totalStakers?: number
   } | null>(null)
-  const [_loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
 
   useEffect(() => {
     fetchStakingData()

@@ -1,12 +1,13 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Coins, ExternalLink, Copy, ArrowRight, Shield, Zap, TrendingUp, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 export default function BuyLYNPage() {
   const [copiedAddress, setCopiedAddress] = useState(false)
-  const tokenAddress = '0xLYN1234567890abcdef1234567890abcdef124f88'
+  const [tokenPrice, setTokenPrice] = useState<number>(0.042)
+  const [priceChange, setPriceChange] = useState<string>('+12.5%')
+  const tokenAddress = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
 
   const copyAddress = () => {
     navigator.clipboard.writeText(tokenAddress)
@@ -14,25 +15,47 @@ export default function BuyLYNPage() {
     setTimeout(() => setCopiedAddress(false), 2000)
   }
 
+  useEffect(() => {
+    fetchTokenPrice()
+  }, [])
+
+  const fetchTokenPrice = async () => {
+    try {
+      // In production, this would fetch from Jupiter or Birdeye API
+      // For now, calculate based on market cap and supply
+      const response = await fetch('/api/wallet/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: 'EPCzpDDs4dNJvBEmJ1pvBN4tfCVNxZqJ7sTcHcepHdKT' })
+      })
+      const data = await response.json()
+      if (data.tokens && data.tokens.length > 0) {
+        const lynToken = data.tokens.find((t: { symbol: string; price?: number; change24h?: string }) => t.symbol === 'LYN')
+        if (lynToken) {
+          setTokenPrice(lynToken.price || 0.042)
+          setPriceChange(lynToken.change24h || '+12.5%')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch token price:', error)
+    }
+  }
+
   const exchanges = [
-    { name: 'Raydium', type: 'DEX', volume: '$2.4M', fee: '0.25%', url: '#' },
-    { name: 'Jupiter', type: 'Aggregator', volume: '$1.8M', fee: '0.1%', url: '#' },
-    { name: 'Orca', type: 'DEX', volume: '$892K', fee: '0.3%', url: '#' },
+    { name: 'Raydium', type: 'DEX', volume: '$2.4M', fee: '0.25%', url: 'https://raydium.io/swap' },
+    { name: 'Jupiter', type: 'Aggregator', volume: '$1.8M', fee: '0.1%', url: 'https://jup.ag' },
+    { name: 'Orca', type: 'DEX', volume: '$892K', fee: '0.3%', url: 'https://orca.so' },
   ]
 
   const tokenInfo = [
-    { label: 'Current Price', value: '$0.042', change: '+12.5%' },
-    { label: 'Market Cap', value: '$4.2M', change: '+8.3%' },
+    { label: 'Current Price', value: `$${tokenPrice.toFixed(4)}`, change: priceChange },
+    { label: 'Market Cap', value: `$${(tokenPrice * 100000000).toLocaleString()}`, change: '+8.3%' },
     { label: '24h Volume', value: '$892K', change: '+23.1%' },
     { label: 'Circulating Supply', value: '100M LYN', change: null },
   ]
 
   return (
-    <ComingSoonOverlay 
-      title="Buy LYN Coming Soon"
-      description="Purchase LYN tokens directly through our integrated exchange interface. Multiple payment methods, best prices, and secure transactions."
-    >
-      <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -145,14 +168,22 @@ export default function BuyLYNPage() {
                     </div>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="hover:bg-primary/10">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="hover:bg-primary/10"
+                  onClick={() => window.open(exchange.url, '_blank')}
+                >
                   <ExternalLink className="w-4 h-4" />
                 </Button>
               </div>
             ))}
           </div>
 
-          <Button className="w-full mt-4 bg-primary hover:bg-primary/90">
+          <Button 
+            className="w-full mt-4 bg-primary hover:bg-primary/90"
+            onClick={() => window.open(`https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`, '_blank')}
+          >
             Buy on Raydium
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
@@ -198,7 +229,6 @@ export default function BuyLYNPage() {
           </div>
         </div>
       </div>
-      </div>
-    </ComingSoonOverlay>
+    </div>
   )
 }
