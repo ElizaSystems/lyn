@@ -1,4 +1,5 @@
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { getLYNTokenPrice } from '@/lib/services/price-service'
 
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com'
 const TOKEN_MINT = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
@@ -39,9 +40,7 @@ export async function getTokenBalance(walletAddress: string, tokenMint: string) 
 }
 
 export async function getTokenPrice(): Promise<number> {
-  // In production, this would fetch from a price API like CoinGecko or Jupiter
-  // For now, return a mock price
-  return 0.042
+  return getLYNTokenPrice()
 }
 
 export async function getTokenSupply() {

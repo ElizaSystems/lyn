@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
+import { fetchSolanaPrice as fetchRealSolPrice, fetchTokenPrice as fetchRealTokenPrice, fetchPriceChange as fetchRealPriceChange } from '@/lib/services/price-service'
 
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com'
 const connection = new Connection(RPC_ENDPOINT, 'confirmed')
@@ -108,34 +109,11 @@ export async function POST(req: NextRequest) {
 }
 
 async function fetchSolanaPrice(): Promise<number> {
-  try {
-    // In production, fetch from CoinGecko or similar API
-    // For now, return a mock price
-    return 120.50
-  } catch (error) {
-    console.error('Error fetching SOL price:', error)
-    return 100
-  }
+  return fetchRealSolPrice()
 }
 
 async function fetchTokenPrice(mint: string): Promise<number> {
-  try {
-    // In production, fetch from Jupiter API or similar
-    // For now, return mock prices based on common tokens
-    const mockPrices: { [key: string]: number } = {
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.0, // USDC
-      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.0, // USDT
-      'So11111111111111111111111111111111111111112': 120.50, // Wrapped SOL
-      'LYNXRsQPMa22NyQxGmPYjUcTVvfYq7HGabJe3Zm1wp6': 0.001, // LYN
-      '8FU95xFJhUUkyyCLU13HSzDLs7oC4QZdXQHL6SCeab36': 0.001, // LYN
-    }
-    
-    // Default price for unknown tokens (likely LYN)
-    return mockPrices[mint] || 0.001
-  } catch (error) {
-    console.error('Error fetching token price:', error)
-    return 0
-  }
+  return fetchRealTokenPrice(mint)
 }
 
 async function fetchTokenInfo(mint: string): Promise<{ symbol: string; name: string }> {
@@ -164,22 +142,7 @@ async function fetchTokenInfo(mint: string): Promise<{ symbol: string; name: str
 }
 
 async function fetchPriceChange(symbol: string): Promise<string> {
-  try {
-    // In production, fetch from price API
-    // For now, return mock price changes
-    const mockChanges: { [key: string]: string } = {
-      'SOL': '+5.2%',
-      'USDC': '0.0%',
-      'USDT': '0.0%',
-      'wSOL': '+5.2%',
-      'LYN': '+0.0%',
-    }
-    
-    return mockChanges[symbol] || '+0.0%'
-  } catch (error) {
-    console.error('Error fetching price change:', error)
-    return '+0.0%'
-  }
+  return fetchRealPriceChange(symbol)
 }
 
 function formatNumber(num: number, decimals: number = 2): string {

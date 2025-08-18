@@ -22,6 +22,13 @@ interface Task {
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [showCustomForm, setShowCustomForm] = useState(false)
+  const [customTask, setCustomTask] = useState({
+    name: '',
+    description: '',
+    type: 'security-scan' as Task['type'],
+    frequency: 'Every 24 hours'
+  })
 
   useEffect(() => {
     fetchTasks()
@@ -298,6 +305,105 @@ export default function TasksPage() {
         )}
       </div>
 
+      {showCustomForm && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl border border-border/50 max-w-md w-full mx-4">
+            <h2 className="text-xl font-semibold mb-4">Create Custom Task</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Task Name</label>
+                <input
+                  type="text"
+                  value={customTask.name}
+                  onChange={(e) => setCustomTask({ ...customTask, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                  placeholder="Enter task name"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Description</label>
+                <textarea
+                  value={customTask.description}
+                  onChange={(e) => setCustomTask({ ...customTask, description: e.target.value })}
+                  className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary resize-none"
+                  placeholder="Describe what this task does"
+                  rows={3}
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Task Type</label>
+                <select
+                  value={customTask.type}
+                  onChange={(e) => setCustomTask({ ...customTask, type: e.target.value as Task['type'] })}
+                  className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                >
+                  <option value="security-scan">Security Scan</option>
+                  <option value="wallet-monitor">Wallet Monitor</option>
+                  <option value="price-alert">Price Alert</option>
+                  <option value="auto-trade">Auto Trade</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Frequency</label>
+                <select
+                  value={customTask.frequency}
+                  onChange={(e) => setCustomTask({ ...customTask, frequency: e.target.value })}
+                  className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                >
+                  <option value="Real-time">Real-time</option>
+                  <option value="Every 5 minutes">Every 5 minutes</option>
+                  <option value="Every 30 minutes">Every 30 minutes</option>
+                  <option value="Every hour">Every hour</option>
+                  <option value="Every 6 hours">Every 6 hours</option>
+                  <option value="Every 12 hours">Every 12 hours</option>
+                  <option value="Every 24 hours">Every 24 hours</option>
+                  <option value="Weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <Button 
+                className="flex-1 bg-primary hover:bg-primary/90"
+                onClick={() => {
+                  if (customTask.name && customTask.description) {
+                    createTask(customTask)
+                    setShowCustomForm(false)
+                    setCustomTask({
+                      name: '',
+                      description: '',
+                      type: 'security-scan',
+                      frequency: 'Every 24 hours'
+                    })
+                  }
+                }}
+                disabled={!customTask.name || !customTask.description}
+              >
+                Create Task
+              </Button>
+              <Button 
+                className="flex-1" 
+                variant="ghost"
+                onClick={() => {
+                  setShowCustomForm(false)
+                  setCustomTask({
+                    name: '',
+                    description: '',
+                    type: 'security-scan',
+                    frequency: 'Every 24 hours'
+                  })
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCreateModal && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-card p-6 rounded-xl border border-border/50 max-w-md w-full mx-4">
@@ -345,9 +451,12 @@ export default function TasksPage() {
               <Button 
                 className="w-full justify-start" 
                 variant="outline"
-                disabled
+                onClick={() => {
+                  setShowCreateModal(false)
+                  setShowCustomForm(true)
+                }}
               >
-                Custom Task (Coming Soon)
+                Custom Task
               </Button>
             </div>
             <Button 

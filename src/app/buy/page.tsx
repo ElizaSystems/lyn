@@ -21,23 +21,21 @@ export default function BuyLYNPage() {
 
   const fetchTokenPrice = async () => {
     try {
-      // In production, this would fetch from Jupiter or Birdeye API
-      // For now, calculate based on market cap and supply
-      const response = await fetch('/api/wallet/tokens', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: 'EPCzpDDs4dNJvBEmJ1pvBN4tfCVNxZqJ7sTcHcepHdKT' })
-      })
-      const data = await response.json()
-      if (data.tokens && data.tokens.length > 0) {
-        const lynToken = data.tokens.find((t: { symbol: string; price?: number; change24h?: string }) => t.symbol === 'LYN')
-        if (lynToken) {
-          setTokenPrice(lynToken.price || 0.042)
-          setPriceChange(lynToken.change24h || '+12.5%')
-        }
-      }
+      // Dynamically import the price service to avoid server-side issues
+      const { getLYNTokenPrice, fetchPriceChange } = await import('@/lib/services/price-service')
+      
+      const [price, change] = await Promise.all([
+        getLYNTokenPrice(),
+        fetchPriceChange('LYN')
+      ])
+      
+      setTokenPrice(price)
+      setPriceChange(change)
     } catch (error) {
       console.error('Failed to fetch token price:', error)
+      // Fallback to default values
+      setTokenPrice(0.042)
+      setPriceChange('+12.5%')
     }
   }
 
