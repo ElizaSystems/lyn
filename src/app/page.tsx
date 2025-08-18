@@ -13,32 +13,32 @@ export default function LandingPage() {
     },
     {
       icon: <Bot className="w-6 h-6" />,
-      title: "AI Agent Assistant",
-      description: "Intelligent automation for trading, staking, and portfolio management tasks."
+      title: "AI Defense Agent",
+      description: "Intelligent cyber defense agent protecting your crypto assets from threats and scams."
     },
     {
       icon: <Zap className="w-6 h-6" />,
-      title: "Automated Tasks",
-      description: "Set up custom workflows for price alerts, security scans, and trading strategies."
+      title: "Automated Protection",
+      description: "Set up custom security workflows for threat monitoring, wallet protection, and scam detection."
     },
     {
       icon: <BarChart3 className="w-6 h-6" />,
-      title: "Analytics & Insights",
-      description: "Comprehensive portfolio tracking with detailed metrics and performance analysis."
+      title: "Security Analytics",
+      description: "Comprehensive threat intelligence with detailed security metrics and risk analysis."
     },
     {
       icon: <Wallet className="w-6 h-6" />,
-      title: "Multi-Wallet Support",
-      description: "Connect and manage multiple Solana wallets with unified interface."
+      title: "Multi-Wallet Protection",
+      description: "Secure and monitor multiple Solana wallets with unified threat detection."
     }
   ]
 
   const benefits = [
-    "Real-time portfolio monitoring",
+    "Real-time threat monitoring",
     "Automated security scanning", 
-    "Smart trading assistance",
-    "Custom alert system",
-    "Advanced analytics dashboard"
+    "Smart contract auditing",
+    "Phishing detection system",
+    "Advanced security dashboard"
   ]
 
   return (
@@ -68,13 +68,13 @@ export default function LandingPage() {
         <section className="text-center py-20">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              AI-Powered Solana
+              AI-Powered Crypto
               <br />
-              Security Assistant
+              Security Defense
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
-              Revolutionize your crypto experience with advanced AI automation, 
-              security monitoring, and intelligent portfolio management.
+              Protect your crypto assets with advanced AI-powered cyber defense, 
+              real-time threat detection, and intelligent security monitoring.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/dashboard">
@@ -96,10 +96,10 @@ export default function LandingPage() {
         <section className="py-20">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Powerful Features for Smart Traders
+              Powerful Security Features for Crypto Defense
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Everything you need to trade smarter, safer, and more efficiently on Solana.
+              Everything you need to stay secure, protected, and informed in the crypto ecosystem.
             </p>
           </div>
           
@@ -124,8 +124,8 @@ export default function LandingPage() {
                 Why Choose LYN AI?
               </h2>
               <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                Our advanced AI technology provides you with the tools and insights 
-                needed to make informed decisions in the fast-paced crypto market.
+                Our advanced AI technology provides you with the defense and protection 
+                needed to navigate the crypto ecosystem safely and securely.
               </p>
               <div className="space-y-4">
                 {benefits.map((benefit, index) => (
@@ -172,10 +172,10 @@ export default function LandingPage() {
         <section className="py-20 text-center">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
-              Ready to Start Trading Smarter?
+              Ready to Secure Your Crypto Assets?
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Join thousands of traders who trust LYN AI for their Solana trading needs.
+              Join thousands of users who trust LYN AI for their crypto security needs.
             </p>
             <Link href="/dashboard">
               <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-4">
@@ -200,7 +200,7 @@ export default function LandingPage() {
               <span className="font-semibold">LYN AI</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2025 LYN AI. Revolutionizing Solana trading with AI.
+              © 2025 LYN AI. Revolutionizing crypto security with AI-powered defense.
             </p>
           </div>
         </footer>

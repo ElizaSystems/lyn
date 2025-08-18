@@ -6,7 +6,7 @@ import {
   Terminal, 
   Wallet, 
   Zap, 
-  TrendingUp, 
+  Shield as ShieldIcon, 
   BarChart3, 
   DollarSign, 
   Coins,
@@ -17,7 +17,8 @@ import {
   MessageCircle,
   Github,
   FileText,
-  Map
+  Map,
+  FileSearch
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -54,9 +55,9 @@ export function Sidebar() {
       icon: <Zap className="w-5 h-5" />
     },
     { 
-      label: 'Trading', 
-      path: '/trading', 
-      icon: <TrendingUp className="w-5 h-5" />,
+      label: 'Security Audit', 
+      path: '/audit', 
+      icon: <FileSearch className="w-5 h-5" />,
       badge: 'Soon',
       badgeType: 'cyan'
     },

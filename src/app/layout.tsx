@@ -5,8 +5,8 @@ import { AppLayout } from '@/components/app-layout'
 import React from 'react'
 
 export const metadata: Metadata = {
-  title: 'LYN AI - Security Scanner',
-  description: 'AI-powered phishing detection and document security analysis',
+  title: 'LYN AI - Smart Crypto Security Defense',
+  description: 'AI-powered cyber defense agent protecting your crypto assets from threats, scams, and vulnerabilities',
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',

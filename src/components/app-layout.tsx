@@ -5,6 +5,7 @@ import { Toaster } from './ui/sonner'
 import React from 'react'
 import { Sidebar } from '@/components/sidebar'
 import { HeaderBar } from '@/components/header-bar'
+import { AlphaDisclaimerModal } from '@/components/alpha-disclaimer-modal'
 
 export function AppLayout({
   children,
@@ -22,6 +23,7 @@ export function AppLayout({
           </main>
         </div>
       </div>
+      <AlphaDisclaimerModal />
       <Toaster />
     </ThemeProvider>
   )
