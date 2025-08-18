@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import { Zap, Plus, Play, Pause, Settings, Trash2, Clock, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 interface Task {
   _id?: string
@@ -161,11 +160,7 @@ export default function TasksPage() {
   }
 
   return (
-    <ComingSoonOverlay 
-      title="Automated Tasks Coming Soon"
-      description="Create and manage automated security scans, monitoring tasks, and custom workflows. Schedule recurring tasks and get real-time notifications."
-    >
-      <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -365,7 +360,6 @@ export default function TasksPage() {
           </div>
         </div>
       )}
-      </div>
-    </ComingSoonOverlay>
+    </div>
   )
 }

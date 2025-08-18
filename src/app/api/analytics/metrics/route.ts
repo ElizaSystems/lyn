@@ -1,75 +1,174 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// In-memory storage for metrics (in production, use a database)
-const metrics = {
-  totalScans: 12847,
-  threatsBlocked: 892,
-  activeUsers: 3421,
-  successRate: 99.7,
-  dailyScans: [] as number[],
-  threatCategories: {
-    phishing: 342,
-    malware: 256,
-    suspiciousWallets: 189,
-    smartContractExploits: 105
-  },
-  recentEvents: [] as Array<{ timestamp: string; event: string; category?: string }>
-}
+import { getDatabase } from '@/lib/mongodb'
+import { SecurityScan } from '@/lib/models/scan'
 
 export async function GET(req: NextRequest) {
   try {
-    const timeRange = req.nextUrl.searchParams.get('range') || '7d'
+    const searchParams = req.nextUrl.searchParams
+    const range = searchParams.get('range') || '7d'
     
-    // Simulate real-time data updates
-    metrics.totalScans += Math.floor(Math.random() * 10)
-    metrics.threatsBlocked += Math.floor(Math.random() * 3)
-    metrics.activeUsers += Math.floor(Math.random() * 5) - 2
+    // Calculate date range
+    const now = new Date()
+    const startDate = new Date()
     
-    // Generate daily data based on timeRange
-    const days = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90
-    const dailyData = Array.from({ length: days }, (_, i) => ({
-      day: new Date(Date.now() - (days - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      scans: 1500 + Math.floor(Math.random() * 1000),
-      threats: 50 + Math.floor(Math.random() * 150)
-    }))
+    switch (range) {
+      case '24h':
+        startDate.setDate(now.getDate() - 1)
+        break
+      case '7d':
+        startDate.setDate(now.getDate() - 7)
+        break
+      case '30d':
+        startDate.setDate(now.getDate() - 30)
+        break
+      case '90d':
+        startDate.setDate(now.getDate() - 90)
+        break
+      default:
+        startDate.setDate(now.getDate() - 7)
+    }
+    
+    const db = await getDatabase()
+    const scansCollection = db.collection<SecurityScan>('security_scans')
+    
+    // Fetch all scans in the date range
+    const scans = await scansCollection.find({
+      createdAt: { $gte: startDate, $lte: now }
+    }).toArray()
+    
+    // Calculate metrics
+    const totalScans = scans.length
+    const threatsBlocked = scans.filter(scan => 
+      scan.result && !scan.result.isSafe
+    ).length
+    
+    // Get unique users (excluding null/anonymous)
+    const uniqueUsers = new Set(
+      scans
+        .filter(scan => scan.userId !== null)
+        .map(scan => scan.userId?.toString())
+    )
+    const activeUsers = uniqueUsers.size
+    
+    // Calculate success rate
+    const completedScans = scans.filter(scan => scan.status === 'completed')
+    const successRate = completedScans.length > 0 
+      ? Math.round((completedScans.length / totalScans) * 100) 
+      : 100
+    
+    // Generate daily data for the last 7 days
+    const dailyData = []
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      date.setHours(0, 0, 0, 0)
+      
+      const nextDate = new Date(date)
+      nextDate.setDate(nextDate.getDate() + 1)
+      
+      const dayScans = scans.filter(scan => {
+        const scanDate = new Date(scan.createdAt)
+        return scanDate >= date && scanDate < nextDate
+      })
+      
+      dailyData.push({
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        scans: dayScans.length,
+        threats: dayScans.filter(scan => !scan.result?.isSafe).length
+      })
+    }
+    
+    // Calculate threat categories
+    const threatCategories = {
+      phishing: 0,
+      malware: 0,
+      suspiciousWallets: 0,
+      smartContractExploits: 0
+    }
+    
+    scans.forEach(scan => {
+      if (!scan.result?.isSafe && scan.result?.threats) {
+        scan.result.threats.forEach(threat => {
+          const threatLower = threat.toLowerCase()
+          if (threatLower.includes('phishing')) {
+            threatCategories.phishing++
+          } else if (threatLower.includes('malware') || threatLower.includes('virus')) {
+            threatCategories.malware++
+          } else if (scan.type === 'wallet') {
+            threatCategories.suspiciousWallets++
+          } else if (threatLower.includes('contract') || threatLower.includes('exploit')) {
+            threatCategories.smartContractExploits++
+          }
+        })
+      }
+    })
+    
+    // Get recent security events
+    const recentEvents = scans
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10)
+      .map(scan => {
+        const timeAgo = getTimeAgo(new Date(scan.createdAt))
+        let eventType = 'Security scan completed'
+        
+        if (!scan.result?.isSafe) {
+          if (scan.type === 'url') {
+            eventType = 'Blocked phishing attempt'
+          } else if (scan.type === 'document') {
+            eventType = 'Malicious document detected'
+          } else if (scan.type === 'wallet') {
+            eventType = 'Suspicious wallet flagged'
+          }
+        } else if (scan.type === 'smart_contract') {
+          eventType = scan.result?.isSafe ? 'Smart contract verified' : 'Malicious contract detected'
+        } else if (scan.type === 'document') {
+          eventType = 'Document scan completed'
+        }
+        
+        return {
+          time: timeAgo,
+          event: eventType,
+          severity: scan.severity || 'low',
+          details: scan.target.length > 50 ? scan.target.substring(0, 47) + '...' : scan.target
+        }
+      })
     
     return NextResponse.json({
-      ...metrics,
+      totalScans,
+      threatsBlocked,
+      activeUsers,
+      successRate,
       dailyData,
-      lastUpdated: new Date().toISOString()
+      threatCategories,
+      recentEvents
     })
   } catch (error) {
-    console.error('Metrics API error:', error)
-    return NextResponse.json({ error: 'Failed to fetch metrics' }, { status: 500 })
+    console.error('Analytics metrics error:', error)
+    return NextResponse.json({ 
+      error: 'Failed to fetch metrics',
+      totalScans: 0,
+      threatsBlocked: 0,
+      activeUsers: 0,
+      successRate: 100,
+      dailyData: [],
+      threatCategories: {
+        phishing: 0,
+        malware: 0,
+        suspiciousWallets: 0,
+        smartContractExploits: 0
+      }
+    }, { status: 500 })
   }
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const { event, category } = await req.json()
-    
-    if (event === 'scan') {
-      metrics.totalScans++
-    } else if (event === 'threat') {
-      metrics.threatsBlocked++
-      if (category && metrics.threatCategories[category as keyof typeof metrics.threatCategories]) {
-        metrics.threatCategories[category as keyof typeof metrics.threatCategories]++
-      }
-    }
-    
-    // Add to recent events
-    metrics.recentEvents.unshift({
-      timestamp: new Date().toISOString(),
-      event,
-      category
-    })
-    
-    // Keep only last 100 events
-    metrics.recentEvents = metrics.recentEvents.slice(0, 100)
-    
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Metrics POST error:', error)
-    return NextResponse.json({ error: 'Failed to update metrics' }, { status: 500 })
-  }
+function getTimeAgo(date: Date): string {
+  const now = new Date()
+  const diff = Math.floor((now.getTime() - date.getTime()) / 1000) // difference in seconds
+  
+  if (diff < 60) return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) > 1 ? 's' : ''} ago`
+  if (diff < 604800) return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) > 1 ? 's' : ''} ago`
+  
+  return date.toLocaleDateString()
 }

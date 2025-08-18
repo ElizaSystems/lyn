@@ -1,14 +1,47 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Shield, Lock, Unlock, TrendingUp, Coins, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ComingSoonOverlay } from '@/components/coming-soon-overlay'
 
 export default function StakingPage() {
   const [stakingAmount, setStakingAmount] = useState('')
-  const [selectedPool, setSelectedPool] = useState('flexible')
+  const [selectedPool, setSelectedPool] = useState('gold')
+  const [stakingData, setStakingData] = useState<{
+    pools?: Array<{
+      id: string
+      name: string
+      apy: string | number
+      lockPeriod: string | number
+      minStake: string | number
+      totalStaked: string | number
+      yourStake: string
+      available: boolean
+    }>
+    balance?: { lyn?: number }
+    totalValueLocked?: number
+    averageApy?: number
+    totalRewards?: number
+    totalStakers?: number
+  } | null>(null)
+  const [_loading, setLoading] = useState(true)
 
-  const stakingPools = [
+  useEffect(() => {
+    fetchStakingData()
+  }, [])
+
+  const fetchStakingData = async () => {
+    try {
+      const response = await fetch('/api/staking')
+      const data = await response.json()
+      setStakingData(data)
+      setLoading(false)
+    } catch (error) {
+      console.error('Failed to fetch staking data:', error)
+      setLoading(false)
+    }
+  }
+
+  const stakingPools = stakingData?.pools || [
     {
       id: 'flexible',
       name: 'Flexible Staking',
@@ -66,14 +99,10 @@ export default function StakingPage() {
   }
 
   const selectedPoolData = stakingPools.find(pool => pool.id === selectedPool)
-  const rewards = calculateRewards(stakingAmount, selectedPoolData?.apy || '0')
+  const rewards = calculateRewards(stakingAmount, String(selectedPoolData?.apy || '0'))
 
   return (
-    <ComingSoonOverlay 
-      title="Staking Coming Soon"
-      description="Earn rewards by staking your LYN tokens. Multiple pool options with different lock periods and APY rates. Compound rewards and governance participation."
-    >
-      <div className="h-full p-6 space-y-6 overflow-y-auto">
+    <div className="h-full p-6 space-y-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -87,7 +116,7 @@ export default function StakingPage() {
         
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Your Balance</p>
-          <p className="text-2xl font-bold">45,250 LYN</p>
+          <p className="text-2xl font-bold">{stakingData?.balance?.lyn?.toLocaleString() || '0'} LYN</p>
         </div>
       </div>
 
@@ -97,7 +126,7 @@ export default function StakingPage() {
             <p className="text-sm text-muted-foreground">Total Staked</p>
             <Coins className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-2xl font-bold">99.3M LYN</p>
+          <p className="text-2xl font-bold">{((stakingData?.totalValueLocked || 99300000) / 1000000).toFixed(1)}M LYN</p>
           <p className="text-xs text-muted-foreground mt-1">Across all pools</p>
         </div>
 
@@ -106,7 +135,7 @@ export default function StakingPage() {
             <p className="text-sm text-muted-foreground">Average APY</p>
             <TrendingUp className="w-4 h-4 text-green-500" />
           </div>
-          <p className="text-2xl font-bold text-green-500">22.5%</p>
+          <p className="text-2xl font-bold text-green-500">{stakingData?.averageApy?.toFixed(1) || '0.75'}%</p>
           <p className="text-xs text-muted-foreground mt-1">Weighted average</p>
         </div>
 
@@ -115,7 +144,7 @@ export default function StakingPage() {
             <p className="text-sm text-muted-foreground">Your Rewards</p>
             <Coins className="w-4 h-4 text-secondary" />
           </div>
-          <p className="text-2xl font-bold">0 LYN</p>
+          <p className="text-2xl font-bold">{stakingData?.totalRewards?.toLocaleString() || '0'} LYN</p>
           <p className="text-xs text-muted-foreground mt-1">Claimable now</p>
         </div>
 
@@ -124,7 +153,7 @@ export default function StakingPage() {
             <p className="text-sm text-muted-foreground">Total Stakers</p>
             <Shield className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-2xl font-bold">2,847</p>
+          <p className="text-2xl font-bold">{stakingData?.totalStakers?.toLocaleString() || '2,847'}</p>
           <p className="text-xs text-green-500 mt-1">+124 this week</p>
         </div>
       </div>
@@ -250,7 +279,6 @@ export default function StakingPage() {
           </div>
         </div>
       </div>
-      </div>
-    </ComingSoonOverlay>
+    </div>
   )
 }
