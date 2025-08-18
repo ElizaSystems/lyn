@@ -6,7 +6,6 @@ import Link from 'next/link'
 
 export function AlphaDisclaimerModal() {
   const [isOpen, setIsOpen] = useState(false)
-  const [isAccepted, setIsAccepted] = useState(false)
   const [termsChecked, setTermsChecked] = useState(false)
 
   useEffect(() => {
@@ -24,7 +23,6 @@ export function AlphaDisclaimerModal() {
     }
     
     localStorage.setItem('alpha-disclaimer-accepted', 'true')
-    setIsAccepted(true)
     setIsOpen(false)
   }
 

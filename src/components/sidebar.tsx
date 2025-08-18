@@ -6,7 +6,6 @@ import {
   Terminal, 
   Wallet, 
   Zap, 
-  Shield as ShieldIcon, 
   BarChart3, 
   DollarSign, 
   Coins,

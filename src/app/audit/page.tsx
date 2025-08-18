@@ -1,5 +1,5 @@
 'use client'
-import { Shield, Lock, Sparkles, FileSearch, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Shield, Lock, FileSearch, AlertTriangle, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function AuditPage() {

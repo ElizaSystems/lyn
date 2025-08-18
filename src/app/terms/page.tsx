@@ -24,9 +24,9 @@ export default function TermsPage() {
           <section className="glass-card p-6 rounded-xl border border-border/50">
             <h2 className="text-xl font-semibold mb-4">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Welcome to LYN AI Security Platform ("LYN AI", "we", "our", or "us"). These Terms of Service 
-              ("Terms") govern your use of our crypto security and defense platform, including all related 
-              services, features, content, and applications (collectively, the "Service"). By accessing or 
+              Welcome to LYN AI Security Platform (&ldquo;LYN AI&rdquo;, &ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;). These Terms of Service 
+              (&ldquo;Terms&rdquo;) govern your use of our crypto security and defense platform, including all related 
+              services, features, content, and applications (collectively, the &ldquo;Service&rdquo;). By accessing or 
               using our Service, you agree to be bound by these Terms.
             </p>
           </section>
@@ -188,7 +188,7 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold mb-4">10. Modifications to Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               We reserve the right to modify these Terms at any time. We will notify users of any material 
-              changes by posting the new Terms on this page and updating the "Last updated" date. Your 
+              changes by posting the new Terms on this page and updating the &ldquo;Last updated&rdquo; date. Your 
               continued use of the Service after any changes constitutes acceptance of the new Terms.
             </p>
           </section>
