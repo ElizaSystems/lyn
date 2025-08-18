@@ -395,16 +395,11 @@ LYN AI represents a paradigm shift in blockchain security, transforming reactive
 The convergence of AI and blockchain security isn't just an innovation; it's a necessity. As threats become more sophisticated, our defenses must evolve faster. LYN AI stands at this intersection, ready to protect the next billion users entering the decentralized world.
 
 ### Join the Revolution
-- **Website**: https://lyn-ai.security
-- **Twitter**: @LYN_AI_Security
-- **Discord**: discord.gg/lynai
-- **Telegram**: t.me/lynaisecurity
-- **GitHub**: github.com/lyn-ai
 
 ### Legal Disclaimer
 This litepaper is for informational purposes only and does not constitute financial advice. The LYN token is a utility token and not a security. Always conduct your own research before participating in any blockchain project.
 
 ---
 
-*Version 1.0 - December 2024*
+*Version 1.0 - August 2025*
 *© 2024 LYN AI Security. All rights reserved.*

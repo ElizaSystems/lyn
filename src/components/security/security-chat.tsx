@@ -30,9 +30,10 @@ interface UsageInfo {
 
 interface SecurityChatProps {
   initialMessage?: string
+  onScanComplete?: () => void
 }
 
-export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
+export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatProps = {}) {
   // Wallet connection removed for now - can be added back with proper wallet integration
   const connected = false
   const publicKey = null
@@ -161,7 +162,7 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
     const analyzingMessage: Message = {
       id: Date.now().toString() + '-analyzing',
       type: 'system',
-      content: `🔍 Analyzing link: ${url}`,
+      content: `🔍 Analyzing link: ${url}\n\n⏳ Checking against multiple threat intelligence sources:\n• VirusTotal - Scanning...\n• Google Safe Browsing - Scanning...\n• IPQualityScore - Scanning...\n• URLVoid - Scanning...\n• PhishTank - Scanning...\n• AbuseIPDB - Scanning...\n\nThis may take a few seconds for comprehensive analysis...`,
       timestamp: new Date()
     }
     setMessages(prev => [...prev, analyzingMessage])
@@ -169,7 +170,10 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
     try {
       const response = await fetch('/api/security/analyze-link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        },
         body: JSON.stringify({ url })
       })
       
@@ -177,10 +181,26 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
       
       const data = await response.json()
       
+      // Create enhanced analysis message with threat source details
+      let analysisContent = generateAnalysisMessage({ ...data, type: 'link' })
+      
+      // Add threat source breakdown if available
+      if (data.threat_sources && data.threat_sources.length > 0) {
+        analysisContent += '\n\n**Security Service Results:**\n'
+        data.threat_sources.forEach((source: { name: string; safe: boolean; score: number; threats: string[] }) => {
+          const icon = source.safe ? '✅' : '⚠️'
+          analysisContent += `${icon} ${source.name}: Score ${source.score}/100`
+          if (source.threats && source.threats.length > 0) {
+            analysisContent += ` - ${source.threats.join(', ')}`
+          }
+          analysisContent += '\n'
+        })
+      }
+      
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: generateAnalysisMessage({ ...data, type: 'link' }),
+        content: analysisContent,
         timestamp: new Date(),
         analysis: { ...data, type: 'link' },
         suggestions: [
@@ -192,6 +212,11 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
       }
 
       setMessages(prev => prev.filter(m => m.id !== analyzingMessage.id).concat(assistantMessage))
+      
+      // Call onScanComplete callback to refresh scan history
+      if (onScanComplete) {
+        onScanComplete()
+      }
     } catch (error) {
       console.error('Link analysis error:', error)
       const errorMessage: Message = {
@@ -212,7 +237,7 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
     const analyzingMessage: Message = {
       id: Date.now().toString() + '-analyzing',
       type: 'system',
-      content: `📄 Scanning document: ${file.name}`,
+      content: `📄 Scanning document: ${file.name}\n\n⏳ Performing comprehensive malware analysis:\n• Uploading to VirusTotal...\n• Checking against ${file.size > 1024 * 1024 ? Math.round(file.size / 1024 / 1024) + 'MB' : Math.round(file.size / 1024) + 'KB'} file\n• Scanning with multiple antivirus engines...\n• Analyzing file behavior and patterns...\n\nThis may take 5-15 seconds for thorough scanning...`,
       timestamp: new Date()
     }
     setMessages(prev => [...prev, analyzingMessage])
@@ -223,6 +248,9 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
       
       const response = await fetch('/api/security/analyze-document', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        },
         body: formData
       })
       
@@ -230,10 +258,25 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
       
       const data = await response.json()
       
+      // Create enhanced analysis message with scan details
+      let analysisContent = generateAnalysisMessage({ ...data, type: 'document' })
+      
+      // Add scan source and details if available
+      if (data.scan_source) {
+        analysisContent += `\n\n**Scan Engine:** ${data.scan_source}`
+      }
+      if (data.scan_details && data.scan_details.stats) {
+        const stats = data.scan_details.stats
+        analysisContent += `\n**Detection Results:** ${stats.malicious || 0} malicious, ${stats.suspicious || 0} suspicious, ${stats.harmless || 0} clean`
+      }
+      if (data.threats_found && data.threats_found.length > 0) {
+        analysisContent += `\n**Threats Detected:**\n${data.threats_found.map((t: string) => `• ${t}`).join('\n')}`
+      }
+      
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: generateAnalysisMessage({ ...data, type: 'document' }),
+        content: analysisContent,
         timestamp: new Date(),
         analysis: { ...data, type: 'document' },
         suggestions: [
@@ -245,6 +288,11 @@ export function SecurityChat({ initialMessage }: SecurityChatProps = {}) {
       }
 
       setMessages(prev => prev.filter(m => m.id !== analyzingMessage.id).concat(assistantMessage))
+      
+      // Call onScanComplete callback to refresh scan history
+      if (onScanComplete) {
+        onScanComplete()
+      }
     } catch (error) {
       console.error('Document analysis error:', error)
       const errorMessage: Message = {

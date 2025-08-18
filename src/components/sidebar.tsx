@@ -17,7 +17,9 @@ import {
   Github,
   FileText,
   Map,
-  FileSearch
+  FileSearch,
+  Scan,
+  Sparkles
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -38,6 +40,13 @@ export function Sidebar() {
       label: 'Chat', 
       path: '/security', 
       icon: <MessageCircle className="w-5 h-5" />
+    },
+    {
+      label: 'SecScan',
+      path: '/scans',
+      icon: <Scan className="w-5 h-5" />,
+      badge: 'Live',
+      badgeType: 'pink'
     },
     { 
       label: 'Terminal', 
@@ -94,6 +103,13 @@ export function Sidebar() {
   ]
 
   const aboutItems: SidebarItem[] = [
+    {
+      label: 'Manifesto',
+      path: '/manifesto',
+      icon: <Sparkles className="w-5 h-5" />,
+      badge: 'Cosmic',
+      badgeType: 'pink'
+    },
     { 
       label: 'Litepaper', 
       path: '/litepaper', 

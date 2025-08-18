@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { FileText, Download, ExternalLink, Copy, Check } from 'lucide-react'
+import { FileText, Download, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function LitepaperPage() {
@@ -131,14 +131,6 @@ export default function LitepaperPage() {
                 <span className="hidden sm:inline">Download</span>
               </Button>
               
-              <Button
-                size="sm"
-                className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-                onClick={() => window.open('https://github.com/lyn-ai', '_blank')}
-              >
-                <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">GitHub</span>
-              </Button>
             </div>
           </div>
         </div>
@@ -155,28 +147,6 @@ export default function LitepaperPage() {
           />
         </div>
         
-        {/* Footer */}
-        <div className="mt-4 sm:mt-8 p-4 sm:p-6 bg-muted/30 rounded-xl border border-border/50">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="text-center sm:text-left">
-              <h3 className="font-semibold mb-2">Stay Connected</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Join our community for the latest updates and security insights
-              </p>
-            </div>
-            <div className="flex items-center justify-center gap-2 sm:gap-4">
-              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-3 sm:px-4">
-                Discord
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-3 sm:px-4">
-                Twitter
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-3 sm:px-4">
-                Telegram
-              </Button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
