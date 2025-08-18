@@ -12,7 +12,7 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<Array<{ signature: string; type: string; amount: string; from?: string; to?: string; time?: string; timestamp?: number }>>([])
   const [totalValue, setTotalValue] = useState(0)
   
-  const walletAddress = '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
+  const walletAddress = 'eS5PgEoCFN2KuJnBfgvoenFJ7THDhvWZzBJ2SrxwkX1'
   const shortAddress = shortenAddress(walletAddress, 6)
 
   const copyAddress = () => {
