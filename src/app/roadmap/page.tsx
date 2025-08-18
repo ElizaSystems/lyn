@@ -173,39 +173,39 @@ export default function RoadmapPage() {
     <div className="h-full overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border z-10">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-              <Map className="w-6 h-6 text-primary" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center flex-shrink-0">
+              <Map className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">Development Roadmap</h1>
-              <p className="text-sm text-muted-foreground">Aggressive timeline with fixed start date: August 18, 2025</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl font-bold">Development Roadmap</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">Fixed start: August 18, 2025</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Team Context */}
-        <div className="mb-8 p-6 bg-muted/30 rounded-xl border border-border/50">
-          <div className="flex items-start gap-4">
-            <Users className="w-6 h-6 text-primary mt-1" />
-            <div>
-              <h2 className="text-lg font-semibold mb-2">Team & Timeline Context</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-muted/30 rounded-xl border border-border/50">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary mt-1 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg font-semibold mb-2">Team & Timeline Context</h2>
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 text-sm">
                 <div>
                   <p className="font-medium text-foreground mb-1">Team Size</p>
-                  <p className="text-muted-foreground">2-3 developers working part-time</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">2-3 developers working part-time</p>
                 </div>
                 <div>
                   <p className="font-medium text-foreground mb-1">Current Date</p>
-                  <p className="text-muted-foreground">{currentDate || 'Loading...'}</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">{currentDate || 'Loading...'}</p>
                 </div>
                 <div>
                   <p className="font-medium text-foreground mb-1">Development Approach</p>
-                  <p className="text-muted-foreground">Aggressive timeline, quality-focused delivery</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">Aggressive timeline, quality-focused delivery</p>
                 </div>
               </div>
             </div>
@@ -213,50 +213,48 @@ export default function RoadmapPage() {
         </div>
 
         {/* Roadmap Timeline */}
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {roadmapItems.map((item, index) => (
             <div key={item.id} className="relative">
               {/* Timeline line */}
               {index < roadmapItems.length - 1 && (
-                <div className="absolute left-6 top-16 w-0.5 h-full bg-border/50" />
+                <div className="absolute left-4 sm:left-6 top-12 sm:top-16 w-0.5 h-full bg-border/50" />
               )}
               
               {/* Roadmap item */}
-              <div className={`glass-card p-6 rounded-xl border ${getStatusColor(item.status)} relative`}>
+              <div className={`glass-card p-4 sm:p-6 rounded-xl border ${getStatusColor(item.status)} relative`}>
                 {/* Status indicator */}
-                <div className="absolute -left-3 top-6 w-12 h-12 rounded-full bg-background border-2 border-current flex items-center justify-center">
+                <div className="absolute -left-2 sm:-left-3 top-4 sm:top-6 w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-background border-2 border-current flex items-center justify-center">
                   {getStatusIcon(item.status)}
                 </div>
                 
-                <div className="ml-8">
+                <div className="ml-6 sm:ml-8">
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold">{item.title}</h3>
-                        <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getPriorityColor(item.priority)}`}>
-                          {item.priority.toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">{item.description}</p>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="font-medium text-primary">{item.quarter}</span>
-                        <span className="text-muted-foreground">{item.timeline}</span>
-                        <span className="text-muted-foreground">• {item.effort}</span>
-                      </div>
+                  <div className="mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                      <h3 className="text-lg sm:text-xl font-semibold">{item.title}</h3>
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getPriorityColor(item.priority)} self-start`}>
+                        {item.priority.toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">{item.description}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm">
+                      <span className="font-medium text-primary">{item.quarter}</span>
+                      <span className="text-muted-foreground">{item.timeline}</span>
+                      <span className="text-muted-foreground">{item.effort}</span>
                     </div>
                   </div>
 
                   {/* Features */}
                   <div>
-                    <h4 className="font-medium mb-3 text-sm text-muted-foreground uppercase tracking-wider">
+                    <h4 className="font-medium mb-3 text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">
                       Key Features & Improvements
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       {item.features.map((feature, featureIndex) => (
-                        <div key={featureIndex} className="flex items-start gap-2 text-sm">
+                        <div key={featureIndex} className="flex items-start gap-2 text-xs sm:text-sm">
                           <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
-                          <span>{feature}</span>
+                          <span className="break-words">{feature}</span>
                         </div>
                       ))}
                     </div>
@@ -268,17 +266,17 @@ export default function RoadmapPage() {
         </div>
 
         {/* Footer notes */}
-        <div className="mt-12 space-y-6">
+        <div className="mt-8 sm:mt-12 space-y-4 sm:space-y-6">
           {/* Development philosophy */}
-          <div className="p-6 bg-primary/5 rounded-xl border border-primary/20">
-            <div className="flex items-start gap-4">
-              <Code className="w-6 h-6 text-primary mt-1" />
-              <div>
-                <h3 className="font-semibold mb-2 text-primary">Aggressive Development Philosophy</h3>
-                <div className="space-y-2 text-sm">
+          <div className="p-4 sm:p-6 bg-primary/5 rounded-xl border border-primary/20">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <Code className="w-5 h-5 sm:w-6 sm:h-6 text-primary mt-1 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold mb-2 text-primary text-sm sm:text-base">Aggressive Development Philosophy</h3>
+                <div className="space-y-2 text-xs sm:text-sm">
                   <p>• <strong>Fast Iteration:</strong> Rapid feature development with shorter release cycles</p>
                   <p>• <strong>MVP Approach:</strong> Launch features quickly and iterate based on user feedback</p>
-                  <p>• <strong>User-Driven Priorities:</strong> Features are prioritized based on actual user feedback and usage patterns</p>
+                  <p>• <strong>User-Driven Priorities:</strong> Features prioritized based on user feedback and usage patterns</p>
                   <p>• <strong>Continuous Deployment:</strong> Regular releases with automated testing and monitoring</p>
                 </div>
               </div>
@@ -286,12 +284,12 @@ export default function RoadmapPage() {
           </div>
 
           {/* Flexibility note */}
-          <div className="p-6 bg-muted/30 rounded-xl border border-border/50">
-            <div className="flex items-start gap-4">
-              <Sparkles className="w-6 h-6 text-secondary mt-1" />
-              <div>
-                <h3 className="font-semibold mb-2">Fixed Timeline Commitment</h3>
-                <p className="text-sm text-muted-foreground">
+          <div className="p-4 sm:p-6 bg-muted/30 rounded-xl border border-border/50">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-secondary mt-1 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold mb-2 text-sm sm:text-base">Fixed Timeline Commitment</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   This roadmap uses a fixed start date of August 18, 2025, regardless of when you&apos;re viewing it. 
                   Timelines are aggressive but achievable with focused part-time development. Features may be reprioritized 
                   based on community needs, but delivery dates remain target-focused.
@@ -301,12 +299,12 @@ export default function RoadmapPage() {
           </div>
 
           {/* Community involvement */}
-          <div className="p-6 bg-secondary/5 rounded-xl border border-secondary/20">
-            <div className="flex items-start gap-4">
-              <Globe className="w-6 h-6 text-secondary mt-1" />
-              <div>
-                <h3 className="font-semibold mb-2 text-secondary">Community Feedback Welcome</h3>
-                <p className="text-sm">
+          <div className="p-4 sm:p-6 bg-secondary/5 rounded-xl border border-secondary/20">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-secondary mt-1 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold mb-2 text-secondary text-sm sm:text-base">Community Feedback Welcome</h3>
+                <p className="text-xs sm:text-sm">
                   We value community input on feature priorities and development direction. 
                   Join our Discord or submit feedback through our GitHub repository to help shape the future of LYN AI.
                 </p>
