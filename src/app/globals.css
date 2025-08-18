@@ -134,6 +134,7 @@
   body {
     @apply bg-background text-foreground;
     font-size: var(--font-size-base);
+    overflow-x: hidden; /* Prevent horizontal scroll */
   }
 
   /* Override Tailwind font sizes with larger values */

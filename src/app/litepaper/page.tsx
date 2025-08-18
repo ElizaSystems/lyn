@@ -98,46 +98,46 @@ export default function LitepaperPage() {
     <div className="h-full overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border z-10">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-primary" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold">LYN AI Litepaper</h1>
-                <p className="text-sm text-muted-foreground">Protecting the Decentralized Future Through AI-Powered Security</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-2xl font-bold truncate">LYN AI Litepaper</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Protecting the Decentralized Future Through AI-Powered Security</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={copyToClipboard}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
               >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copied ? 'Copied!' : 'Share'}
+                {copied ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
+                <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
               </Button>
               
               <Button
                 variant="outline"
                 size="sm"
                 onClick={downloadPDF}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
               >
-                <Download className="w-4 h-4" />
-                Download
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Download</span>
               </Button>
               
               <Button
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
                 onClick={() => window.open('https://github.com/lyn-ai', '_blank')}
               >
-                <ExternalLink className="w-4 h-4" />
-                GitHub
+                <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">GitHub</span>
               </Button>
             </div>
           </div>
@@ -145,10 +145,10 @@ export default function LitepaperPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="glass-card p-8 rounded-xl border border-border/50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        <div className="glass-card p-4 sm:p-6 lg:p-8 rounded-xl border border-border/50">
           <div 
-            className="prose prose-slate dark:prose-invert max-w-none"
+            className="prose prose-slate dark:prose-invert max-w-none prose-sm sm:prose-base lg:prose-lg"
             dangerouslySetInnerHTML={{ 
               __html: `<p class="mb-4">${markdownToHtml(markdownContent)}</p>` 
             }}
@@ -156,22 +156,22 @@ export default function LitepaperPage() {
         </div>
         
         {/* Footer */}
-        <div className="mt-8 p-6 bg-muted/30 rounded-xl border border-border/50">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="mt-4 sm:mt-8 p-4 sm:p-6 bg-muted/30 rounded-xl border border-border/50">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="text-center sm:text-left">
               <h3 className="font-semibold mb-2">Stay Connected</h3>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Join our community for the latest updates and security insights
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm">
+            <div className="flex items-center justify-center gap-2 sm:gap-4">
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-3 sm:px-4">
                 Discord
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-3 sm:px-4">
                 Twitter
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-3 sm:px-4">
                 Telegram
               </Button>
             </div>

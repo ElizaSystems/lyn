@@ -16,9 +16,9 @@ export function AppLayout({
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
       <div className="flex h-screen bg-background">
         <Sidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col w-full lg:w-auto">
           <HeaderBar />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto pt-16 lg:pt-0">
             {children}
           </main>
         </div>

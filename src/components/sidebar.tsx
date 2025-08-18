@@ -31,6 +31,7 @@ interface SidebarItem {
 export function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const agentItems: SidebarItem[] = [
     { 
@@ -110,7 +111,29 @@ export function Sidebar() {
   }
 
   return (
-    <aside className={`${collapsed ? 'w-16' : 'w-64'} transition-all duration-300 h-screen bg-sidebar border-r border-border flex flex-col`}>
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+      
+      {/* Mobile menu button */}
+      <button
+        className="fixed top-4 left-4 z-50 lg:hidden p-2 bg-sidebar border border-border rounded-md shadow-lg"
+        onClick={() => setMobileOpen(!mobileOpen)}
+      >
+        <Menu className="w-5 h-5 text-foreground" />
+      </button>
+
+      <aside className={`
+        ${collapsed ? 'w-16' : 'w-64'} 
+        transition-all duration-300 h-screen bg-sidebar border-r border-border flex flex-col
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0 fixed lg:relative z-50
+      `}>
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -124,11 +147,21 @@ export function Sidebar() {
               <span className="text-lg font-bold text-foreground">LYN AI</span>
             )}
           </Link>
+          
+          {/* Desktop collapse button */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1 hover:bg-sidebar-accent rounded-md transition-colors"
+            className="p-1 hover:bg-sidebar-accent rounded-md transition-colors hidden lg:block"
           >
             {collapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}
+          </button>
+          
+          {/* Mobile close button */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1 hover:bg-sidebar-accent rounded-md transition-colors lg:hidden"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -146,6 +179,7 @@ export function Sidebar() {
               <Link
                 key={item.path}
                 href={item.path}
+                onClick={() => setMobileOpen(false)}
                 className={`sidebar-item ${isActive(item.path) ? 'active' : ''}`}
               >
                 {item.icon}
@@ -175,6 +209,7 @@ export function Sidebar() {
               <Link
                 key={item.path}
                 href={item.path}
+                onClick={() => setMobileOpen(false)}
                 className={`sidebar-item ${isActive(item.path) ? 'active' : ''}`}
               >
                 {item.icon}
@@ -204,6 +239,7 @@ export function Sidebar() {
               <Link
                 key={item.path}
                 href={item.path}
+                onClick={() => setMobileOpen(false)}
                 className={`sidebar-item ${isActive(item.path) ? 'active' : ''}`}
               >
                 {item.icon}
@@ -245,5 +281,6 @@ export function Sidebar() {
         )}
       </div>
     </aside>
+    </>
   )
 }
