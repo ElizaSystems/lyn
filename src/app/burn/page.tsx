@@ -41,28 +41,19 @@ export default function BurnTrackerPage() {
           const data = await response.json()
           setBurnEvents(data.events || [])
         } else {
-          // Use sample data if API doesn't exist yet
-          setBurnEvents([
-            { date: '2024-12-15', amount: '1,000,000', txHash: '4Xw9...hK2p', percentage: 0.1 },
-            { date: '2024-12-01', amount: '2,500,000', txHash: '7Nm3...qL8x', percentage: 0.25 },
-            { date: '2024-11-15', amount: '1,750,000', txHash: '2Bp7...mN4s', percentage: 0.175 },
-            { date: '2024-11-01', amount: '3,000,000', txHash: '9Qr5...xC1v', percentage: 0.3 },
-            { date: '2024-10-15', amount: '2,000,000', txHash: '5Hs8...pW3k', percentage: 0.2 },
-          ])
+          // No burn events yet - token launches without initial burns
+          setBurnEvents([])
         }
       } catch (error) {
         console.error('Failed to fetch burn data:', error)
-        // Set default values
+        // Set default values - real supply data will be fetched when available
         setSupplyData({
           total: 1000000000,
-          circulating: 990000000,
-          burned: 10000000,
-          burnPercentage: 1.0
+          circulating: 1000000000,
+          burned: 0,
+          burnPercentage: 0
         })
-        setBurnEvents([
-          { date: '2024-12-15', amount: '1,000,000', txHash: '4Xw9...hK2p', percentage: 0.1 },
-          { date: '2024-12-01', amount: '2,500,000', txHash: '7Nm3...qL8x', percentage: 0.25 },
-        ])
+        setBurnEvents([])
       } finally {
         setLoading(false)
       }
@@ -124,6 +115,22 @@ export default function BurnTrackerPage() {
           </div>
         </div>
       </div>
+
+      {/* Status Notice */}
+      {burnEvents.length === 0 && !loading && (
+        <div className="glass-card p-4 rounded-xl border border-primary/30 bg-primary/5 mb-6">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-foreground mb-1">Token Supply Tracking Active</p>
+              <p className="text-sm text-muted-foreground">
+                Real-time token supply data is being tracked. Burn events will appear here when token burns occur. 
+                The LYN token currently has no planned burns - this tracker monitors the supply in case burns happen in the future.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-32">

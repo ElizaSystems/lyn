@@ -70,6 +70,12 @@ export class ThreatIntelligenceService {
       }
     })
 
+    // If no API services are configured or all failed, use fallback analysis
+    if (results.length === 0) {
+      console.warn('[ThreatIntel] No API services available, using fallback analysis')
+      results.push(this.getFallbackURLResult(url))
+    }
+
     // Cache the results
     this.saveToCache(urlHash, results)
     
@@ -491,6 +497,105 @@ export class ThreatIntelligenceService {
   private static parseVirusTotalFileAnalysis(data: VirusTotalResponse): ThreatIntelligenceResult {
     const stats = data.data?.attributes?.stats || {}
     return this.parseVirusTotalFileReport({ data: { attributes: { last_analysis_stats: stats } } })
+  }
+
+  /**
+   * Fallback URL analysis when APIs are not available
+   */
+  private static getFallbackURLResult(url: string): ThreatIntelligenceResult {
+    const threats = []
+    let score = 100
+    
+    try {
+      const urlObj = new URL(url)
+      const domain = urlObj.hostname.toLowerCase()
+      const path = urlObj.pathname.toLowerCase()
+      
+      // Check for suspicious patterns in domain
+      if (domain.includes('xn--') || domain.includes('punycode')) {
+        threats.push('Internationalized domain (potential spoofing)')
+        score -= 15
+      }
+      
+      // Check for suspicious subdomains
+      const subdomains = domain.split('.')
+      if (subdomains.length > 3) {
+        threats.push('Multiple subdomains (potential subdomain abuse)')
+        score -= 10
+      }
+      
+      // Check for suspicious TLDs
+      const suspiciousTlds = ['.tk', '.ml', '.ga', '.cf', '.click', '.download', '.zip', '.rar']
+      if (suspiciousTlds.some(tld => domain.endsWith(tld))) {
+        threats.push('Suspicious top-level domain')
+        score -= 20
+      }
+      
+      // Check for URL shorteners (could hide destination)
+      const shorteners = ['bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly']
+      if (shorteners.some(shortener => domain.includes(shortener))) {
+        threats.push('URL shortener detected')
+        score -= 10
+      }
+      
+      // Check for suspicious keywords in path
+      const suspiciousKeywords = ['login', 'verify', 'update', 'secure', 'account', 'payment', 'banking']
+      if (suspiciousKeywords.some(keyword => path.includes(keyword))) {
+        threats.push('Contains suspicious keywords')
+        score -= 5
+      }
+      
+      // Check for IP address instead of domain
+      if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(domain)) {
+        threats.push('Uses IP address instead of domain name')
+        score -= 25
+      }
+      
+      // Check for non-standard ports
+      if (urlObj.port && !['80', '443', ''].includes(urlObj.port)) {
+        threats.push(`Non-standard port: ${urlObj.port}`)
+        score -= 15
+      }
+      
+      // Check against known safe domains
+      const knownSafeDomains = [
+        'google.com', 'facebook.com', 'twitter.com', 'microsoft.com', 'apple.com',
+        'amazon.com', 'github.com', 'stackoverflow.com', 'wikipedia.org', 'reddit.com',
+        'youtube.com', 'linkedin.com', 'instagram.com', 'netflix.com', 'spotify.com',
+        'discord.com', 'slack.com', 'zoom.us', 'dropbox.com', 'salesforce.com',
+        'walmart.com', 'target.com', 'bestbuy.com', 'ebay.com', 'paypal.com',
+        'lynai.xyz', 'openai.com', 'anthropic.com', 'claude.ai'
+      ]
+      
+      const isKnownSafe = knownSafeDomains.some(safeDomain => 
+        domain === safeDomain || domain.endsWith('.' + safeDomain)
+      )
+      
+      if (isKnownSafe) {
+        score = Math.max(score, 90) // Boost score for known safe domains
+      }
+      
+      return {
+        source: 'Local Analysis',
+        safe: threats.length === 0 || score >= 80,
+        score: Math.max(0, score),
+        threats,
+        details: {
+          domain,
+          protocol: urlObj.protocol,
+          hasHttps: urlObj.protocol === 'https:',
+          portUsed: urlObj.port || (urlObj.protocol === 'https:' ? '443' : '80')
+        }
+      }
+    } catch {
+      return {
+        source: 'Local Analysis',
+        safe: false,
+        score: 0,
+        threats: ['Invalid URL format'],
+        details: { error: 'URL parsing failed' }
+      }
+    }
   }
 
   /**
