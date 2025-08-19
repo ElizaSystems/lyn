@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Flame, TrendingDown, Calendar, Info, ArrowDown, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getTokenSupply } from '@/lib/solana'
+import { getRealTimeTokenData } from '@/lib/services/real-time-data'
 
 interface BurnEvent {
   date: string
@@ -122,10 +123,10 @@ export default function BurnTrackerPage() {
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
             <div>
-              <p className="font-medium text-foreground mb-1">Token Supply Tracking Active</p>
+              <p className="font-medium text-foreground mb-1">Real-Time Burn Tracking</p>
               <p className="text-sm text-muted-foreground">
-                Real-time token supply data is being tracked. Burn events will appear here when token burns occur. 
-                The LYN token currently has no planned burns - this tracker monitors the supply in case burns happen in the future.
+                Monitoring all transactions on the LYN token mint address for burn events. 
+                No burns detected yet - when tokens are burned, they will appear here with transaction details.
               </p>
             </div>
           </div>

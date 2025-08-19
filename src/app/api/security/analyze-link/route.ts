@@ -5,9 +5,9 @@ import { requireAuth } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication (now handles anonymous users with sessionId)
     const authResult = await requireAuth(request)
-    const userId = authResult.user?.id || 'anonymous'
+    const userId = authResult.user?.id || authResult.user.id // Will have sessionId for anonymous users
     
     const { url } = await request.json()
     

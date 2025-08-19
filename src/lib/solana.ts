@@ -51,22 +51,26 @@ export async function getTokenSupply() {
     const supply = await connection.getTokenSupply(mintPublicKey)
     
     const total = supply.value.uiAmount || 1000000000 // 1 billion default
-    const burned = total * 0.01 // Mock 1% burned
+    
+    // For now, no burns have occurred - the burn tracker will show 0
+    // When actual burns happen, this will be updated
+    const burned = 0
+    
     const circulating = total - burned
     
     return {
       total,
       circulating,
       burned,
-      burnPercentage: (burned / total) * 100
+      burnPercentage: total > 0 ? (burned / total) * 100 : 0
     }
   } catch (error) {
     console.error('Error fetching token supply:', error)
     return {
       total: 1000000000,
-      circulating: 990000000,
-      burned: 10000000,
-      burnPercentage: 1
+      circulating: 1000000000, // No burns in fallback
+      burned: 0,
+      burnPercentage: 0
     }
   }
 }

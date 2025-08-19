@@ -116,25 +116,85 @@ async function fetchTokenPrice(mint: string): Promise<number> {
   return fetchRealTokenPrice(mint)
 }
 
+// Cache token info to avoid repeated fetches
+const tokenInfoCache: { [mint: string]: { symbol: string; name: string; timestamp: number } } = {}
+const CACHE_DURATION = 3600000 // 1 hour
+
 async function fetchTokenInfo(mint: string): Promise<{ symbol: string; name: string }> {
   try {
-    // In production, fetch from token list or metadata
-    // For now, return mock info based on common tokens
-    const mockTokens: { [key: string]: { symbol: string; name: string } } = {
+    // Check cache first
+    const cached = tokenInfoCache[mint]
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return { symbol: cached.symbol, name: cached.name }
+    }
+    
+    // Common known tokens - these are reliable
+    const knownTokens: { [key: string]: { symbol: string; name: string } } = {
       'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': { symbol: 'USDC', name: 'USD Coin' },
       'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': { symbol: 'USDT', name: 'Tether USD' },
       'So11111111111111111111111111111111111111112': { symbol: 'wSOL', name: 'Wrapped SOL' },
-      'LYNXRsQPMa22NyQxGmPYjUcTVvfYq7HGabJe3Zm1wp6': { symbol: 'LYN', name: 'LYN Token' },
-      '8FU95xFJhUUkyyCLU13HSzDLs7oC4QZdXQHL6SCeab36': { symbol: 'LYN', name: 'LYN Token' },
+      'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': { symbol: 'mSOL', name: 'Marinade Staked SOL' },
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': { symbol: 'BONK', name: 'Bonk' },
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': { symbol: 'JUP', name: 'Jupiter' },
+      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': { symbol: 'RAY', name: 'Raydium' },
     }
     
-    // If not in mock list, check if it might be LYN based on partial match
-    if (!mockTokens[mint]) {
-      // Default to LYN for unknown tokens in this wallet (temporary solution)
-      return { symbol: 'LYN', name: 'LYN Token' }
+    // Check if it's a known token
+    if (knownTokens[mint]) {
+      const info = knownTokens[mint]
+      tokenInfoCache[mint] = { ...info, timestamp: Date.now() }
+      return info
     }
     
-    return mockTokens[mint]
+    // Check if it's the LYN token
+    const lynMint = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS
+    if (mint === lynMint || mint.toLowerCase().includes('lyn')) {
+      const info = { symbol: 'LYN', name: 'LYN Token' }
+      tokenInfoCache[mint] = { ...info, timestamp: Date.now() }
+      return info
+    }
+    
+    // Try to fetch from token metadata on-chain
+    try {
+      const mintPubkey = new PublicKey(mint)
+      const mintInfo = await connection.getParsedAccountInfo(mintPubkey)
+      
+      if (mintInfo.value && 'parsed' in mintInfo.value.data) {
+        const parsedData = mintInfo.value.data.parsed
+        if (parsedData.type === 'mint' && parsedData.info) {
+          // Some tokens store metadata in extensions
+          const symbol = parsedData.info.symbol || 'TOKEN'
+          const name = parsedData.info.name || 'Unknown Token'
+          const info = { symbol, name }
+          tokenInfoCache[mint] = { ...info, timestamp: Date.now() }
+          return info
+        }
+      }
+    } catch (onChainError) {
+      console.error('Failed to fetch on-chain metadata:', onChainError)
+    }
+    
+    // Try Jupiter Token List API (public endpoint)
+    try {
+      const response = await fetch(`https://token.jup.ag/strict`)
+      if (response.ok) {
+        const tokens = await response.json()
+        const token = tokens.find((t: any) => t.address === mint)
+        if (token) {
+          const info = { symbol: token.symbol, name: token.name }
+          tokenInfoCache[mint] = { ...info, timestamp: Date.now() }
+          return info
+        }
+      }
+    } catch (jupiterError) {
+      console.error('Failed to fetch from Jupiter token list:', jupiterError)
+    }
+    
+    // Default fallback - use first 4 chars of mint as symbol
+    const shortMint = mint.substring(0, 4).toUpperCase()
+    const info = { symbol: shortMint, name: 'Unknown Token' }
+    tokenInfoCache[mint] = { ...info, timestamp: Date.now() }
+    return info
   } catch (error) {
     console.error('Error fetching token info:', error)
     return { symbol: 'TOKEN', name: 'Unknown Token' }

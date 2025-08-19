@@ -54,9 +54,14 @@ export default function SecurityPage() {
   // Fetch recent scans
   const fetchRecentScans = async () => {
     try {
+      // Get session ID from localStorage (same as security chat uses)
+      const sessionId = localStorage.getItem('security-session-id') || 
+                       `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
+      
       const response = await fetch('/api/security/scans?limit=5', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`,
+          'X-Session-Id': sessionId
         }
       })
 

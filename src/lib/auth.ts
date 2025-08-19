@@ -135,11 +135,30 @@ export async function requireAuth(request: NextRequest): Promise<{
 } | {
   user?: never
   error: { message: string; status: number }
+} | {
+  user: AuthUser
+  error: { message: string; status: number }
 }> {
   const user = await getCurrentUser(request)
   
   if (!user) {
+    // For anonymous users, create a session-based user
+    const sessionId = request.headers.get('x-session-id') || 
+                     request.cookies.get('sessionId')?.value ||
+                     `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    
+    // Return a session-based user for anonymous access
+    const anonymousUser: AuthUser = {
+      id: sessionId,
+      walletAddress: '',
+      tokenBalance: 0,
+      hasTokenAccess: false,
+      questionsAsked: 0
+    }
+    
+    // Return both user and error to indicate anonymous access
     return {
+      user: anonymousUser,
       error: {
         message: 'Authentication required',
         status: 401,

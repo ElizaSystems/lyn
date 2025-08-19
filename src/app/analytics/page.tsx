@@ -43,10 +43,10 @@ export default function AnalyticsPage() {
 
 
   const stats = metrics ? [
-    { label: 'Total Scans', value: metrics.totalScans.toLocaleString(), change: `+${Math.floor(Math.random() * 30)}%`, icon: Shield },
-    { label: 'Threats Blocked', value: metrics.threatsBlocked.toLocaleString(), change: `+${Math.floor(Math.random() * 20)}%`, icon: Activity },
-    { label: 'Active Users', value: metrics.activeUsers.toLocaleString(), change: `+${Math.floor(Math.random() * 10)}%`, icon: Users },
-    { label: 'Success Rate', value: `${metrics.successRate}%`, change: '+0.2%', icon: TrendingUp },
+    { label: 'Total Scans', value: metrics.totalScans.toLocaleString(), change: metrics.totalScansChange || '+0%', icon: Shield },
+    { label: 'Threats Blocked', value: metrics.threatsBlocked.toLocaleString(), change: metrics.threatsChange || '+0%', icon: Activity },
+    { label: 'Active Users', value: metrics.activeUsers.toLocaleString(), change: metrics.usersChange || '+0%', icon: Users },
+    { label: 'Success Rate', value: `${metrics.successRate}%`, change: metrics.successRateChange || '+0%', icon: TrendingUp },
   ] : []
 
   const chartData = metrics?.dailyData?.slice(-7).map((d, i: number) => ({

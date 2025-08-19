@@ -60,7 +60,18 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
   const [input, setInput] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [sessionId] = useState(() => Math.random().toString(36).substring(7))
+  const [sessionId] = useState(() => {
+    // Get or create a persistent session ID
+    if (typeof window !== 'undefined') {
+      let storedId = localStorage.getItem('security-session-id')
+      if (!storedId) {
+        storedId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
+        localStorage.setItem('security-session-id', storedId)
+      }
+      return storedId
+    }
+    return `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
+  })
   const [showSuggestions, setShowSuggestions] = useState(true)
   const [usage, setUsage] = useState<UsageInfo>({ questionsAsked: 0, hasTokenAccess: false })
   const [tokenBalance, setTokenBalance] = useState<number | null>(null)
@@ -172,7 +183,8 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`,
+          'X-Session-Id': sessionId
         },
         body: JSON.stringify({ url })
       })
@@ -249,7 +261,8 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
       const response = await fetch('/api/security/analyze-document', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`,
+          'X-Session-Id': sessionId
         },
         body: formData
       })

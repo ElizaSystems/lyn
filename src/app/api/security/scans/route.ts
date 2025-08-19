@@ -5,14 +5,11 @@ import { SecurityScan } from '@/lib/models/scan'
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication (now handles both authenticated and anonymous users)
     const authResult = await requireAuth(request)
-    if (authResult.error) {
-      return NextResponse.json(
-        { error: authResult.error.message },
-        { status: authResult.error.status }
-      )
-    }
+    
+    // If we have a user (authenticated or anonymous with sessionId), proceed
+    const userId = authResult.user.id
 
     // Get query parameters
     const { searchParams } = new URL(request.url)
@@ -24,17 +21,17 @@ export async function GET(request: NextRequest) {
 
     if (type) {
       // Get scans by type
-      scans = await ScanService.getUserScansByType(authResult.user.id, type, limit)
+      scans = await ScanService.getUserScansByType(userId, type, limit)
     } else if (severity) {
       // Get scans by severity
-      scans = await ScanService.getUserScansBySeverity(authResult.user.id, severity, limit)
+      scans = await ScanService.getUserScansBySeverity(userId, severity, limit)
     } else {
-      // Get recent scans
-      scans = await ScanService.getUserRecentScans(authResult.user.id, limit)
+      // Get recent scans (works with both userId and sessionId)
+      scans = await ScanService.getUserRecentScans(userId, limit)
     }
 
-    // Get user statistics
-    const stats = await ScanService.getUserStatistics(authResult.user.id)
+    // Get user statistics (works with both userId and sessionId)
+    const stats = await ScanService.getUserStatistics(userId)
 
     // Format the scans for the frontend
     const formattedScans = scans.map(scan => ({

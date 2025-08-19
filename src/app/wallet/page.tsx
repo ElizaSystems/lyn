@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Wallet, Copy, ExternalLink, Shield, TrendingUp, ArrowUpRight, ArrowDownLeft, Clock, RefreshCw, Activity } from 'lucide-react'
+import { Wallet, Copy, ExternalLink, Shield, TrendingUp, ArrowUpRight, ArrowDownLeft, Clock, RefreshCw, Activity, Edit2, Check, X, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { shortenAddress } from '@/lib/solana'
+import { shortenAddress, validateSolanaAddress } from '@/lib/solana'
 
 export default function WalletPage() {
   const [copied, setCopied] = useState(false)
@@ -11,8 +11,20 @@ export default function WalletPage() {
   const [tokens, setTokens] = useState<Array<{ symbol: string; name: string; balance: string; value: string; change: string }>>([])
   const [transactions, setTransactions] = useState<Array<{ signature: string; type: string; amount: string; from?: string; to?: string; time?: string; timestamp?: number }>>([])
   const [totalValue, setTotalValue] = useState(0)
+  const [editingAddress, setEditingAddress] = useState(false)
+  const [inputAddress, setInputAddress] = useState('')
+  const [addressError, setAddressError] = useState('')
   
-  const walletAddress = 'eS5PgEoCFN2KuJnBfgvoenFJ7THDhvWZzBJ2SrxwkX1'
+  // Get wallet address from localStorage or use default agent wallet
+  const defaultAgentWallet = process.env.NEXT_PUBLIC_AGENT_WALLET || 'eS5PgEoCFN2KuJnBfgvoenFJ7THDhvWZzBJ2SrxwkX1'
+  const [walletAddress, setWalletAddress] = useState(() => {
+    if (typeof window !== 'undefined') {
+      // Check localStorage for saved address
+      return localStorage.getItem('agentWalletAddress') || defaultAgentWallet
+    }
+    return defaultAgentWallet
+  })
+  
   const shortAddress = shortenAddress(walletAddress, 6)
 
   const copyAddress = () => {
@@ -20,15 +32,55 @@ export default function WalletPage() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+  
+  const handleEditAddress = () => {
+    setEditingAddress(true)
+    setInputAddress(walletAddress)
+    setAddressError('')
+  }
+  
+  const handleSaveAddress = async () => {
+    const trimmedAddress = inputAddress.trim()
+    
+    // Validate address
+    const isValid = await validateSolanaAddress(trimmedAddress)
+    if (!isValid) {
+      setAddressError('Invalid Solana address')
+      return
+    }
+    
+    // Save to localStorage and update state
+    localStorage.setItem('agentWalletAddress', trimmedAddress)
+    setWalletAddress(trimmedAddress)
+    setEditingAddress(false)
+    setAddressError('')
+    
+    // Reload wallet data with new address
+    fetchWalletData(trimmedAddress)
+  }
+  
+  const handleCancelEdit = () => {
+    setEditingAddress(false)
+    setInputAddress('')
+    setAddressError('')
+  }
+  
+  const handleUseDefault = () => {
+    localStorage.setItem('agentWalletAddress', defaultAgentWallet)
+    setWalletAddress(defaultAgentWallet)
+    setEditingAddress(false)
+    fetchWalletData(defaultAgentWallet)
+  }
 
-  const fetchWalletData = async () => {
+  const fetchWalletData = async (address?: string) => {
+    const targetAddress = address || walletAddress
     setLoading(true)
     try {
       // Fetch balances
       const balanceRes = await fetch('/api/wallet/balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress })
+        body: JSON.stringify({ walletAddress: targetAddress })
       })
       const balanceData = await balanceRes.json()
       setBalances(balanceData)
@@ -37,7 +89,7 @@ export default function WalletPage() {
       const tokensRes = await fetch('/api/wallet/tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress })
+        body: JSON.stringify({ walletAddress: targetAddress })
       })
       const tokensData = await tokensRes.json()
       setTokens(tokensData.tokens || [])
@@ -47,7 +99,7 @@ export default function WalletPage() {
       const txRes = await fetch('/api/wallet/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress, limit: 10 })
+        body: JSON.stringify({ walletAddress: targetAddress, limit: 10 })
       })
       const txData = await txRes.json()
       setTransactions(txData.transactions || [])
@@ -60,9 +112,9 @@ export default function WalletPage() {
 
   useEffect(() => {
     fetchWalletData()
-    const interval = setInterval(fetchWalletData, 30000) // Refresh every 30 seconds
+    const interval = setInterval(() => fetchWalletData(), 30000) // Refresh every 30 seconds
     return () => clearInterval(interval)
-  }, [])
+  }, [walletAddress])
 
   const formatTime = (timestamp: number | null) => {
     if (!timestamp) return 'Unknown'
@@ -114,27 +166,86 @@ export default function WalletPage() {
 
         <div className="glass-card p-6 rounded-xl border border-border/50">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Wallet Address</p>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-mono">{shortAddress}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={copyAddress}
-                  className="hover:bg-primary/10"
-                >
-                  {copied ? 'Copied!' : <Copy className="w-4 h-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hover:bg-primary/10"
-                  onClick={() => window.open(`https://solscan.io/account/${walletAddress}`, '_blank')}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-muted-foreground">Wallet Address</p>
+                {walletAddress !== defaultAgentWallet && !editingAddress && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleUseDefault}
+                    className="text-xs hover:bg-primary/10"
+                  >
+                    <Settings className="w-3 h-3 mr-1" />
+                    Use Default
+                  </Button>
+                )}
               </div>
+              {editingAddress ? (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={inputAddress}
+                      onChange={(e) => {
+                        setInputAddress(e.target.value)
+                        setAddressError('')
+                      }}
+                      className="flex-1 px-3 py-1 bg-background border border-border/50 rounded-md text-sm font-mono focus:outline-none focus:border-primary"
+                      placeholder="Enter Solana address"
+                      autoFocus
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSaveAddress}
+                      className="hover:bg-green-500/10"
+                    >
+                      <Check className="w-4 h-4 text-green-500" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelEdit}
+                      className="hover:bg-red-500/10"
+                    >
+                      <X className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                  {addressError && (
+                    <p className="text-xs text-red-500 mt-1">{addressError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-mono">{shortAddress}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEditAddress}
+                    className="hover:bg-primary/10"
+                    title="Edit address"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={copyAddress}
+                    className="hover:bg-primary/10"
+                  >
+                    {copied ? 'Copied!' : <Copy className="w-4 h-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:bg-primary/10"
+                    onClick={() => window.open(`https://solscan.io/account/${walletAddress}`, '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground mb-1">Total Balance</p>

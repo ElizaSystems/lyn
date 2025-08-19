@@ -32,7 +32,7 @@ interface ScanStats {
 }
 
 export default function ScansPage() {
-  const [activeTab, setActiveTab] = useState<'personal' | 'public'>('public')
+  const [activeTab, setActiveTab] = useState<'personal' | 'public'>('personal') // Default to personal to show user's scans
   const [personalScans, setPersonalScans] = useState<Scan[]>([])
   const [publicScans, setPublicScans] = useState<Scan[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,12 +56,21 @@ export default function ScansPage() {
   // Fetch personal scans
   const fetchPersonalScans = async () => {
     try {
+      // Get session ID (same as security chat uses)
+      const sessionId = localStorage.getItem('security-session-id') || 
+                       `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
+      
+      // Save it if not already saved
+      if (!localStorage.getItem('security-session-id')) {
+        localStorage.setItem('security-session-id', sessionId)
+      }
+      
       const token = localStorage.getItem('auth-token')
-      if (!token) return
 
       const response = await fetch('/api/security/scans?limit=20', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token || ''}`,
+          'X-Session-Id': sessionId
         }
       })
 

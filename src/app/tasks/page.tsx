@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Zap, Plus, Play, Pause, Settings, Trash2, Clock, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { Zap, Plus, Play, Pause, Settings, Trash2, Clock, CheckCircle, AlertCircle, RefreshCw, PlayCircle, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Task {
@@ -15,6 +15,16 @@ interface Task {
   lastRun?: Date | string
   nextRun?: Date | string | null
   successRate: number
+  executionCount?: number
+  successCount?: number
+  failureCount?: number
+  lastResult?: {
+    success: boolean
+    message: string
+    data?: any
+    error?: string
+  }
+  config?: Record<string, unknown>
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -29,6 +39,9 @@ export default function TasksPage() {
     type: 'security-scan' as Task['type'],
     frequency: 'Every 24 hours'
   })
+  const [executingTask, setExecutingTask] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState<string | null>(null)
+  const [taskHistory, setTaskHistory] = useState<any[]>([])
 
   useEffect(() => {
     fetchTasks()
@@ -122,6 +135,58 @@ export default function TasksPage() {
       }
     } catch (error) {
       console.error('Failed to delete task:', error)
+    }
+  }
+  
+  const executeTask = async (taskId: string) => {
+    setExecutingTask(taskId)
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        },
+        body: JSON.stringify({ action: 'execute', id: taskId })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        // Refresh tasks to show updated execution info
+        fetchTasks()
+        
+        // Show success/failure feedback
+        if (result.execution?.success) {
+          console.log('Task executed successfully:', result)
+        } else {
+          console.error('Task execution failed:', result)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to execute task:', error)
+    } finally {
+      setExecutingTask(null)
+    }
+  }
+  
+  const fetchTaskHistory = async (taskId: string) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        },
+        body: JSON.stringify({ action: 'history', id: taskId, limit: 10 })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setTaskHistory(data.history || [])
+        setShowHistory(taskId)
+      }
+    } catch (error) {
+      console.error('Failed to fetch task history:', error)
     }
   }
 
@@ -257,15 +322,20 @@ export default function TasksPage() {
                     </div>
                     <div>Last run: {formatDate(task.lastRun || null)}</div>
                     <div>Next run: {formatDate(task.nextRun || null)}</div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-20 h-1 bg-border rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-primary to-secondary"
-                          style={{ width: `${task.successRate}%` }}
-                        />
-                      </div>
-                      <span>{task.successRate}%</span>
+                                      <div className="flex items-center gap-1">
+                    <div className="w-20 h-1 bg-border rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-primary to-secondary"
+                        style={{ width: `${task.successRate}%` }}
+                      />
                     </div>
+                    <span>{task.successRate.toFixed(1)}%</span>
+                  </div>
+                  {task.executionCount && (
+                    <div className="text-xs text-muted-foreground">
+                      {task.executionCount} runs ({task.successCount} success, {task.failureCount} failed)
+                    </div>
+                  )}
                   </div>
                 </div>
               </div>
@@ -274,8 +344,23 @@ export default function TasksPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => executeTask(task._id || task.id || '')}
+                  disabled={executingTask === (task._id || task.id)}
+                  className="hover:bg-green-500/10"
+                  title="Execute now"
+                >
+                  {executingTask === (task._id || task.id) ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <PlayCircle className="w-4 h-4 text-green-500" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => toggleTaskStatus(task._id || task.id || '')}
                   className="hover:bg-primary/10"
+                  title={task.status === 'active' ? 'Pause task' : 'Resume task'}
                 >
                   {task.status === 'active' ? (
                     <Pause className="w-4 h-4" />
@@ -286,7 +371,17 @@ export default function TasksPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => fetchTaskHistory(task._id || task.id || '')}
                   className="hover:bg-primary/10"
+                  title="View history"
+                >
+                  <History className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hover:bg-primary/10"
+                  title="Settings"
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
@@ -295,15 +390,91 @@ export default function TasksPage() {
                   size="sm"
                   onClick={() => deleteTask(task._id || task.id || '')}
                   className="hover:bg-red-500/10 text-red-500"
+                  title="Delete task"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             </div>
+            
+            {/* Last execution result */}
+            {task.lastResult && (
+              <div className={`mt-3 p-3 rounded-lg text-xs ${
+                task.lastResult.success ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+              }`}>
+                <div className="font-medium mb-1">
+                  Last Result: {task.lastResult.success ? 'Success' : 'Failed'}
+                </div>
+                <div className="text-muted-foreground">
+                  {task.lastResult.message}
+                </div>
+                {task.lastResult.data?.alerts && task.lastResult.data.alerts.length > 0 && (
+                  <div className="mt-2">
+                    Alerts: {task.lastResult.data.alerts.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))
         )}
       </div>
+      
+      {/* Task History Modal */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl border border-border/50 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold mb-4">Task Execution History</h2>
+            {taskHistory.length > 0 ? (
+              <div className="space-y-3">
+                {taskHistory.map((execution, index) => (
+                  <div key={index} className="p-3 rounded-lg bg-sidebar/30 border border-border/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {execution.success ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className="text-sm font-medium">
+                          {execution.success ? 'Successful' : 'Failed'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(execution.startTime).toLocaleString()}
+                      </span>
+                    </div>
+                    {execution.duration && (
+                      <div className="text-xs text-muted-foreground">
+                        Duration: {execution.duration}ms
+                      </div>
+                    )}
+                    {execution.error && (
+                      <div className="text-xs text-red-500 mt-1">
+                        Error: {execution.error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                No execution history available
+              </p>
+            )}
+            <Button 
+              className="w-full mt-6" 
+              variant="ghost"
+              onClick={() => {
+                setShowHistory(null)
+                setTaskHistory([])
+              }}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
 
       {showCustomForm && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">

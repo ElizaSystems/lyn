@@ -1,15 +1,23 @@
 'use client'
 import { useState } from 'react'
 import { SecurityChat } from '@/components/security/security-chat'
+import { DashboardMetrics } from './dashboard-metrics'
 import { Shield, Sparkles } from 'lucide-react'
 
 export function DashboardFeature() {
   const [showChat, setShowChat] = useState(false)
+  const [showMetrics, setShowMetrics] = useState(true) // Default to showing metrics
   const [initialQuery, setInitialQuery] = useState('')
 
   const handleQuickAction = (query: string) => {
     setInitialQuery(query)
     setShowChat(true)
+    setShowMetrics(false)
+  }
+
+  // Show dashboard metrics by default
+  if (showMetrics && !showChat) {
+    return <DashboardMetrics />
   }
 
   if (showChat) {

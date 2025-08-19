@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 export interface SecurityScan {
   _id?: ObjectId
   userId: ObjectId | null
+  sessionId?: string // Session identifier for anonymous users
   hash: string // Unique hash for this scan
   type: 'url' | 'document' | 'wallet' | 'smart_contract' | 'transaction'
   target: string // URL, file name, wallet address, etc.
@@ -23,6 +24,8 @@ export interface SecurityScan {
     sslCertificate?: boolean
     smartContractAddress?: string
     network?: string
+    sessionId?: string // Also store in metadata for compatibility
+    [key: string]: unknown
   }
   createdAt: Date
   completedAt?: Date

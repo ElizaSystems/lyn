@@ -133,6 +133,45 @@ export async function GET(req: NextRequest) {
         }
       })
     
+    // Calculate change percentages by comparing with previous period
+    const previousPeriodStart = new Date(startDate.getTime() - (now.getTime() - startDate.getTime()))
+    const previousPeriodEnd = startDate
+    
+    const previousScans = await scansCollection.find({
+      createdAt: { $gte: previousPeriodStart, $lt: previousPeriodEnd }
+    }).toArray()
+    
+    const previousTotalScans = previousScans.length
+    const previousThreatsBlocked = previousScans.filter(scan => 
+      scan.result && !scan.result.isSafe
+    ).length
+    const previousUniqueUsers = new Set(
+      previousScans
+        .filter(scan => scan.userId !== null)
+        .map(scan => scan.userId?.toString())
+    ).size
+    const previousCompletedScans = previousScans.filter(scan => scan.status === 'completed').length
+    const previousSuccessRate = previousCompletedScans > 0 
+      ? Math.round((previousCompletedScans / previousTotalScans) * 100) 
+      : 100
+    
+    // Calculate percentage changes
+    const totalScansChange = previousTotalScans > 0 ? 
+      `${((totalScans - previousTotalScans) / previousTotalScans * 100).toFixed(1)}%` : '+100%'
+    const threatsChange = previousThreatsBlocked > 0 ? 
+      `${((threatsBlocked - previousThreatsBlocked) / previousThreatsBlocked * 100).toFixed(1)}%` : 
+      threatsBlocked > 0 ? '+100%' : '0%'
+    const usersChange = previousUniqueUsers > 0 ? 
+      `${((activeUsers - previousUniqueUsers) / previousUniqueUsers * 100).toFixed(1)}%` : 
+      activeUsers > 0 ? '+100%' : '0%'
+    const successRateChange = `${(successRate - previousSuccessRate).toFixed(1)}%`
+    
+    // Format changes with + prefix for positive numbers
+    const formatChange = (change: string) => {
+      const num = parseFloat(change)
+      return num > 0 ? `+${change}` : change
+    }
+    
     return NextResponse.json({
       totalScans,
       threatsBlocked,
@@ -140,7 +179,11 @@ export async function GET(req: NextRequest) {
       successRate,
       dailyData,
       threatCategories,
-      recentEvents
+      recentEvents,
+      totalScansChange: formatChange(totalScansChange),
+      threatsChange: formatChange(threatsChange),
+      usersChange: formatChange(usersChange),
+      successRateChange: formatChange(successRateChange)
     })
   } catch (error) {
     console.error('Analytics metrics error:', error)

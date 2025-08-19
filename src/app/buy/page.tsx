@@ -5,8 +5,13 @@ import { Button } from '@/components/ui/button'
 
 export default function BuyLYNPage() {
   const [copiedAddress, setCopiedAddress] = useState(false)
-  const [tokenPrice, setTokenPrice] = useState<number>(0.042)
-  const [priceChange, setPriceChange] = useState<string>('+12.5%')
+  const [marketData, setMarketData] = useState({
+    price: 0.042,
+    volume24h: 892000,
+    marketCap: 4200000,
+    change24h: '+12.5%'
+  })
+  const [loading, setLoading] = useState(true)
   const tokenAddress = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
 
   const copyAddress = () => {
@@ -16,39 +21,53 @@ export default function BuyLYNPage() {
   }
 
   useEffect(() => {
-    fetchTokenPrice()
+    fetchMarketData()
   }, [])
 
-  const fetchTokenPrice = async () => {
+  const fetchMarketData = async () => {
     try {
+      setLoading(true)
       // Dynamically import the price service to avoid server-side issues
-      const { getLYNTokenPrice, fetchPriceChange } = await import('@/lib/services/price-service')
+      const { fetchMarketData } = await import('@/lib/services/price-service')
       
-      const [price, change] = await Promise.all([
-        getLYNTokenPrice(),
-        fetchPriceChange('LYN')
-      ])
-      
-      setTokenPrice(price)
-      setPriceChange(change)
+      const data = await fetchMarketData(tokenAddress)
+      setMarketData(data)
     } catch (error) {
-      console.error('Failed to fetch token price:', error)
-      // Fallback to default values
-      setTokenPrice(0.042)
-      setPriceChange('+12.5%')
+      console.error('Failed to fetch market data:', error)
+      // Keep default values on error
+    } finally {
+      setLoading(false)
     }
   }
 
   const exchanges = [
-    { name: 'Raydium', type: 'DEX', volume: '$2.4M', fee: '0.25%', url: 'https://raydium.io/swap' },
-    { name: 'Jupiter', type: 'Aggregator', volume: '$1.8M', fee: '0.1%', url: 'https://jup.ag' },
+    { 
+      name: 'Jupiter', 
+      type: 'Aggregator', 
+      volume: `$${(marketData.volume24h / 1000).toFixed(0)}K`, 
+      fee: '0.1%', 
+      url: `https://jup.ag/swap/SOL-${tokenAddress}` 
+    },
+    { name: 'Raydium', type: 'DEX', volume: '$2.4M', fee: '0.25%', url: `https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}` },
     { name: 'Orca', type: 'DEX', volume: '$892K', fee: '0.3%', url: 'https://orca.so' },
   ]
 
   const tokenInfo = [
-    { label: 'Current Price', value: `$${tokenPrice.toFixed(4)}`, change: priceChange },
-    { label: 'Market Cap', value: `$${(tokenPrice * 100000000).toLocaleString()}`, change: '+8.3%' },
-    { label: '24h Volume', value: '$892K', change: '+23.1%' },
+    { 
+      label: 'Current Price', 
+      value: `$${marketData.price.toFixed(6)}`, 
+      change: marketData.change24h 
+    },
+    { 
+      label: 'Market Cap', 
+      value: `$${(marketData.marketCap / 1000000).toFixed(1)}M`, 
+      change: '+8.3%' 
+    },
+    { 
+      label: '24h Volume', 
+      value: `$${(marketData.volume24h / 1000).toFixed(0)}K`, 
+      change: '+23.1%' 
+    },
     { label: 'Circulating Supply', value: '100M LYN', change: null },
   ]
 
@@ -86,17 +105,27 @@ export default function BuyLYNPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {tokenInfo.map((info) => (
-            <div key={info.label} className="space-y-1">
-              <p className="text-xs text-muted-foreground">{info.label}</p>
-              <p className="text-xl font-bold">{info.value}</p>
-              {info.change && (
-                <p className={`text-xs ${info.change.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
-                  {info.change}
-                </p>
-              )}
-            </div>
-          ))}
+          {loading ? (
+            Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="space-y-1">
+                <div className="h-3 bg-gray-300 rounded animate-pulse"></div>
+                <div className="h-6 bg-gray-300 rounded animate-pulse"></div>
+                <div className="h-3 bg-gray-300 rounded animate-pulse w-2/3"></div>
+              </div>
+            ))
+          ) : (
+            tokenInfo.map((info) => (
+              <div key={info.label} className="space-y-1">
+                <p className="text-xs text-muted-foreground">{info.label}</p>
+                <p className="text-xl font-bold">{info.value}</p>
+                {info.change && (
+                  <p className={`text-xs ${info.change.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+                    {info.change}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -180,9 +209,9 @@ export default function BuyLYNPage() {
 
           <Button 
             className="w-full mt-4 bg-primary hover:bg-primary/90"
-            onClick={() => window.open(`https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${tokenAddress}`, '_blank')}
+            onClick={() => window.open(`https://jup.ag/swap/SOL-${tokenAddress}`, '_blank')}
           >
-            Buy on Raydium
+            Buy on Jupiter
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>

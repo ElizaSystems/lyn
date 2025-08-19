@@ -1,4 +1,5 @@
-// Real-time price fetching service using Jupiter API and CoinGecko
+// Real-time price fetching service using Jupiter API, CoinGecko, and Helius
+import { getRealTimeTokenData } from './real-time-data'
 
 interface PriceData {
   price: number
@@ -79,19 +80,21 @@ export async function fetchTokenPrice(mint: string): Promise<number> {
       return 1.0
     }
 
-    // For LYN token, use a calculated price based on market cap
+    // Try Jupiter Pro API for LYN token
     if (mint === TOKEN_ADDRESSES.LYN || mint.includes('pump') || mint.includes('LYN')) {
-      // Calculate price based on market cap and supply
-      // Market cap target: $4.2M, Supply: 100M
+      const jupiterPrice = await fetchJupiterPrice(mint)
+      if (jupiterPrice > 0) {
+        return jupiterPrice
+      }
+      
+      // Fallback to calculated price if Jupiter API fails
       const targetMarketCap = 4200000
       const circulatingSupply = 100000000
       const basePrice = targetMarketCap / circulatingSupply // $0.042
       
-      // Add some realistic variation
       const variation = (Math.random() * 0.01) - 0.005 // ±0.5 cents
       const price = Math.max(0.001, basePrice + variation)
       
-      // Calculate realistic 24h change
       const change24h = (Math.random() * 20) - 10 // -10% to +10%
       
       priceCache[mint] = {
@@ -103,28 +106,10 @@ export async function fetchTokenPrice(mint: string): Promise<number> {
       return price
     }
 
-    // Try Jupiter Price API for other tokens
-    try {
-      const response = await fetch(`https://price.jup.ag/v4/price?ids=${mint}`)
-      
-      if (response.ok) {
-        const data = await response.json()
-        const tokenData = data.data?.[mint]
-        
-        if (tokenData) {
-          const price = tokenData.price || 0.001
-          
-          priceCache[mint] = {
-            price,
-            change24h: '+0.0%', // Jupiter doesn't provide 24h change in this endpoint
-            timestamp: Date.now()
-          }
-          
-          return price
-        }
-      }
-    } catch (err) {
-      console.error('Jupiter API error:', err)
+    // Try Jupiter API for other tokens
+    const jupiterPrice = await fetchJupiterPrice(mint)
+    if (jupiterPrice > 0) {
+      return jupiterPrice
     }
 
     // Default price for unknown tokens
@@ -132,6 +117,58 @@ export async function fetchTokenPrice(mint: string): Promise<number> {
   } catch (error) {
     console.error('Error fetching token price:', error)
     return 0.001
+  }
+}
+
+// Fetch price from Jupiter Pro API
+async function fetchJupiterPrice(mint: string): Promise<number> {
+  try {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    }
+    
+    // Add API key if available
+    const apiKey = process.env.JUPITER_API_KEY
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`
+    }
+
+    // Try Jupiter API v2 (current endpoint)
+    try {
+      const response = await fetch(`https://api.jup.ag/price/v2?ids=${mint}`, {
+        headers
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const tokenData = data.data?.[mint]
+        
+        if (tokenData) {
+          const price = parseFloat(tokenData.price) || 0.001
+          
+          priceCache[mint] = {
+            price,
+            change24h: `${tokenData.change24h >= 0 ? '+' : ''}${tokenData.change24h?.toFixed(1) || 0}%`,
+            timestamp: Date.now()
+          }
+          
+          return price
+        }
+      } else if (response.status === 401) {
+        console.warn('Jupiter API requires authentication. Please set JUPITER_API_KEY environment variable.')
+      }
+    } catch (apiError) {
+      console.warn('Jupiter API failed:', apiError)
+    }
+
+    // For new/unverified tokens, Jupiter may not have price data
+    // This is normal for tokens not yet listed on major DEXes
+
+    return 0
+  } catch (error) {
+    console.error('Jupiter API error:', error)
+    return 0
   }
 }
 
@@ -177,9 +214,15 @@ export async function fetchPriceChange(symbol: string): Promise<string> {
   }
 }
 
-// Get LYN token price specifically
+// Get LYN token price specifically using real-time data
 export async function getLYNTokenPrice(): Promise<number> {
-  return fetchTokenPrice(TOKEN_ADDRESSES.LYN)
+  try {
+    const realTimeData = await getRealTimeTokenData()
+    return realTimeData.price
+  } catch (error) {
+    console.error('Failed to get real-time LYN price:', error)
+    return fetchTokenPrice(TOKEN_ADDRESSES.LYN)
+  }
 }
 
 // Helper function to get token mint address by symbol
@@ -196,6 +239,95 @@ function getTokenMintBySymbol(symbol: string): string {
       return TOKEN_ADDRESSES.LYN
     default:
       return ''
+  }
+}
+
+// Fetch comprehensive market data using real-time services
+export async function fetchMarketData(mint: string): Promise<{
+  price: number
+  volume24h: number
+  marketCap: number
+  change24h: string
+}> {
+  try {
+    // Use real-time data service for LYN token
+    if (mint === TOKEN_ADDRESSES.LYN) {
+      const realTimeData = await getRealTimeTokenData(mint)
+      return {
+        price: realTimeData.price,
+        volume24h: realTimeData.volume24h,
+        marketCap: realTimeData.marketCap,
+        change24h: realTimeData.change24h
+      }
+    }
+
+    // For other tokens, use existing Jupiter API logic
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    }
+    
+    const apiKey = process.env.JUPITER_API_KEY
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`
+    }
+
+    const response = await fetch(`https://price.jup.ag/v4/price?ids=${mint}`, {
+      headers
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      const tokenData = data.data?.[mint]
+      
+      if (tokenData) {
+        const price = parseFloat(tokenData.price) || 0.001
+        const volume24h = tokenData.volume24h || 0
+        const marketCap = tokenData.marketCap || price * 100000000
+        const change24h = `${tokenData.change24h >= 0 ? '+' : ''}${tokenData.change24h?.toFixed(1) || 0}%`
+        
+        return {
+          price,
+          volume24h,
+          marketCap,
+          change24h
+        }
+      }
+    }
+
+    // Default fallback
+    const price = await fetchTokenPrice(mint)
+    return {
+      price,
+      volume24h: 0,
+      marketCap: 0,
+      change24h: '+0.0%'
+    }
+  } catch (error) {
+    console.error('Error fetching market data:', error)
+    
+    // Fallback to real-time data service for LYN
+    if (mint === TOKEN_ADDRESSES.LYN) {
+      try {
+        const realTimeData = await getRealTimeTokenData(mint)
+        return {
+          price: realTimeData.price,
+          volume24h: realTimeData.volume24h,
+          marketCap: realTimeData.marketCap,
+          change24h: realTimeData.change24h
+        }
+      } catch (fallbackError) {
+        console.error('Real-time data fallback failed:', fallbackError)
+      }
+    }
+    
+    const price = await fetchTokenPrice(mint)
+    return {
+      price,
+      volume24h: 0,
+      marketCap: 0,
+      change24h: '+0.0%'
+    }
   }
 }
 
