@@ -179,7 +179,7 @@ async function fetchTokenInfo(mint: string): Promise<{ symbol: string; name: str
       const response = await fetch(`https://token.jup.ag/strict`)
       if (response.ok) {
         const tokens = await response.json()
-        const token = tokens.find((t: any) => t.address === mint)
+        const token = tokens.find((t: { address: string; symbol: string; name: string }) => t.address === mint)
         if (token) {
           const info = { symbol: token.symbol, name: token.name }
           tokenInfoCache[mint] = { ...info, timestamp: Date.now() }

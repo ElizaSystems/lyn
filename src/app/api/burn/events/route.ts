@@ -81,14 +81,14 @@ export async function GET(request: NextRequest) {
           const SPL_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
           
           // Check if this transaction contains token program instructions
-          const hasTokenProgram = tx.transaction?.message.programIds?.some(
-            id => id.toString() === SPL_TOKEN_PROGRAM
-          ) || false
+          const staticAccountKeys = tx.transaction?.message.staticAccountKeys || []
+          const hasTokenProgram = staticAccountKeys.some(
+            key => key.toString() === SPL_TOKEN_PROGRAM
+          )
           
           if (!hasTokenProgram) continue
           
           // Parse instructions to find burn operations
-          const instructions = tx.transaction?.message.instructions || []
           const compiledInstructions = tx.transaction?.message.compiledInstructions || []
           
           for (const instruction of compiledInstructions) {
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
                   if (instructionType === 8 || instructionType === 15) {
                     // This is a burn instruction!
                     // Extract burn amount from instruction data
-                    let burnAmount = 0
+                    let burnAmount = 0n
                     
                     if (instructionType === 8) {
                       // Regular burn: amount is at bytes 1-8 (u64 little-endian)

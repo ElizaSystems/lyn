@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check authentication (now handles anonymous users with sessionId)
     const authResult = await requireAuth(request)
-    const userId = authResult.user?.id || authResult.user.id // Will have sessionId for anonymous users
+    const userId = authResult.user?.id || 'anonymous' // Will have sessionId for anonymous users
     
     const formData = await request.formData()
     const file = formData.get('file') as File

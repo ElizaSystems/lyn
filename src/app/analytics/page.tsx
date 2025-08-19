@@ -10,6 +10,10 @@ export default function AnalyticsPage() {
     threatsBlocked: number
     activeUsers: number
     successRate: number
+    totalScansChange?: string
+    threatsChange?: string
+    usersChange?: string
+    successRateChange?: string
     dailyData?: Array<{ day: string; scans: number; threats: number }>
     threatCategories?: {
       phishing: number

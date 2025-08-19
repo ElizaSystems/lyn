@@ -21,7 +21,7 @@ interface Task {
   lastResult?: {
     success: boolean
     message: string
-    data?: any
+    data?: Record<string, unknown>
     error?: string
   }
   config?: Record<string, unknown>
@@ -41,7 +41,7 @@ export default function TasksPage() {
   })
   const [executingTask, setExecutingTask] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState<string | null>(null)
-  const [taskHistory, setTaskHistory] = useState<any[]>([])
+  const [taskHistory, setTaskHistory] = useState<Array<{ id: string; status: string; result?: Record<string, unknown>; executedAt: string; success?: boolean; startTime?: string; duration?: number; error?: string }>>([])
 
   useEffect(() => {
     fetchTasks()
@@ -408,11 +408,11 @@ export default function TasksPage() {
                 <div className="text-muted-foreground">
                   {task.lastResult.message}
                 </div>
-                {task.lastResult.data?.alerts && task.lastResult.data.alerts.length > 0 && (
+                {(task.lastResult.data?.alerts && Array.isArray(task.lastResult.data.alerts) && task.lastResult.data.alerts.length > 0) ? (
                   <div className="mt-2">
-                    Alerts: {task.lastResult.data.alerts.join(', ')}
+                    Alerts: {(task.lastResult.data.alerts as string[]).join(', ')}
                   </div>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -441,7 +441,7 @@ export default function TasksPage() {
                         </span>
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(execution.startTime).toLocaleString()}
+                        {execution.startTime ? new Date(execution.startTime).toLocaleString() : 'Unknown'}
                       </span>
                     </div>
                     {execution.duration && (

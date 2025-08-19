@@ -122,7 +122,7 @@ export class ScanService {
     const scans = await this.getScansCollection()
     
     // Build query to find scans by either userId or sessionId
-    const query: any = { $or: [] }
+    const query: { $or: Array<Record<string, unknown>> } = { $or: [] }
     
     // Try to match by ObjectId if valid
     try {
@@ -180,7 +180,7 @@ export class ScanService {
     
     // Calculate statistics from scans
     const statistics: ScanStatistics = {
-      userId: null as any,
+      userId: null,
       totalScans: userScans.length,
       safeScans: userScans.filter(s => s.severity === 'safe').length,
       threatsDetected: userScans.filter(s => s.severity !== 'safe').length,
@@ -274,7 +274,7 @@ export class ScanService {
     const scans = await this.getScansCollection()
     
     // Build query to find scans by either userId or sessionId
-    const query: any = { type, $or: [] }
+    const query: { type: SecurityScan['type']; $or: Array<Record<string, unknown>> } = { type, $or: [] }
     
     // Try to match by ObjectId if valid
     try {
@@ -307,7 +307,7 @@ export class ScanService {
     const scans = await this.getScansCollection()
     
     // Build query to find scans by either userId or sessionId
-    const query: any = { severity, $or: [] }
+    const query: { severity: SecurityScan['severity']; $or: Array<Record<string, unknown>> } = { severity, $or: [] }
     
     // Try to match by ObjectId if valid
     try {

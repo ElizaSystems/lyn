@@ -22,7 +22,7 @@ export interface Task {
   lastResult?: {
     success: boolean
     message: string
-    data?: any
+    data?: Record<string, unknown>
     error?: string
   }
   config?: {
@@ -71,7 +71,7 @@ export interface TaskExecution {
   startTime: Date
   endTime?: Date
   success: boolean
-  result?: any
+  result?: Record<string, unknown>
   error?: string
   duration?: number
 }
@@ -111,7 +111,7 @@ export class TaskExecutor {
 
     try {
       // Execute based on task type
-      let result: any
+      let result: Record<string, unknown>
       
       switch (task.type) {
         case 'security-scan':
@@ -163,10 +163,10 @@ export class TaskExecutor {
   /**
    * Execute security scan task
    */
-  private static async executeSecurityScan(task: Task): Promise<any> {
+  private static async executeSecurityScan(task: Task): Promise<Record<string, unknown>> {
     const results = {
-      scanned: [] as any[],
-      threats: [] as any[],
+      scanned: [] as Array<Record<string, unknown>>,
+      threats: [] as Array<Record<string, unknown>>,
       alert: false
     }
 
@@ -224,10 +224,13 @@ export class TaskExecutor {
           )
 
           // Simple wallet analysis
-          const suspicious = transactions.some((tx: any) => 
-            tx.err !== null || // Failed transaction
-            (tx.transaction?.meta?.postBalances?.[0] || 0) < (tx.transaction?.meta?.preBalances?.[0] || 0) * 0.5 // Large balance decrease
-          )
+          const suspicious = transactions.some((tx: Record<string, unknown>) => {
+            const transaction = tx.transaction as Record<string, unknown>
+            const meta = transaction?.meta as Record<string, unknown>
+            const preBalance = (meta?.preBalances as number[])?.[0] || 0
+            const postBalance = (meta?.postBalances as number[])?.[0] || 0
+            return tx.err !== null || postBalance < preBalance * 0.5
+          })
 
           await ScanService.updateScanResult(
             scan._id!.toString(),
@@ -259,7 +262,7 @@ export class TaskExecutor {
   /**
    * Execute wallet monitor task
    */
-  private static async executeWalletMonitor(task: Task): Promise<any> {
+  private static async executeWalletMonitor(task: Task): Promise<Record<string, unknown>> {
     const config = task.config || {}
     const walletAddress = config.walletAddress as string
     
@@ -270,8 +273,8 @@ export class TaskExecutor {
     const result = {
       wallet: walletAddress,
       balance: 0,
-      tokens: [] as any[],
-      recentTransactions: [] as any[],
+      tokens: [] as Array<Record<string, unknown>>,
+      recentTransactions: [] as Array<Record<string, unknown>>,
       alert: false,
       alerts: [] as string[]
     }
@@ -282,7 +285,7 @@ export class TaskExecutor {
       
       // Get recent transactions
       const transactions = await getRecentTransactions(walletAddress, 20)
-      result.recentTransactions = transactions.slice(0, 5).map((tx: any) => ({
+      result.recentTransactions = transactions.slice(0, 5).map((tx: Record<string, unknown>) => ({
         signature: tx.signature,
         blockTime: tx.blockTime,
         type: 'transfer'
@@ -290,8 +293,8 @@ export class TaskExecutor {
 
       // Check for new transactions since last run
       if (task.lastRun) {
-        const newTransactions = transactions.filter((tx: any) => {
-          const txTime = new Date((tx.blockTime || 0) * 1000)
+        const newTransactions = transactions.filter((tx: Record<string, unknown>) => {
+          const txTime = new Date(((tx.blockTime as number) || 0) * 1000)
           return txTime > task.lastRun!
         })
 
@@ -302,9 +305,11 @@ export class TaskExecutor {
 
         // Check for large transactions
         if (config.minTransactionAmount) {
-          const largeTransactions = newTransactions.filter((tx: any) => {
-            const preBalance = tx.transaction?.meta?.preBalances?.[0] || 0
-            const postBalance = tx.transaction?.meta?.postBalances?.[0] || 0
+          const largeTransactions = newTransactions.filter((tx: Record<string, unknown>) => {
+            const transaction = tx.transaction as Record<string, unknown>
+            const meta = transaction?.meta as Record<string, unknown>
+            const preBalance = (meta?.preBalances as number[])?.[0] || 0
+            const postBalance = (meta?.postBalances as number[])?.[0] || 0
             const change = Math.abs(postBalance - preBalance) / 1e9 // Convert lamports to SOL
             return change >= (config.minTransactionAmount as number)
           })
@@ -341,7 +346,7 @@ export class TaskExecutor {
   /**
    * Execute price alert task
    */
-  private static async executePriceAlert(task: Task): Promise<any> {
+  private static async executePriceAlert(task: Task): Promise<Record<string, unknown>> {
     const config = task.config || {}
     const tokenMint = config.tokenMint as string || process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS
     const tokenSymbol = config.tokenSymbol as string || 'LYN'
@@ -367,13 +372,13 @@ export class TaskExecutor {
       
       // Calculate change from last execution
       if (task.lastResult?.data?.currentPrice) {
-        result.previousPrice = task.lastResult.data.currentPrice
+        result.previousPrice = task.lastResult.data.currentPrice as number
         result.change = result.currentPrice - result.previousPrice
         result.changePercent = (result.change / result.previousPrice) * 100
       }
 
       // Check price thresholds
-      const threshold = config.priceThreshold as any
+      const threshold = config.priceThreshold as Record<string, number>
       
       if (threshold?.above && result.currentPrice > threshold.above) {
         result.alert = true
@@ -391,7 +396,7 @@ export class TaskExecutor {
       }
 
       // Add market data
-      result.marketData = {
+      ;(result as Record<string, unknown>).marketData = {
         volume24h: marketData.volume24h,
         marketCap: marketData.marketCap,
         change24h: marketData.change24h
@@ -407,7 +412,7 @@ export class TaskExecutor {
   /**
    * Execute auto-trade task (simulated only - no real trading)
    */
-  private static async executeAutoTrade(task: Task): Promise<any> {
+  private static async executeAutoTrade(task: Task): Promise<Record<string, unknown>> {
     const config = task.config || {}
     const strategy = config.strategy as string || 'dca'
     
@@ -435,10 +440,10 @@ export class TaskExecutor {
           const gridLevels = [0.040, 0.042, 0.044, 0.046]
           const currentLevel = gridLevels.findIndex(level => marketData.price < level)
           
-          if (currentLevel > 0 && task.lastResult?.data?.gridLevel !== currentLevel) {
+          if (currentLevel > 0 && (task.lastResult?.data as Record<string, unknown>)?.gridLevel !== currentLevel) {
             result.action = marketData.price < gridLevels[currentLevel - 1] ? 'buy' : 'sell'
             result.message = `Grid Strategy: Simulated ${result.action} at $${marketData.price.toFixed(4)}`
-            result.gridLevel = currentLevel
+            ;(result as Record<string, unknown>).gridLevel = currentLevel
           }
           break
           
@@ -453,7 +458,7 @@ export class TaskExecutor {
           break
       }
       
-      result.marketData = {
+      ;(result as Record<string, unknown>).marketData = {
         price: marketData.price,
         volume: marketData.volume24h,
         change24h: marketData.change24h
@@ -472,7 +477,7 @@ export class TaskExecutor {
   private static async updateTaskAfterExecution(
     taskId: string, 
     success: boolean, 
-    result: any, 
+    result: Record<string, unknown> | null, 
     error?: string
   ): Promise<void> {
     const tasksCollection = await this.getTasksCollection()
@@ -501,7 +506,7 @@ export class TaskExecutor {
           lastResult: {
             success,
             message: success ? 'Task executed successfully' : 'Task execution failed',
-            data: result,
+            data: result || undefined,
             error
           },
           updatedAt: new Date()
@@ -554,8 +559,8 @@ export class TaskExecutor {
   /**
    * Send notifications for task results
    */
-  private static async sendNotifications(task: Task, result: any): Promise<void> {
-    const notifications = task.config?.notifications as any
+  private static async sendNotifications(task: Task, result: Record<string, unknown>): Promise<void> {
+    const notifications = task.config?.notifications as Record<string, string>
     
     if (!notifications || !result.alert) return
 
@@ -579,7 +584,7 @@ export class TaskExecutor {
       status: 'active',
       $or: [
         { nextRun: { $lte: now } },
-        { nextRun: null, lastRun: null }, // Never run
+        { nextRun: { $exists: false }, lastRun: { $exists: false } }, // Never run
         { 
           frequency: { $in: ['Real-time', 'Continuous'] },
           lastRun: { $lte: new Date(now.getTime() - 60 * 1000) } // Run every minute for real-time

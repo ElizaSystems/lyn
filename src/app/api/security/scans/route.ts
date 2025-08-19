@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const authResult = await requireAuth(request)
     
     // If we have a user (authenticated or anonymous with sessionId), proceed
-    const userId = authResult.user.id
+    const userId = authResult.user?.id || 'anonymous'
 
     // Get query parameters
     const { searchParams } = new URL(request.url)

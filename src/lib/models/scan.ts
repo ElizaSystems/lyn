@@ -32,7 +32,7 @@ export interface SecurityScan {
 }
 
 export interface ScanStatistics {
-  userId: ObjectId
+  userId: ObjectId | null
   totalScans: number
   safeScans: number
   threatsDetected: number

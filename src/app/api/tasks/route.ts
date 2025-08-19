@@ -26,7 +26,9 @@ export async function GET(req: NextRequest) {
         successRate: 98.5,
         config: {
           targets: ['https://mysite.com', '0x742d35Cc6634C0532925a3b844Bc9e7595f0b'],
-          notifications: true
+          notifications: {
+            email: 'user@example.com'
+          }
         },
         createdAt: new Date(Date.now() - 86400000 * 7),
         updatedAt: new Date()

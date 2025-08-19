@@ -151,7 +151,7 @@ export default function WalletPage() {
             <Button 
               variant="outline" 
               size="icon"
-              onClick={fetchWalletData}
+              onClick={() => fetchWalletData()}
               disabled={loading}
               className="border-border/50 hover:bg-primary/10"
             >
