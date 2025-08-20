@@ -146,9 +146,27 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Document analysis error:', error)
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to analyze document. Please try again.'
+    let statusCode = 500
+    
+    if (error instanceof Error) {
+      if (error.message.includes('File size exceeds')) {
+        errorMessage = error.message
+        statusCode = 400
+      } else if (error.message.includes('Invalid file')) {
+        errorMessage = 'Invalid file format. Please upload a valid document.'
+        statusCode = 400
+      } else if (error.message.includes('Authentication')) {
+        errorMessage = 'Authentication required to scan documents.'
+        statusCode = 401
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to analyze document. Please try again.' },
-      { status: 500 }
+      { error: errorMessage },
+      { status: statusCode }
     )
   }
 }

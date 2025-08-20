@@ -15,13 +15,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
-    // Validate URL format
+    // Validate and fix URL format
     let validUrl: string
+    let fixedUrl = url
+    
+    // Fix common typos in protocol first
+    if (fixedUrl.startsWith('htps://')) {
+      fixedUrl = 'https://' + fixedUrl.substring(7)
+    } else if (fixedUrl.startsWith('htp://')) {
+      fixedUrl = 'http://' + fixedUrl.substring(6)
+    } else if (fixedUrl.startsWith('htttp://')) {
+      fixedUrl = 'http://' + fixedUrl.substring(8)
+    } else if (fixedUrl.startsWith('htttps://')) {
+      fixedUrl = 'https://' + fixedUrl.substring(9)
+    } else if (fixedUrl.startsWith('ttp://')) {
+      fixedUrl = 'http://' + fixedUrl.substring(6)
+    } else if (fixedUrl.startsWith('ttps://')) {
+      fixedUrl = 'https://' + fixedUrl.substring(7)
+    } else if (!fixedUrl.match(/^https?:\/\//i)) {
+      // Add https:// if no valid http/https protocol
+      fixedUrl = `https://${fixedUrl}`
+    }
+    
+    // Now validate the URL
     try {
-      validUrl = url.startsWith('http') ? url : `https://${url}`
-      new URL(validUrl) // Validate URL format
+      const parsedUrl = new URL(fixedUrl)
+      // Ensure it's http or https protocol
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        return NextResponse.json({ error: 'Only HTTP and HTTPS URLs are supported' }, { status: 400 })
+      }
+      validUrl = fixedUrl
     } catch {
-      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid URL format. Please check the URL and try again.' }, { status: 400 })
     }
 
     // Create scan record
