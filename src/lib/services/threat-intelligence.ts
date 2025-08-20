@@ -293,7 +293,7 @@ export class ThreatIntelligenceService {
             threats.push('Phishing content detected')
             score -= 25
           }
-        } catch (error) {
+        } catch {
           // If can't parse as text, might be binary
           console.log('[ThreatIntel] Could not parse file as text')
         }
@@ -453,12 +453,14 @@ export class ThreatIntelligenceService {
   /**
    * Parse VirusTotal file report
    */
-  private static parseVirusTotalFileReport(data: any): ThreatIntelligenceResult {
-    const stats = data?.data?.attributes?.last_analysis_stats || {}
-    const malicious = stats.malicious || 0
-    const suspicious = stats.suspicious || 0
-    const harmless = stats.harmless || 0
-    const undetected = stats.undetected || 0
+  private static parseVirusTotalFileReport(data: Record<string, unknown>): ThreatIntelligenceResult {
+    const dataObj = data?.data as Record<string, unknown>
+    const attributes = dataObj?.attributes as Record<string, unknown>
+    const stats = (attributes?.last_analysis_stats as Record<string, unknown>) || {}
+    const malicious = (stats.malicious as number) || 0
+    const suspicious = (stats.suspicious as number) || 0
+    const harmless = (stats.harmless as number) || 0
+    const undetected = (stats.undetected as number) || 0
     const total = malicious + suspicious + harmless + undetected
 
     const threats = []
@@ -466,11 +468,14 @@ export class ThreatIntelligenceService {
     if (suspicious > 0) threats.push(`${suspicious} engines marked as suspicious`)
 
     // Get specific threat names
-    const results = data?.data?.attributes?.last_analysis_results || {}
-    const detectedThreats = Object.entries(results)
-      .filter(([_, result]: [string, any]) => result.category === 'malicious')
-      .map(([engine, result]: [string, any]) => `${engine}: ${result.result}`)
-      .slice(0, 5) // Limit to 5 threat names
+    const results = (attributes?.last_analysis_results as Record<string, unknown>) || {}
+    const detectedThreats: string[] = []
+    Object.entries(results).forEach(([engine, result]) => {
+      const resultObj = result as Record<string, unknown>
+      if (resultObj.category === 'malicious' && detectedThreats.length < 5) {
+        detectedThreats.push(`${engine}: ${resultObj.result}`)
+      }
+    })
 
     threats.push(...detectedThreats)
 
@@ -483,10 +488,10 @@ export class ThreatIntelligenceService {
       threats,
       details: {
         stats,
-        fileType: data?.data?.attributes?.type_description,
-        md5: data?.data?.attributes?.md5,
-        sha256: data?.data?.attributes?.sha256,
-        firstSubmission: data?.data?.attributes?.first_submission_date
+        fileType: attributes?.type_description,
+        md5: attributes?.md5,
+        sha256: attributes?.sha256,
+        firstSubmission: attributes?.first_submission_date
       }
     }
   }
@@ -494,12 +499,14 @@ export class ThreatIntelligenceService {
   /**
    * Parse VirusTotal analysis response
    */
-  private static parseVirusTotalAnalysis(data: any): ThreatIntelligenceResult {
-    const stats = data?.data?.attributes?.stats || {}
-    const malicious = stats.malicious || 0
-    const suspicious = stats.suspicious || 0
-    const harmless = stats.harmless || 0
-    const undetected = stats.undetected || 0
+  private static parseVirusTotalAnalysis(data: Record<string, unknown>): ThreatIntelligenceResult {
+    const dataObj = data?.data as Record<string, unknown>
+    const attributes = dataObj?.attributes as Record<string, unknown>
+    const stats = (attributes?.stats as Record<string, unknown>) || {}
+    const malicious = (stats.malicious as number) || 0
+    const suspicious = (stats.suspicious as number) || 0
+    const harmless = (stats.harmless as number) || 0
+    const undetected = (stats.undetected as number) || 0
     const total = malicious + suspicious + harmless + undetected
 
     const threats = []
@@ -515,7 +522,7 @@ export class ThreatIntelligenceService {
       threats,
       details: {
         stats,
-        status: data?.data?.attributes?.status || 'completed'
+        status: attributes?.status || 'completed'
       }
     }
   }
@@ -562,7 +569,7 @@ export class ThreatIntelligenceService {
         source: 'Google Safe Browsing',
         safe: matches.length === 0,
         score: matches.length === 0 ? 100 : 0,
-        threats: matches.map((m: any) => m.threatType),
+        threats: matches.map((m: Record<string, unknown>) => m.threatType as string),
         details: { matches }
       }
     } catch (error) {
@@ -621,7 +628,7 @@ export class ThreatIntelligenceService {
   /**
    * Check with URLVoid
    */
-  private static async checkURLVoid(url: string): Promise<ThreatIntelligenceResult | null> {
+  private static async checkURLVoid(_url: string): Promise<ThreatIntelligenceResult | null> {
     // URLVoid requires a paid API key and special setup
     // This is a placeholder for future implementation
     const apiKey = process.env.URLVOID_API_KEY
