@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       code: referralCode.code,
-      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${referralCode.code}`,
+      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${referralCode.code}`,
       stats: {
         totalReferrals: referralCode.totalReferrals || 0,
         totalBurned: referralCode.totalBurned || 0,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       
       return NextResponse.json({
         code: tempCode,
-        link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${tempCode}`,
+        link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${tempCode}`,
         stats: {
           totalReferrals: 0,
           totalBurned: 0,
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       code: referralCode.code,
-      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${referralCode.code}`,
+      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${referralCode.code}`,
       message: 'Referral code created successfully'
     })
   } catch (error) {
