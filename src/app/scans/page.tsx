@@ -267,7 +267,9 @@ export default function ScansPage() {
           if (refResponse.ok) {
             const refData = await refResponse.json()
             referrerWallet = refData.walletAddress
-            setReferrerInfo({ walletAddress: referrerWallet })
+            if (referrerWallet) {
+              setReferrerInfo({ walletAddress: referrerWallet })
+            }
             console.log(`[Registration] Referrer wallet: ${referrerWallet}`)
           }
         } catch (e) {

@@ -768,3 +768,76 @@ After configuration, type 'tutorial next'`
       return `Tutorial step '${step}' not found. Use 'tutorial start' to begin.`
   }
 }
+
+async function handleWalletSecurityCheck(address: string): Promise<string> {
+  try {
+    // Validate address format
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
+      return `❌ Invalid wallet address format: ${address}`
+    }
+
+    // Call the wallet security analysis API
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/security/analyze-wallet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress: address })
+    })
+
+    if (!response.ok) {
+      return `❌ Wallet analysis failed: ${response.status}`
+    }
+
+    const data = await response.json()
+    
+    // Format the security analysis result
+    const riskEmojiMap: Record<string, string> = {
+      'very-low': '✅',
+      'low': '✅', 
+      'medium': '⚠️',
+      'high': '🚨',
+      'critical': '🔴'
+    }
+    const riskEmoji = riskEmojiMap[data.analysis.riskLevel] || '❓'
+
+    let output = `${riskEmoji} Wallet Security Analysis: ${address.slice(0, 8)}...${address.slice(-8)}
+
+🛡️ SECURITY OVERVIEW:
+  Risk Level: ${data.analysis.riskLevel.toUpperCase().replace('-', ' ')} (${data.analysis.riskScore}/100)
+  Blacklisted: ${data.analysis.isBlacklisted ? 'YES ⚠️' : 'NO ✅'}
+  Overall Safety: ${data.analysis.overallSafety ? 'SAFE ✅' : 'RISKY ⚠️'}
+
+📊 REPUTATION:
+  Community Score: ${data.reputation.score}/1000
+  Trust Level: ${data.reputation.trustLevel.toUpperCase()}
+  Reports: ${data.reputation.communityReports} total (${data.reputation.verifiedReports} verified)
+
+📈 WALLET METRICS:
+  Account Age: ${data.details.accountAge} days
+  Transactions: ${data.details.transactionCount.toLocaleString()}
+  Avg Transaction: ${data.details.averageTransactionValue.toFixed(3)} SOL
+  Unique Contacts: ${data.details.uniqueInteractions.toLocaleString()}`
+
+    // Add threats if any
+    if (data.threats && data.threats.length > 0) {
+      output += `\n\n🚨 IDENTIFIED THREATS:\n${data.threats.map((threat: string) => `  • ${threat}`).join('\n')}`
+    }
+
+    // Add security flags
+    if (data.flags && data.flags.length > 0) {
+      output += `\n\n⚠️ SECURITY FLAGS:\n${data.flags.map((flag: { description: string; severity: string; confidence: number }) => 
+        `  • ${flag.description} (${flag.severity.toUpperCase()}, ${flag.confidence}% confidence)`
+      ).join('\n')}`
+    }
+
+    // Add top recommendations
+    if (data.recommendations && data.recommendations.length > 0) {
+      output += `\n\n💡 RECOMMENDATIONS:\n${data.recommendations.slice(0, 3).map((rec: string) => `  • ${rec}`).join('\n')}`
+    }
+
+    return output
+
+  } catch (error) {
+    console.error('Wallet security check error:', error)
+    return `❌ Security analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+  }
+}
