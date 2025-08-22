@@ -1,4 +1,5 @@
 import { Connection, PublicKey, ParsedTransactionWithMeta } from '@solana/web3.js'
+import { ScamDatabaseService } from './scam-database'
 
 interface HeliusTransaction {
   signature: string
@@ -463,7 +464,7 @@ export class BlockchainAnalysisService {
   }
 
   /**
-   * Check against known scam addresses database
+   * Check against known scam addresses database using external APIs
    */
   static async checkScamDatabase(walletAddress: string): Promise<{
     isKnownScammer: boolean
@@ -472,14 +473,22 @@ export class BlockchainAnalysisService {
     confidence: number
   }> {
     try {
-      // Check against public scam databases
-      // Note: These are example endpoints, you'd need actual API access
+      // Check external scam databases
+      const externalCheck = await ScamDatabaseService.checkExternalDatabases(walletAddress)
       
-      // 1. Check Solana FM scam database (if available)
-      // 2. Check community-reported scam lists
-      // 3. Check against known phishing addresses
+      if (externalCheck.isScammer) {
+        const reportedBy = [...new Set(externalCheck.reports.map(r => r.source))]
+        const scamTypes = [...new Set(externalCheck.reports.map(r => r.reportType))]
+        
+        return {
+          isKnownScammer: true,
+          reportedBy,
+          scamType: scamTypes.join(', '),
+          confidence: externalCheck.confidence
+        }
+      }
       
-      // For now, we'll check against some known patterns
+      // Also check basic patterns as fallback
       const knownScamPatterns = [
         /^Scam/i,
         /^Fake/i,
@@ -495,20 +504,6 @@ export class BlockchainAnalysisService {
             scamType: 'Known suspicious pattern',
             confidence: 80
           }
-        }
-      }
-      
-      // Check against a maintained list (this would be from a real database)
-      const knownScamAddresses: string[] = [
-        // Add known scam addresses here
-      ]
-      
-      if (knownScamAddresses.includes(walletAddress)) {
-        return {
-          isKnownScammer: true,
-          reportedBy: ['Community database'],
-          scamType: 'Reported scammer',
-          confidence: 95
         }
       }
       
