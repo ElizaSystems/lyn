@@ -30,25 +30,64 @@ export class ReferralServiceV2 {
 
   /**
    * Get or create referral code - simplified version
+   * Returns username as code if available (vanity URL), otherwise generates a code
    */
   static async getOrCreateReferralCode(
     walletAddress: string,
     username?: string
-  ): Promise<{ success: boolean; code?: string; error?: string }> {
+  ): Promise<{ success: boolean; code?: string; isVanity?: boolean; error?: string }> {
     try {
       console.log(`[ReferralV2] Getting code for wallet: ${walletAddress}`)
       
       const db = await getDatabase()
       const collection = db.collection('referral_codes_v2')
       
-      // Check for existing code
-      const existing = await collection.findOne({ walletAddress })
+      // First check if user has a username in the users collection
+      const usersCollection = db.collection('users')
+      const user = await usersCollection.findOne({ walletAddress })
+      
+      // If user has a username, that's their vanity referral code
+      if (user?.username) {
+        console.log(`[ReferralV2] Using username as vanity code: ${user.username}`)
+        
+        // Update or create referral code document with username
+        await collection.updateOne(
+          { walletAddress },
+          {
+            $set: {
+              walletAddress,
+              code: user.username,
+              username: user.username,
+              isVanity: true,
+              updatedAt: new Date()
+            },
+            $setOnInsert: {
+              totalReferrals: 0,
+              totalBurned: 0,
+              totalRewards: 0,
+              isActive: true,
+              createdAt: new Date()
+            }
+          },
+          { upsert: true }
+        )
+        
+        return {
+          success: true,
+          code: user.username,
+          isVanity: true
+        }
+      }
+      
+      // Check for existing non-vanity code
+      const existing = await collection.findOne({ walletAddress, isVanity: { $ne: true } })
       
       if (existing) {
         console.log(`[ReferralV2] Found existing code: ${existing.code}`)
         return {
           success: true,
-          code: existing.code
+          code: existing.code,
+          isVanity: false
         }
       }
       
@@ -80,7 +119,8 @@ export class ReferralServiceV2 {
       
       return {
         success: true,
-        code
+        code,
+        isVanity: false
       }
     } catch (error) {
       console.error('[ReferralV2] Error:', error)
@@ -192,25 +232,49 @@ export class ReferralServiceV2 {
   }
 
   /**
-   * Get referrer info from code
+   * Get referrer info from code (supports both regular codes and usernames)
    */
   static async getReferrerInfo(code: string): Promise<{
     walletAddress?: string
     username?: string
+    isVanity?: boolean
   } | null> {
     try {
       const db = await getDatabase()
       const collection = db.collection('referral_codes_v2')
       
-      const codeDoc = await collection.findOne({ code: code.toUpperCase(), isActive: true })
+      // First try to find by exact code match (could be username or generated code)
+      let codeDoc = await collection.findOne({ 
+        code: code, 
+        isActive: true 
+      })
       
+      // If not found, try uppercase version for generated codes
       if (!codeDoc) {
+        codeDoc = await collection.findOne({ 
+          code: code.toUpperCase(), 
+          isActive: true 
+        })
+      }
+      
+      // If still not found, check if it's a username
+      if (!codeDoc) {
+        const usersCollection = db.collection('users')
+        const user = await usersCollection.findOne({ username: code })
+        if (user) {
+          return {
+            walletAddress: user.walletAddress,
+            username: user.username,
+            isVanity: true
+          }
+        }
         return null
       }
       
       return {
         walletAddress: codeDoc.walletAddress,
-        username: codeDoc.username
+        username: codeDoc.username,
+        isVanity: codeDoc.isVanity || false
       }
     } catch (error) {
       console.error('[ReferralV2] Error getting referrer info:', error)

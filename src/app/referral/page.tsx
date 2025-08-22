@@ -23,6 +23,7 @@ import { useWallet } from '@/components/solana/solana-provider'
 interface ReferralDashboard {
   referralCode: string
   referralLink: string
+  isVanity?: boolean
   stats: {
     totalReferrals: number
     activeReferrals: number
@@ -89,6 +90,7 @@ export default function ReferralPage() {
           setDashboard({
             referralCode: codeData.code,
             referralLink: codeData.link,
+            isVanity: codeData.isVanity || false,
             stats: {
               totalReferrals: codeData.stats?.totalReferrals || 0,
               activeReferrals: 0,
@@ -170,9 +172,17 @@ export default function ReferralPage() {
       <Card className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold mb-1">Your Referral Link</h2>
+            <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+              Your Referral Link
+              {dashboard?.isVanity && (
+                <span className="badge-pink text-xs">Vanity URL</span>
+              )}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Share this link to earn rewards from referrals
+              {dashboard?.isVanity 
+                ? 'Your personalized username referral link'
+                : 'Share this link to earn rewards from referrals'
+              }
             </p>
           </div>
           <div className="flex gap-2">
@@ -201,10 +211,41 @@ export default function ReferralPage() {
         <div className="mt-4 flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Referral Code:</span>
-            <span className="font-bold text-primary">{dashboard?.referralCode}</span>
+            <span className="font-bold text-primary">
+              {dashboard?.isVanity ? '@' : ''}{dashboard?.referralCode}
+            </span>
           </div>
         </div>
       </Card>
+      
+      {/* Vanity URL Upgrade Card */}
+      {!dashboard?.isVanity && (
+        <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0">
+              <Trophy className="w-5 h-5 text-purple-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold mb-1">🎯 Upgrade to Vanity Referral Link</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Register a username to get a personalized referral link like:
+                <span className="font-mono text-primary ml-2">app.lynai.xyz?ref=yourname</span>
+              </p>
+              <div className="flex items-center gap-4">
+                <a 
+                  href="/scans"
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  Register Username →
+                </a>
+                <span className="text-xs text-muted-foreground">
+                  Burns 10,000 LYN • One-time fee
+                </span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

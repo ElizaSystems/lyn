@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
           totalBurned: 0,
           totalRewards: 0
         },
+        isVanity: false,
         fallback: true,
         message: 'Using temporary code (database issue)'
       })
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
       code: result.code,
       link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${result.code}`,
       stats,
+      isVanity: result.isVanity || false,
       success: true
     })
     
@@ -74,6 +76,7 @@ export async function GET(request: NextRequest) {
         totalBurned: 0,
         totalRewards: 0
       },
+      isVanity: false,
       fallback: true,
       message: 'Using temporary code'
     })
