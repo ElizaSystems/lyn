@@ -10,16 +10,11 @@ const AGENT_WALLET = 'eS5PgEoCFN2KuJnBfgvoenFJ7THDhvWZzBJ2SrxwkX1'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const authResult = await requireAuth(request)
-    if (authResult.error) {
-      return NextResponse.json(
-        { error: authResult.error.message },
-        { status: authResult.error.status }
-      )
+    const { username, signature, transaction, walletAddress } = await request.json()
+    
+    if (!walletAddress) {
+      return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 })
     }
-
-    const { username, signature, transaction } = await request.json()
     
     if (!username) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 })
@@ -33,7 +28,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const user = authResult.user
     const db = await getDatabase()
     const usersCollection = db.collection('users')
 
@@ -44,16 +38,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has a username
-    const currentUser = await usersCollection.findOne({ walletAddress: user.walletAddress })
+    const currentUser = await usersCollection.findOne({ walletAddress })
     if (currentUser?.username) {
       return NextResponse.json({ error: 'User already has a registered username' }, { status: 409 })
     }
 
     // Check token balance
-    console.log(`[Username Reg] Checking balance for wallet: ${user.walletAddress}`)
+    console.log(`[Username Reg] Checking balance for wallet: ${walletAddress}`)
     console.log(`[Username Reg] Using token mint: ${config.token.mintAddress}`)
     
-    const balance = await getTokenBalance(user.walletAddress, config.token.mintAddress)
+    const balance = await getTokenBalance(walletAddress, config.token.mintAddress)
     console.log(`[Username Reg] Balance found: ${balance} LYN`)
     
     if (balance < REQUIRED_BALANCE) {
@@ -73,14 +67,22 @@ export async function POST(request: NextRequest) {
 
     // Register username
     const registrationDate = new Date()
-    await usersCollection.updateOne(
-      { walletAddress: user.walletAddress },
+    const userResult = await usersCollection.updateOne(
+      { walletAddress },
       {
         $set: {
           username,
           usernameRegisteredAt: registrationDate,
           registrationFee: REGISTRATION_FEE,
           updatedAt: registrationDate
+        },
+        $setOnInsert: {
+          walletAddress,
+          nonce: '',
+          tokenBalance: balance,
+          hasTokenAccess: balance >= REQUIRED_BALANCE,
+          lastLoginAt: registrationDate,
+          createdAt: registrationDate
         }
       },
       { upsert: true }
@@ -88,11 +90,11 @@ export async function POST(request: NextRequest) {
 
     // Initialize reputation score
     await db.collection('user_reputation').updateOne(
-      { walletAddress: user.walletAddress },
+      { walletAddress },
       {
         $set: {
           username,
-          walletAddress: user.walletAddress,
+          walletAddress,
           reputationScore: 100, // Starting score
           metrics: {
             totalScans: 0,
@@ -112,13 +114,13 @@ export async function POST(request: NextRequest) {
 
     // Log the registration
     await db.collection('audit_logs').insertOne({
-      userId: user.id,
+      userId: walletAddress,
       action: 'username_registered',
       resource: 'user_profile',
       details: {
         username,
         registrationFee: REGISTRATION_FEE,
-        walletAddress: user.walletAddress
+        walletAddress
       },
       timestamp: registrationDate
     })

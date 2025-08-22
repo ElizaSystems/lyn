@@ -4,6 +4,7 @@ import { Shield, Search, RefreshCw, AlertTriangle, CheckCircle, Link, FileText, 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useWallet } from '@/components/solana/solana-provider'
 
 interface Scan {
   id: string
@@ -35,6 +36,7 @@ interface ScanStats {
 }
 
 export default function ScansPage() {
+  const { publicKey, connected } = useWallet()
   const [activeTab, setActiveTab] = useState<'profile' | 'personal' | 'public'>('profile') // Default to profile
   const [personalScans, setPersonalScans] = useState<Scan[]>([])
   const [publicScans, setPublicScans] = useState<Scan[]>([])
@@ -67,6 +69,39 @@ export default function ScansPage() {
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [registering, setRegistering] = useState(false)
   const [tokenBalance, setTokenBalance] = useState<number>(0)
+
+  // Fetch token balance when wallet connects
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!connected || !publicKey) {
+        setTokenBalance(0)
+        return
+      }
+
+      try {
+        console.log(`[Profile] Fetching balance for connected wallet: ${publicKey.toString()}`)
+        const response = await fetch('/api/wallet/balance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ walletAddress: publicKey.toString() })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('[Profile] Balance data received:', data)
+          setTokenBalance(data.token || data.balance || 0)
+        } else {
+          console.error('[Profile] Balance fetch failed:', response.status)
+        }
+      } catch (error) {
+        console.error('Failed to fetch balance:', error)
+      }
+    }
+
+    fetchBalance()
+  }, [connected, publicKey])
 
   // Fetch personal scans
   const fetchPersonalScans = async () => {
@@ -132,10 +167,7 @@ export default function ScansPage() {
   const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('auth-token')
-      if (!token) {
-        console.log('[Profile] No auth token found')
-        return
-      }
+      if (!token) return
 
       // Check if user has a username
       const response = await fetch('/api/auth/me', {
@@ -145,34 +177,15 @@ export default function ScansPage() {
       })
 
       if (response.ok) {
-        const authData = await response.json()
-        console.log('[Profile] Auth data received:', authData)
-        const userData = authData.user || authData
+        const userData = await response.json()
         setUserProfile(userData)
         
-        // Fetch token balance using POST method
-        if (userData.walletAddress) {
-          console.log(`[Profile] Fetching balance for wallet: ${userData.walletAddress}`)
-          const balanceResponse = await fetch('/api/wallet/balance', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ walletAddress: userData.walletAddress })
-          })
-          
-          if (balanceResponse.ok) {
-            const balanceData = await balanceResponse.json()
-            console.log('[Profile] Balance data received:', balanceData)
-            setTokenBalance(balanceData.token || balanceData.balance || 0)
-          } else {
-            console.error('[Profile] Balance fetch failed:', balanceResponse.status)
-          }
-        } else {
-          console.log('[Profile] No wallet address found in user data')
+        // Fetch token balance
+        const balanceResponse = await fetch(`/api/wallet/balance?address=${userData.walletAddress}`)
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json()
+          setTokenBalance(balanceData.balance || 0)
         }
-      } else {
-        console.error('[Profile] Auth check failed:', response.status)
       }
     } catch (error) {
       console.error('Failed to fetch user profile:', error)
