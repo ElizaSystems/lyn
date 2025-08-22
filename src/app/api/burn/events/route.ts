@@ -21,6 +21,8 @@ interface BurnEvent {
   percentage: number
   blockTime: number
   slot: number
+  type?: 'manual' | 'username_registration' | 'feature_unlock' | 'community'
+  description?: string
 }
 
 export async function GET(request: NextRequest) {
@@ -145,6 +147,16 @@ export async function GET(request: NextRequest) {
                         const decimals = 9
                         const uiAmount = Number(burnAmount) / Math.pow(10, decimals)
                         
+                        // Try to identify burn type based on amount or other factors
+                        let burnType: BurnEvent['type'] = 'manual'
+                        let description = 'Token burn'
+                        
+                        // Check if this is a username registration burn (10,000 LYN)
+                        if (uiAmount === 10000) {
+                          burnType = 'username_registration'
+                          description = 'Username registration'
+                        }
+                        
                         burnEvents.push({
                           signature: sig.signature,
                           date: new Date((sig.blockTime || 0) * 1000).toLocaleDateString(),
@@ -153,7 +165,9 @@ export async function GET(request: NextRequest) {
                           txHash: sig.signature,
                           percentage: 0, // Will calculate later
                           blockTime: sig.blockTime || 0,
-                          slot: sig.slot
+                          slot: sig.slot,
+                          type: burnType,
+                          description
                         })
                       }
                     }

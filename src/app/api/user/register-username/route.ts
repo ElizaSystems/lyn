@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { getDatabase } from '@/lib/mongodb'
-import { getTokenBalance } from '@/lib/solana'
+import { getTokenBalance, connection } from '@/lib/solana'
+import { verifyBurnTransaction } from '@/lib/solana-burn'
 import { config } from '@/lib/config'
 
-const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required
-const REGISTRATION_FEE = 10000 // 10,000 LYN tokens fee
-const AGENT_WALLET = 'eS5PgEoCFN2KuJnBfgvoenFJ7THDhvWZzBJ2SrxwkX1'
+const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required to hold
+const BURN_AMOUNT = 10000 // 10,000 LYN tokens to burn for registration
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,12 +58,25 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Verify payment transaction (simplified - in production you'd verify the actual transaction)
-    if (!transaction || !signature) {
+    // Verify burn transaction
+    if (!signature) {
       return NextResponse.json({ 
-        error: 'Payment transaction and signature required' 
+        error: 'Burn transaction signature required' 
       }, { status: 400 })
     }
+    
+    // Verify the burn transaction on-chain
+    console.log(`[Username Reg] Verifying burn transaction: ${signature}`)
+    const burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT)
+    
+    if (!burnVerified) {
+      return NextResponse.json({ 
+        error: `Invalid burn transaction. Please burn exactly ${BURN_AMOUNT.toLocaleString()} LYN tokens.`,
+        requiredBurnAmount: BURN_AMOUNT
+      }, { status: 400 })
+    }
+    
+    console.log(`[Username Reg] Burn verified successfully for ${BURN_AMOUNT} LYN`)
 
     // Register username
     const registrationDate = new Date()
@@ -73,7 +86,8 @@ export async function POST(request: NextRequest) {
         $set: {
           username,
           usernameRegisteredAt: registrationDate,
-          registrationFee: REGISTRATION_FEE,
+          registrationBurnAmount: BURN_AMOUNT,
+          registrationBurnTx: signature,
           updatedAt: registrationDate
         },
         $setOnInsert: {
@@ -119,7 +133,8 @@ export async function POST(request: NextRequest) {
       resource: 'user_profile',
       details: {
         username,
-        registrationFee: REGISTRATION_FEE,
+        burnAmount: BURN_AMOUNT,
+        burnTransaction: signature,
         walletAddress
       },
       timestamp: registrationDate

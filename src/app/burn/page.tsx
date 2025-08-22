@@ -11,6 +11,8 @@ interface BurnEvent {
   txHash: string
   percentage: number
   blockHeight?: number
+  type?: 'manual' | 'username_registration' | 'feature_unlock' | 'community'
+  description?: string
 }
 
 export default function BurnTrackerPage() {
@@ -230,8 +232,13 @@ export default function BurnTrackerPage() {
                       <Flame className="w-5 h-5 text-orange-500" />
                     </div>
                     <div>
-                      <p className="font-medium">{event.amount} LYN</p>
-                      <p className="text-xs text-muted-foreground">Transaction: {event.txHash}</p>
+                      <p className="font-medium">{event.amount}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {event.description || 'Token burn'}
+                      </p>
+                      <p className="text-xs text-muted-foreground opacity-70">
+                        {event.txHash.slice(0, 8)}...{event.txHash.slice(-8)}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -250,8 +257,15 @@ export default function BurnTrackerPage() {
                 <p className="text-sm font-medium">About Token Burns</p>
                 <p className="text-xs text-muted-foreground">
                   Token burns permanently remove LYN from circulation, creating deflationary pressure. 
-                  Burns occur monthly through automated smart contracts and special events. 
-                  This mechanism helps increase scarcity and potentially supports token value over time.
+                  Burns occur through various mechanisms:
+                </p>
+                <ul className="text-xs text-muted-foreground ml-4 space-y-1">
+                  <li>• Username Registration: 10,000 LYN burned</li>
+                  <li>• Premium Features: Variable burn amounts</li>
+                  <li>• Community Events: Scheduled burn events</li>
+                  <li>• Protocol Revenue: Automatic burns from fees</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
                   All burn transactions are verifiable on the Solana blockchain.
                 </p>
               </div>
