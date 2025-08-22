@@ -11,23 +11,43 @@ import crypto from 'crypto'
 
 export class ReferralService {
   private static async getReferralCodesCollection() {
-    const db = await getDatabase()
-    return db.collection<ReferralCode>('referral_codes')
+    try {
+      const db = await getDatabase()
+      return db.collection<ReferralCode>('referral_codes')
+    } catch (error) {
+      console.error('[ReferralService] Failed to get referral codes collection:', error)
+      throw new Error('Database connection failed')
+    }
   }
 
   private static async getReferralRelationshipsCollection() {
-    const db = await getDatabase()
-    return db.collection<ReferralRelationship>('referral_relationships')
+    try {
+      const db = await getDatabase()
+      return db.collection<ReferralRelationship>('referral_relationships')
+    } catch (error) {
+      console.error('[ReferralService] Failed to get relationships collection:', error)
+      throw new Error('Database connection failed')
+    }
   }
 
   private static async getReferralRewardsCollection() {
-    const db = await getDatabase()
-    return db.collection<ReferralReward>('referral_rewards')
+    try {
+      const db = await getDatabase()
+      return db.collection<ReferralReward>('referral_rewards')
+    } catch (error) {
+      console.error('[ReferralService] Failed to get rewards collection:', error)
+      throw new Error('Database connection failed')
+    }
   }
 
   private static async getReferralAnalyticsCollection() {
-    const db = await getDatabase()
-    return db.collection<ReferralAnalytics>('referral_analytics')
+    try {
+      const db = await getDatabase()
+      return db.collection<ReferralAnalytics>('referral_analytics')
+    } catch (error) {
+      console.error('[ReferralService] Failed to get analytics collection:', error)
+      throw new Error('Database connection failed')
+    }
   }
 
   /**
@@ -47,7 +67,11 @@ export class ReferralService {
     walletAddress: string,
     username?: string
   ): Promise<ReferralCode> {
-    const codes = await this.getReferralCodesCollection()
+    try {
+      console.log(`[ReferralService] getOrCreateReferralCode - userId: ${userId}, walletAddress: ${walletAddress}, username: ${username}`)
+      
+      const codes = await this.getReferralCodesCollection()
+      console.log('[ReferralService] Got referral codes collection')
     
     // Check if user already has a referral code
     let existing
@@ -69,9 +93,12 @@ export class ReferralService {
       })
     }
     
-    if (existing) {
-      return existing
-    }
+      if (existing) {
+        console.log(`[ReferralService] Found existing referral code: ${existing.code}`)
+        return existing
+      }
+      
+      console.log('[ReferralService] No existing code found, creating new one')
     
     // Generate new referral code
     let code = this.generateReferralCode(username)
@@ -95,8 +122,15 @@ export class ReferralService {
       isActive: true
     }
     
-    const result = await codes.insertOne(referralCode)
-    return { ...referralCode, _id: result.insertedId }
+      console.log(`[ReferralService] Creating referral code: ${code}`)
+      const result = await codes.insertOne(referralCode)
+      console.log(`[ReferralService] Successfully created referral code with ID: ${result.insertedId}`)
+      
+      return { ...referralCode, _id: result.insertedId }
+    } catch (error) {
+      console.error('[ReferralService] Error in getOrCreateReferralCode:', error)
+      throw error
+    }
   }
 
   /**
