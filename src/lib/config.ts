@@ -65,6 +65,7 @@ const configSchema = z.object({
     apiUrl: z.string().default('http://localhost:3000/api'),
     environment: z.enum(['development', 'staging', 'production']).default('development'),
     logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    adminWallets: z.string().default(''),
   }),
 
   // Email
@@ -129,6 +130,7 @@ function loadConfig(): Config {
       apiUrl: process.env.NEXT_PUBLIC_API_URL,
       environment: process.env.NODE_ENV as 'development' | 'staging' | 'production',
       logLevel: process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error',
+      adminWallets: process.env.ADMIN_WALLETS,
     },
     email: {
       smtp: {
@@ -167,6 +169,17 @@ export type { Config }
 export const isDevelopment = () => config.app.environment === 'development'
 export const isProduction = () => config.app.environment === 'production'
 export const isStaging = () => config.app.environment === 'staging'
+
+// Admin wallet helpers
+export const getAdminWallets = (): string[] => {
+  if (!config.app.adminWallets) return []
+  return config.app.adminWallets.split(',').map(w => w.trim()).filter(w => w.length > 0)
+}
+
+export const isAdminWallet = (walletAddress: string): boolean => {
+  const adminWallets = getAdminWallets()
+  return adminWallets.includes(walletAddress)
+}
 
 // Validate critical production configs
 export function validateProductionConfig() {
