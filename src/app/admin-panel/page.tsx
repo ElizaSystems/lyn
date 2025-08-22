@@ -85,6 +85,7 @@ interface AdminScan {
 export default function AdminPanel() {
   const { connected, publicKey } = useWallet()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'burns' | 'scans'>('overview')
   
@@ -98,11 +99,66 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
+  // Authenticate wallet
+  const authenticateWallet = async () => {
+    if (!connected || !publicKey) return false
+    
+    try {
+      // Get wallet adapter
+      interface SolanaWallet {
+        signMessage: (message: Uint8Array, encoding?: string) => Promise<Uint8Array>
+      }
+      const wallet = (window as Window & { solana?: SolanaWallet }).solana
+      if (!wallet || !wallet.signMessage) {
+        console.error('Wallet does not support message signing')
+        return false
+      }
+      
+      // Request nonce
+      const nonceResponse = await fetch('/api/auth/nonce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: publicKey.toString() })
+      })
+      
+      if (!nonceResponse.ok) return false
+      
+      const { message } = await nonceResponse.json()
+      
+      // Sign message
+      const encodedMessage = new TextEncoder().encode(message)
+      const signature = await wallet.signMessage(encodedMessage, 'utf8')
+      const signatureBase58 = Buffer.from(signature).toString('base64')
+      
+      // Login
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          walletAddress: publicKey.toString(),
+          signature: signatureBase58,
+          message
+        })
+      })
+      
+      if (loginResponse.ok) {
+        setIsAuthenticated(true)
+        return true
+      }
+    } catch (error) {
+      console.error('Authentication failed:', error)
+    }
+    
+    return false
+  }
+
   // Check admin access
   useEffect(() => {
     const checkAdminAccess = async () => {
       if (connected && publicKey) {
         try {
+          // First check if admin wallet
           const response = await fetch('/api/admin/simple-check', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -113,6 +169,14 @@ export default function AdminPanel() {
             const data = await response.json()
             setIsAdmin(data.isAdmin)
             console.log('[Admin Panel] Admin check result:', data)
+            
+            // If admin, authenticate
+            if (data.isAdmin) {
+              const authenticated = await authenticateWallet()
+              if (!authenticated) {
+                console.error('Failed to authenticate admin wallet')
+              }
+            }
           } else {
             setIsAdmin(false)
           }
@@ -122,6 +186,7 @@ export default function AdminPanel() {
         }
       } else {
         setIsAdmin(false)
+        setIsAuthenticated(false)
       }
       setLoading(false)
     }
@@ -132,9 +197,8 @@ export default function AdminPanel() {
   // Fetch admin stats
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem('auth-token')
       const response = await fetch('/api/admin/stats', {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       })
       if (response.ok) {
         const data = await response.json()
@@ -148,9 +212,8 @@ export default function AdminPanel() {
   // Fetch users
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('auth-token')
       const response = await fetch(`/api/admin/users?search=${searchTerm}&limit=100`, {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       })
       if (response.ok) {
         const data = await response.json()
@@ -164,9 +227,8 @@ export default function AdminPanel() {
   // Fetch burns
   const fetchBurns = async () => {
     try {
-      const token = localStorage.getItem('auth-token')
       const response = await fetch('/api/admin/burns?limit=100', {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       })
       if (response.ok) {
         const data = await response.json()
@@ -180,9 +242,8 @@ export default function AdminPanel() {
   // Fetch scans
   const fetchScans = async () => {
     try {
-      const token = localStorage.getItem('auth-token')
       const response = await fetch('/api/admin/scans?limit=100', {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       })
       if (response.ok) {
         const data = await response.json()
@@ -207,19 +268,19 @@ export default function AdminPanel() {
 
   // Load initial data
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && isAuthenticated) {
       fetchStats()
     }
-  }, [isAdmin])
+  }, [isAdmin, isAuthenticated])
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && isAuthenticated) {
       if (activeTab === 'users') fetchUsers()
       else if (activeTab === 'burns') fetchBurns()
       else if (activeTab === 'scans') fetchScans()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, activeTab, searchTerm])
+  }, [isAdmin, isAuthenticated, activeTab, searchTerm])
 
   // Utility functions
   const formatDate = (dateString: string) => {
