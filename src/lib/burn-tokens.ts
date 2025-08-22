@@ -1,13 +1,16 @@
-import { Connection, PublicKey, Transaction, sendAndConfirmTransaction } from '@solana/web3.js'
+import { Connection, PublicKey, Transaction } from '@solana/web3.js'
 import { 
   getAssociatedTokenAddress, 
   createBurnInstruction,
-  TOKEN_PROGRAM_ID
+  TOKEN_PROGRAM_ID,
+  getMint,
+  getAccount
 } from '@solana/spl-token'
 
-// Token mint address
+// Token configuration
 const TOKEN_MINT = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com'
+const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_TOKEN_DECIMALS) || 6
 
 interface PhantomProvider {
   isPhantom?: boolean
@@ -53,8 +56,24 @@ export async function burnTokensWithWallet(amount: number): Promise<string> {
   console.log(`[Burn] Preparing to burn ${amount} LYN tokens`)
   console.log(`[Burn] Wallet: ${walletPublicKey.toString()}`)
   console.log(`[Burn] Token Mint: ${mintPublicKey.toString()}`)
+  console.log(`[Burn] RPC Endpoint: ${RPC_ENDPOINT}`)
 
   try {
+    // Get mint info to determine correct decimals FIRST
+    let decimals = DEFAULT_DECIMALS
+    try {
+      const mintInfo = await getMint(connection, mintPublicKey)
+      decimals = mintInfo.decimals
+      console.log(`[Burn] Token decimals from chain: ${decimals}`)
+      
+      // Verify this is the right token
+      const totalSupply = Number(mintInfo.supply) / Math.pow(10, decimals)
+      console.log(`[Burn] Token total supply: ${totalSupply.toLocaleString()}`)
+    } catch (e) {
+      console.log(`[Burn] Could not fetch mint info, using configured decimals: ${decimals}`)
+      console.log(`[Burn] Error: ${(e as Error).message}`)
+    }
+
     // Get the associated token account
     const associatedTokenAccount = await getAssociatedTokenAddress(
       mintPublicKey,
@@ -62,11 +81,27 @@ export async function burnTokensWithWallet(amount: number): Promise<string> {
     )
 
     console.log(`[Burn] Token Account: ${associatedTokenAccount.toString()}`)
-
-    // Create burn instruction
-    // LYN has 6 decimals based on the token info
-    const decimals = 6
+    
+    // Check if token account exists and has sufficient balance
+    try {
+      const tokenAccountInfo = await getAccount(connection, associatedTokenAccount)
+      const currentBalance = Number(tokenAccountInfo.amount) / Math.pow(10, decimals)
+      console.log(`[Burn] Current token balance: ${currentBalance} LYN`)
+      
+      if (currentBalance < amount) {
+        throw new Error(`Insufficient balance. You have ${currentBalance.toFixed(2)} LYN but need ${amount} LYN to burn.`)
+      }
+    } catch (e) {
+      if ((e as Error).message.includes('Insufficient balance')) {
+        throw e
+      }
+      console.error('[Burn] Could not fetch token account:', e)
+      throw new Error('Token account not found. Make sure you have LYN tokens in your wallet.')
+    }
+    
+    // Calculate amount with correct decimals
     const amountToBurn = amount * Math.pow(10, decimals)
+    console.log(`[Burn] Amount to burn (raw): ${amountToBurn}`)
     
     const burnInstruction = createBurnInstruction(
       associatedTokenAccount, // token account to burn from

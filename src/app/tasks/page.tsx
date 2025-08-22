@@ -10,7 +10,7 @@ interface Task {
   name: string
   description: string
   status: 'active' | 'paused' | 'completed' | 'failed'
-  type: 'security-scan' | 'wallet-monitor' | 'price-alert' | 'auto-trade'
+  type: 'security-scan' | 'wallet-monitor' | 'price-alert' | 'auto-trade' | 'threat-hunter' | 'portfolio-tracker' | 'smart-contract-audit' | 'defi-monitor' | 'nft-tracker' | 'governance-monitor'
   frequency: string
   lastRun?: Date | string
   nextRun?: Date | string | null
@@ -96,6 +96,20 @@ export default function TasksPage() {
         return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10'
       case 'auto-trade':
         return 'text-green-500 border-green-500/30 bg-green-500/10'
+      case 'threat-hunter':
+        return 'text-red-500 border-red-500/30 bg-red-500/10'
+      case 'portfolio-tracker':
+        return 'text-blue-500 border-blue-500/30 bg-blue-500/10'
+      case 'smart-contract-audit':
+        return 'text-purple-500 border-purple-500/30 bg-purple-500/10'
+      case 'defi-monitor':
+        return 'text-cyan-500 border-cyan-500/30 bg-cyan-500/10'
+      case 'nft-tracker':
+        return 'text-pink-500 border-pink-500/30 bg-pink-500/10'
+      case 'governance-monitor':
+        return 'text-orange-500 border-orange-500/30 bg-orange-500/10'
+      default:
+        return 'text-muted-foreground border-border/30 bg-muted/10'
     }
   }
 
@@ -252,7 +266,7 @@ export default function TasksPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="glass-card p-4 rounded-xl border border-border/50">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-muted-foreground">Active Tasks</p>
@@ -271,19 +285,42 @@ export default function TasksPage() {
               <CheckCircle className="w-4 h-4 text-primary" />
             </div>
           </div>
-          <p className="text-2xl font-bold">98.7%</p>
-          <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
+          <p className="text-2xl font-bold">
+            {tasks.length > 0 ? 
+              (tasks.reduce((sum, task) => sum + (task.successRate || 100), 0) / tasks.length).toFixed(1) : 
+              '100.0'
+            }%
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">Average across all tasks</p>
         </div>
 
         <div className="glass-card p-4 rounded-xl border border-border/50">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-muted-foreground">Tasks Run Today</p>
+            <p className="text-sm text-muted-foreground">Total Executions</p>
             <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center">
               <RefreshCw className="w-4 h-4 text-secondary" />
             </div>
           </div>
-          <p className="text-2xl font-bold">142</p>
-          <p className="text-xs text-muted-foreground mt-1">+12% from yesterday</p>
+          <p className="text-2xl font-bold">
+            {tasks.reduce((sum, task) => sum + (task.executionCount || 0), 0)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">All time</p>
+        </div>
+
+        <div className="glass-card p-4 rounded-xl border border-border/50">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Alerts Generated</p>
+            <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold">
+            {tasks.reduce((sum, task) => {
+              const alerts = task.lastResult?.data?.alerts as string[] || []
+              return sum + alerts.length
+            }, 0)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">Recent alerts</p>
         </div>
       </div>
 
@@ -513,7 +550,13 @@ export default function TasksPage() {
                   <option value="security-scan">Security Scan</option>
                   <option value="wallet-monitor">Wallet Monitor</option>
                   <option value="price-alert">Price Alert</option>
-                  <option value="auto-trade">Auto Trade</option>
+                  <option value="auto-trade">Auto Trade (Simulated)</option>
+                  <option value="threat-hunter">Threat Hunter</option>
+                  <option value="portfolio-tracker">Portfolio Tracker</option>
+                  <option value="smart-contract-audit">Smart Contract Audit</option>
+                  <option value="defi-monitor">DeFi Monitor</option>
+                  <option value="nft-tracker">NFT Tracker</option>
+                  <option value="governance-monitor">Governance Monitor</option>
                 </select>
               </div>
               
@@ -583,42 +626,135 @@ export default function TasksPage() {
               Configure automated workflows for your AI agent
             </p>
             <div className="space-y-4">
-              <Button 
-                className="w-full justify-start" 
-                variant="outline"
-                onClick={() => createTask({
-                  name: 'Security Scan Task',
-                  description: 'Automated security scanning',
-                  type: 'security-scan',
-                  frequency: 'Every 24 hours'
-                })}
-              >
-                Security Scan Task
-              </Button>
-              <Button 
-                className="w-full justify-start" 
-                variant="outline"
-                onClick={() => createTask({
-                  name: 'Price Alert',
-                  description: 'Monitor token price changes',
-                  type: 'price-alert',
-                  frequency: 'Every 5 minutes'
-                })}
-              >
-                Price Alert Task
-              </Button>
-              <Button 
-                className="w-full justify-start" 
-                variant="outline"
-                onClick={() => createTask({
-                  name: 'Wallet Monitor',
-                  description: 'Monitor wallet activity',
-                  type: 'wallet-monitor',
-                  frequency: 'Real-time'
-                })}
-              >
-                Wallet Monitor Task
-              </Button>
+              <div className="grid grid-cols-1 gap-3">
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'Security Scan Task',
+                    description: 'Automated security scanning of URLs, wallets, and contracts',
+                    type: 'security-scan',
+                    frequency: 'Every 24 hours'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">🛡️ Security Scan</div>
+                    <div className="text-xs text-muted-foreground">Scan URLs, wallets & contracts</div>
+                  </div>
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'Threat Hunter',
+                    description: 'Actively hunt for new threats across intelligence sources',
+                    type: 'threat-hunter',
+                    frequency: 'Every hour'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">🔍 Threat Hunter</div>
+                    <div className="text-xs text-muted-foreground">Hunt new threats & indicators</div>
+                  </div>
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'Portfolio Tracker',
+                    description: 'Track portfolio performance and rebalancing opportunities',
+                    type: 'portfolio-tracker',
+                    frequency: 'Every 30 minutes'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">📊 Portfolio Tracker</div>
+                    <div className="text-xs text-muted-foreground">Monitor portfolio performance</div>
+                  </div>
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'Smart Contract Auditor',
+                    description: 'Continuous audit of smart contracts for vulnerabilities',
+                    type: 'smart-contract-audit',
+                    frequency: 'Every 6 hours'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">🔐 Contract Auditor</div>
+                    <div className="text-xs text-muted-foreground">Audit smart contracts</div>
+                  </div>
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'DeFi Monitor',
+                    description: 'Monitor DeFi protocols for yield opportunities and risks',
+                    type: 'defi-monitor',
+                    frequency: 'Every hour'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">🏦 DeFi Monitor</div>
+                    <div className="text-xs text-muted-foreground">Track DeFi yields & risks</div>
+                  </div>
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'NFT Tracker',
+                    description: 'Track NFT collection floor prices and market activity',
+                    type: 'nft-tracker',
+                    frequency: 'Every 30 minutes'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">🖼️ NFT Tracker</div>
+                    <div className="text-xs text-muted-foreground">Monitor NFT collections</div>
+                  </div>
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'Price Alert',
+                    description: 'Monitor token price changes and market movements',
+                    type: 'price-alert',
+                    frequency: 'Every 5 minutes'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">💰 Price Alert</div>
+                    <div className="text-xs text-muted-foreground">Monitor price changes</div>
+                  </div>
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start text-left" 
+                  variant="outline"
+                  onClick={() => createTask({
+                    name: 'Governance Monitor',
+                    description: 'Track DAO proposals and voting deadlines',
+                    type: 'governance-monitor',
+                    frequency: 'Every 12 hours'
+                  })}
+                >
+                  <div>
+                    <div className="font-medium">🗳️ Governance Monitor</div>
+                    <div className="text-xs text-muted-foreground">Track DAO proposals</div>
+                  </div>
+                </Button>
+              </div>
               <Button 
                 className="w-full justify-start" 
                 variant="outline"

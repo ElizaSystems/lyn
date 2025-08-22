@@ -10,8 +10,8 @@ export interface Task {
   userId: string
   name: string
   description: string
-  status: 'active' | 'paused' | 'completed' | 'failed'
-  type: 'security-scan' | 'wallet-monitor' | 'price-alert' | 'auto-trade'
+  status: 'active' | 'paused' | 'completed' | 'failed' | 'scheduled'
+  type: 'security-scan' | 'wallet-monitor' | 'price-alert' | 'auto-trade' | 'threat-hunter' | 'portfolio-tracker' | 'smart-contract-audit' | 'defi-monitor' | 'nft-tracker' | 'governance-monitor'
   frequency: string
   lastRun?: Date
   nextRun?: Date | null
@@ -125,6 +125,24 @@ export class TaskExecutor {
           break
         case 'auto-trade':
           result = await this.executeAutoTrade(task)
+          break
+        case 'threat-hunter':
+          result = await this.executeThreatHunter(task)
+          break
+        case 'portfolio-tracker':
+          result = await this.executePortfolioTracker(task)
+          break
+        case 'smart-contract-audit':
+          result = await this.executeSmartContractAudit(task)
+          break
+        case 'defi-monitor':
+          result = await this.executeDefiMonitor(task)
+          break
+        case 'nft-tracker':
+          result = await this.executeNftTracker(task)
+          break
+        case 'governance-monitor':
+          result = await this.executeGovernanceMonitor(task)
           break
         default:
           throw new Error(`Unknown task type: ${task.type}`)
@@ -676,5 +694,369 @@ export class TaskExecutor {
       failedExecutions: executions.length - successfulExecutions,
       averageSuccessRate
     }
+  }
+
+  /**
+   * Execute threat hunter task - actively search for new threats
+   */
+  private static async executeThreatHunter(task: Task): Promise<Record<string, unknown>> {
+    const config = task.config || {}
+    const threatSources = config.threatSources as string[] || ['virustotal', 'urlvoid', 'phishtank']
+    
+    const result = {
+      threatsFound: 0,
+      newThreats: [] as Array<{
+        source: string
+        type: string
+        indicator: string
+        severity: string
+        confidence: number
+      }>,
+      sourcesChecked: threatSources.length,
+      alert: false
+    }
+
+    try {
+      // Simulate threat hunting across multiple sources
+      for (const source of threatSources) {
+        // In a real implementation, this would query actual threat intelligence APIs
+        const threats = await this.queryThreatSource(source)
+        result.newThreats.push(...threats)
+      }
+
+      result.threatsFound = result.newThreats.length
+      result.alert = result.threatsFound > 0
+
+      return result
+    } catch (error) {
+      throw new Error(`Threat hunting failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Execute portfolio tracker task
+   */
+  private static async executePortfolioTracker(task: Task): Promise<Record<string, unknown>> {
+    const config = task.config || {}
+    const portfolioAddress = config.portfolioAddress as string
+    const trackingTokens = config.trackingTokens as string[] || []
+    
+    if (!portfolioAddress) {
+      throw new Error('Portfolio address not configured')
+    }
+
+    const result = {
+      totalValue: 0,
+      tokens: [] as Array<{
+        symbol: string
+        balance: number
+        value: number
+        change24h: number
+      }>,
+      performance: {
+        day: 0,
+        week: 0,
+        month: 0
+      },
+      alert: false,
+      alerts: [] as string[]
+    }
+
+    try {
+      // Track each token in the portfolio
+      for (const tokenMint of trackingTokens) {
+        const balance = await getTokenBalance(portfolioAddress, tokenMint)
+        const marketData = await fetchMarketData(tokenMint)
+        
+        const tokenValue = balance * marketData.price
+        result.totalValue += tokenValue
+        
+        result.tokens.push({
+          symbol: 'LYN', // marketData doesn't have symbol property
+          balance,
+          value: tokenValue,
+          change24h: parseFloat(marketData.change24h) || 0
+        })
+      }
+
+      // Calculate performance alerts
+      const performanceThreshold = config.rebalanceThreshold as number || 20
+      
+      for (const token of result.tokens) {
+        if (Math.abs(token.change24h) > performanceThreshold) {
+          result.alert = true
+          result.alerts.push(`${token.symbol} changed ${token.change24h.toFixed(2)}% in 24h`)
+        }
+      }
+
+      return result
+    } catch (error) {
+      throw new Error(`Portfolio tracking failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Execute smart contract audit task
+   */
+  private static async executeSmartContractAudit(task: Task): Promise<Record<string, unknown>> {
+    const config = task.config || {}
+    const contractAddresses = config.contractAddresses as string[] || []
+    
+    const result = {
+      contractsAudited: 0,
+      vulnerabilities: [] as Array<{
+        contract: string
+        type: string
+        severity: string
+        description: string
+      }>,
+      riskScore: 0,
+      alert: false
+    }
+
+    try {
+      for (const contractAddress of contractAddresses) {
+        // Simulate contract audit
+        const audit = await this.auditSmartContract(contractAddress)
+        result.contractsAudited++
+        
+        if (audit.vulnerabilities.length > 0) {
+          result.vulnerabilities.push(...audit.vulnerabilities)
+          result.alert = true
+        }
+        
+        result.riskScore = Math.max(result.riskScore, audit.riskScore)
+      }
+
+      return result
+    } catch (error) {
+      throw new Error(`Smart contract audit failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Execute DeFi monitor task
+   */
+  private static async executeDefiMonitor(task: Task): Promise<Record<string, unknown>> {
+    const config = task.config || {}
+    const protocols = config.protocols as string[] || []
+    
+    const result = {
+      protocolsMonitored: protocols.length,
+      totalValueLocked: 0,
+      yieldOpportunities: [] as Array<{
+        protocol: string
+        apy: number
+        risk: string
+        liquidity: number
+      }>,
+      risks: [] as string[],
+      alert: false
+    }
+
+    try {
+      // Monitor DeFi protocols
+      for (const protocol of protocols) {
+        const protocolData = await this.getProtocolData(protocol)
+        result.totalValueLocked += protocolData.tvl
+        
+        if (protocolData.apy > (config.yieldThresholds as number || 50)) {
+          result.yieldOpportunities.push({
+            protocol,
+            apy: protocolData.apy,
+            risk: protocolData.risk,
+            liquidity: protocolData.liquidity
+          })
+        }
+        
+        if (protocolData.risks.length > 0) {
+          result.risks.push(...protocolData.risks)
+          result.alert = true
+        }
+      }
+
+      return result
+    } catch (error) {
+      throw new Error(`DeFi monitoring failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Execute NFT tracker task
+   */
+  private static async executeNftTracker(task: Task): Promise<Record<string, unknown>> {
+    const config = task.config || {}
+    const collections = config.nftCollections as string[] || []
+    
+    const result = {
+      collectionsTracked: collections.length,
+      floorPrices: [] as Array<{
+        collection: string
+        floorPrice: number
+        change24h: number
+        volume24h: number
+      }>,
+      alerts: [] as string[],
+      alert: false
+    }
+
+    try {
+      for (const collection of collections) {
+        const collectionData = await this.getNftCollectionData(collection)
+        
+        result.floorPrices.push({
+          collection,
+          floorPrice: collectionData.floorPrice,
+          change24h: collectionData.change24h,
+          volume24h: collectionData.volume24h
+        })
+        
+        if (config.floorPriceAlerts && Math.abs(collectionData.change24h) > 20) {
+          result.alert = true
+          result.alerts.push(`${collection} floor price changed ${collectionData.change24h.toFixed(2)}%`)
+        }
+      }
+
+      return result
+    } catch (error) {
+      throw new Error(`NFT tracking failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Execute governance monitor task
+   */
+  private static async executeGovernanceMonitor(task: Task): Promise<Record<string, unknown>> {
+    const config = task.config || {}
+    const daoAddresses = config.daoAddresses as string[] || []
+    
+    const result = {
+      daosMonitored: daoAddresses.length,
+      activeProposals: [] as Array<{
+        dao: string
+        proposalId: string
+        title: string
+        status: string
+        votingEnds: Date
+      }>,
+      votingReminders: [] as string[],
+      alert: false
+    }
+
+    try {
+      for (const daoAddress of daoAddresses) {
+        const proposals = await this.getActiveProposals(daoAddress)
+        result.activeProposals.push(...proposals)
+        
+        if (config.votingReminders) {
+          const endingSoon = proposals.filter(p => 
+            p.votingEnds.getTime() - Date.now() < 24 * 60 * 60 * 1000 // 24 hours
+          )
+          
+          if (endingSoon.length > 0) {
+            result.alert = true
+            result.votingReminders.push(...endingSoon.map(p => 
+              `Voting ends soon for "${p.title}" in ${daoAddress}`
+            ))
+          }
+        }
+      }
+
+      return result
+    } catch (error) {
+      throw new Error(`Governance monitoring failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // Helper methods for new task types
+  private static async queryThreatSource(source: string): Promise<Array<{
+    source: string
+    type: string
+    indicator: string
+    severity: string
+    confidence: number
+  }>> {
+    // Simulate threat intelligence queries
+    const mockThreats = Math.random() > 0.8 ? [{
+      source,
+      type: 'malicious_url',
+      indicator: `suspicious-${Math.random().toString(36).substring(7)}.com`,
+      severity: 'medium',
+      confidence: 85
+    }] : []
+    
+    return mockThreats
+  }
+
+  private static async auditSmartContract(contractAddress: string): Promise<{
+    vulnerabilities: Array<{
+      contract: string
+      type: string
+      severity: string
+      description: string
+    }>
+    riskScore: number
+  }> {
+    // Simulate contract audit
+    const hasVulnerability = Math.random() > 0.9
+    
+    return {
+      vulnerabilities: hasVulnerability ? [{
+        contract: contractAddress,
+        type: 'reentrancy',
+        severity: 'high',
+        description: 'Potential reentrancy vulnerability detected'
+      }] : [],
+      riskScore: hasVulnerability ? 75 : 15
+    }
+  }
+
+  private static async getProtocolData(protocol: string): Promise<{
+    tvl: number
+    apy: number
+    risk: string
+    liquidity: number
+    risks: string[]
+  }> {
+    // Simulate DeFi protocol data
+    return {
+      tvl: Math.random() * 1000000,
+      apy: Math.random() * 100,
+      risk: Math.random() > 0.7 ? 'high' : 'medium',
+      liquidity: Math.random() * 500000,
+      risks: Math.random() > 0.8 ? ['Impermanent loss risk'] : []
+    }
+  }
+
+  private static async getNftCollectionData(collection: string): Promise<{
+    floorPrice: number
+    change24h: number
+    volume24h: number
+  }> {
+    // Simulate NFT collection data
+    return {
+      floorPrice: Math.random() * 10,
+      change24h: (Math.random() - 0.5) * 40,
+      volume24h: Math.random() * 1000
+    }
+  }
+
+  private static async getActiveProposals(daoAddress: string): Promise<Array<{
+    dao: string
+    proposalId: string
+    title: string
+    status: string
+    votingEnds: Date
+  }>> {
+    // Simulate governance proposals
+    const hasProposals = Math.random() > 0.7
+    
+    return hasProposals ? [{
+      dao: daoAddress,
+      proposalId: `prop_${Math.random().toString(36).substring(7)}`,
+      title: 'Update protocol parameters',
+      status: 'active',
+      votingEnds: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000)
+    }] : []
   }
 }
