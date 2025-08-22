@@ -5,6 +5,9 @@ import { SecurityScan } from '@/lib/models/scan'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log(`[Security Scans] GET request received`)
+    console.log(`[Security Scans] Environment check - hasMongoUri: ${!!process.env.MONGODB_URI}, hasDbName: ${!!process.env.MONGODB_DB_NAME}`)
+    
     // Get session ID from headers or cookies
     const sessionId = request.headers.get('x-session-id') || 
                      request.cookies.get('sessionId')?.value ||
@@ -108,8 +111,10 @@ export async function GET(request: NextRequest) {
           high: 0,
           critical: 0
         }
-      }
-    })
+      },
+      error: 'Service temporarily unavailable',
+      fallback: true
+    }, { status: 200 }) // Return 200 instead of 500
   }
 }
 
@@ -157,8 +162,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Failed to fetch scan:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch scan details' },
-      { status: 500 }
+      { 
+        error: 'Failed to fetch scan details',
+        fallback: true 
+      },
+      { status: 200 } // Return 200 instead of 500
     )
   }
 }
