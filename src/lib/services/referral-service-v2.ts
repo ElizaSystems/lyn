@@ -119,12 +119,14 @@ export class ReferralServiceV2 {
   }
 
   /**
-   * Get referral stats
+   * Get referral stats including tier 2
    */
   static async getReferralStats(walletAddress: string): Promise<{
     totalReferrals: number
     totalBurned: number
     totalRewards: number
+    totalTier2Referrals?: number
+    totalTier2Rewards?: number
   }> {
     try {
       const db = await getDatabase()
@@ -136,27 +138,34 @@ export class ReferralServiceV2 {
         return {
           totalReferrals: 0,
           totalBurned: 0,
-          totalRewards: 0
+          totalRewards: 0,
+          totalTier2Referrals: 0,
+          totalTier2Rewards: 0
         }
       }
       
       return {
         totalReferrals: code.totalReferrals || 0,
         totalBurned: code.totalBurned || 0,
-        totalRewards: code.totalRewards || 0
+        totalRewards: code.totalRewards || 0,
+        totalTier2Referrals: code.totalTier2Referrals || 0,
+        totalTier2Rewards: code.totalTier2Rewards || 0
       }
     } catch (error) {
       console.error('[ReferralV2] Error getting stats:', error)
       return {
         totalReferrals: 0,
         totalBurned: 0,
-        totalRewards: 0
+        totalRewards: 0,
+        totalTier2Referrals: 0,
+        totalTier2Rewards: 0
       }
     }
   }
 
   /**
-   * Track a referral
+   * Track a referral with 2-tier reward system
+   * 30% to direct referrer, 20% to referrer's referrer
    */
   static async trackReferral(
     referralCode: string,
@@ -168,7 +177,7 @@ export class ReferralServiceV2 {
       const codesCollection = db.collection('referral_codes_v2')
       const relationshipsCollection = db.collection('referral_relationships_v2')
       
-      // Find the referral code
+      // Find the referral code (tier 1 - direct referrer)
       const codeDoc = await codesCollection.findOne({ code: referralCode, isActive: true })
       
       if (!codeDoc) {
@@ -187,30 +196,65 @@ export class ReferralServiceV2 {
         return true
       }
       
-      // Create new relationship
+      // Calculate rewards for 2-tier system
+      const tier1Reward = (burnAmount || 0) * 0.3  // 30% to direct referrer
+      const tier2Reward = (burnAmount || 0) * 0.2  // 20% to referrer's referrer
+      
+      // Find tier 2 referrer (the person who referred tier 1)
+      let tier2ReferrerWallet = null
+      const tier1Relationship = await relationshipsCollection.findOne({
+        referredWallet: codeDoc.walletAddress
+      })
+      
+      if (tier1Relationship) {
+        tier2ReferrerWallet = tier1Relationship.referrerWallet
+        console.log(`[ReferralV2] Found tier 2 referrer: ${tier2ReferrerWallet}`)
+      }
+      
+      // Create new relationship with tier info
       await relationshipsCollection.insertOne({
         referrerWallet: codeDoc.walletAddress,
         referredWallet,
         referralCode,
         burnAmount: burnAmount || 0,
-        rewardAmount: (burnAmount || 0) * 0.2,
+        rewardAmount: tier1Reward,
+        tier: 1,
+        tier2ReferrerWallet,
+        tier2RewardAmount: tier2ReferrerWallet ? tier2Reward : 0,
         createdAt: new Date()
       })
       
-      // Update referral code stats
+      // Update tier 1 referral code stats
       await codesCollection.updateOne(
         { walletAddress: codeDoc.walletAddress },
         {
           $inc: {
             totalReferrals: 1,
             totalBurned: burnAmount || 0,
-            totalRewards: (burnAmount || 0) * 0.2
+            totalRewards: tier1Reward
           },
           $set: { updatedAt: new Date() }
         }
       )
       
-      console.log(`[ReferralV2] Tracked referral successfully`)
+      // Update tier 2 referral code stats if exists
+      if (tier2ReferrerWallet) {
+        await codesCollection.updateOne(
+          { walletAddress: tier2ReferrerWallet },
+          {
+            $inc: {
+              totalTier2Referrals: 1,
+              totalTier2Burned: burnAmount || 0,
+              totalTier2Rewards: tier2Reward
+            },
+            $set: { updatedAt: new Date() }
+          }
+        )
+        
+        console.log(`[ReferralV2] Updated tier 2 referrer stats for: ${tier2ReferrerWallet}`)
+      }
+      
+      console.log(`[ReferralV2] Tracked 2-tier referral successfully - Tier 1: ${tier1Reward} LYN, Tier 2: ${tier2ReferrerWallet ? tier2Reward : 0} LYN`)
       return true
     } catch (error) {
       console.error('[ReferralV2] Error tracking referral:', error)

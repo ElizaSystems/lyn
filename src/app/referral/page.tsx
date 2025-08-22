@@ -320,7 +320,7 @@ export default function ReferralPage() {
           <p className="text-2xl font-bold">
             {(dashboard?.stats.totalRewards || 0).toLocaleString()}
           </p>
-          <p className="text-xs text-muted-foreground">LYN rewards (20%)</p>
+          <p className="text-xs text-muted-foreground">LYN rewards</p>
         </Card>
       </div>
 
@@ -386,9 +386,9 @@ export default function ReferralPage() {
                 <span className="text-sm font-bold">3</span>
               </div>
               <div>
-                <p className="font-medium">Earn 20% Rewards</p>
+                <p className="font-medium">Earn Multi-Tier Rewards</p>
                 <p className="text-sm text-muted-foreground">
-                  Get 20% of all LYN they burn forever
+                  30% direct + 20% from sub-referrals
                 </p>
               </div>
             </div>
@@ -431,6 +431,47 @@ export default function ReferralPage() {
         </Card>
       )}
 
+      {/* 2-Tier Rewards System Info */}
+      <Card className="p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Trophy className="h-5 w-5 text-primary" />
+          2-Tier Referral Rewards System
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="p-4 bg-background/80 rounded-lg">
+            <p className="font-bold text-primary mb-1">Tier 1: Direct Referrals</p>
+            <p className="text-2xl font-bold mb-1">30% Rewards</p>
+            <p className="text-sm text-muted-foreground">
+              Earn 30% of every burn from users you directly refer
+            </p>
+          </div>
+          <div className="p-4 bg-background/80 rounded-lg">
+            <p className="font-bold text-secondary mb-1">Tier 2: Sub-Referrals</p>
+            <p className="text-2xl font-bold mb-1">20% Rewards</p>
+            <p className="text-sm text-muted-foreground">
+              Earn 20% when your referrals bring in new users
+            </p>
+          </div>
+        </div>
+        <div className="p-4 bg-background/60 rounded-lg">
+          <p className="text-sm font-medium mb-2">Example: Username Registration (10,000 LYN)</p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Burned:</span>
+              <span className="font-medium">5,000 LYN (50%)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Direct Referrer:</span>
+              <span className="font-medium text-primary">3,000 LYN (30%)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Referrer&apos;s Referrer:</span>
+              <span className="font-medium text-secondary">2,000 LYN (20%)</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Info Box */}
       <Card className="p-4 bg-primary/5 border-primary/20">
         <div className="flex items-start gap-3">
@@ -438,9 +479,9 @@ export default function ReferralPage() {
           <div className="space-y-1">
             <p className="text-sm font-medium">Maximize Your Earnings</p>
             <p className="text-sm text-muted-foreground">
-              Share your referral link on social media, in Discord servers, and with friends. 
-              Every burn from your referrals earns you 20% rewards forever. The more active 
-              users you refer, the more you earn!
+              Build your referral network! You earn 30% from direct referrals and 20% from their referrals. 
+              The more active users in your network, the more passive income you generate. 
+              Share your link and help your referrals grow their own networks!
             </p>
           </div>
         </div>
