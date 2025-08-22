@@ -1,6 +1,7 @@
 import { getDatabase } from '@/lib/mongodb'
 import { getWalletBalance, getTokenBalance, getRecentTransactions } from '@/lib/solana'
 import { ObjectId } from 'mongodb'
+import { BlockchainAnalysisService } from './blockchain-analysis'
 
 export interface WalletSecurityResult {
   address: string
@@ -66,7 +67,7 @@ export class WalletSecurityService {
   }
 
   /**
-   * Comprehensive wallet security analysis
+   * Comprehensive wallet security analysis using real blockchain data
    */
   static async analyzeWallet(walletAddress: string): Promise<WalletSecurityResult> {
     console.log(`[WalletSecurity] Analyzing wallet: ${walletAddress}`)
@@ -118,29 +119,112 @@ export class WalletSecurityService {
       result.reputation.reports = reports.length
       result.reputation.verifiedReports = reports.filter(r => r.status === 'verified').length
 
-      // Analyze transaction patterns
-      const transactions = await getRecentTransactions(walletAddress, 100)
-      result.analysis.transactionCount = transactions.length
+      // Use real blockchain data from Helius API
+      const [
+        walletAge,
+        balances,
+        transactionPatterns,
+        defiActivity,
+        scamCheck,
+        tokenRisk,
+        riskScore
+      ] = await Promise.all([
+        BlockchainAnalysisService.getWalletAge(walletAddress),
+        BlockchainAnalysisService.getWalletBalances(walletAddress),
+        BlockchainAnalysisService.analyzeTransactionPatterns(walletAddress),
+        BlockchainAnalysisService.checkDeFiActivity(walletAddress),
+        BlockchainAnalysisService.checkScamDatabase(walletAddress),
+        BlockchainAnalysisService.checkTokenRugpullRisk(walletAddress),
+        BlockchainAnalysisService.calculateRiskScore(walletAddress)
+      ])
 
-      if (transactions.length > 0) {
-        // Calculate account age from first transaction
-        const oldestTx = transactions[transactions.length - 1]
-        if (oldestTx.blockTime) {
-          const firstTxDate = new Date(oldestTx.blockTime * 1000)
-          result.analysis.accountAge = Math.floor((Date.now() - firstTxDate.getTime()) / (1000 * 60 * 60 * 24))
-        }
-
-        // Analyze transaction patterns
-        await this.analyzeTransactionPatterns(walletAddress, transactions, result)
+      // Update analysis with real data
+      result.analysis.accountAge = walletAge.ageInDays
+      result.analysis.transactionCount = transactionPatterns.transactionVelocity.weekly
+      
+      // Add suspicious patterns
+      result.analysis.suspiciousPatterns = transactionPatterns.suspiciousPatterns
+      
+      // Add risk flags from pattern analysis
+      for (const flag of transactionPatterns.riskFlags) {
+        result.flags.push(flag as typeof result.flags[0])
       }
 
-      // Check for known scammer patterns
-      await this.checkScammerPatterns(walletAddress, result)
+      // Add DeFi activity information
+      if (defiActivity.hasActivity) {
+        result.analysis.knownAssociations = defiActivity.protocols
+      }
+      for (const indicator of defiActivity.riskIndicators) {
+        result.threats.push(indicator)
+      }
 
-      // Calculate final risk score and level
-      this.calculateRiskScore(result)
+      // Check if known scammer
+      if (scamCheck.isKnownScammer) {
+        result.isBlacklisted = true
+        result.threats.push(`Known scammer: ${scamCheck.scamType}`)
+        result.flags.push({
+          type: 'known_scammer',
+          severity: 'critical',
+          description: scamCheck.scamType || 'Reported scammer',
+          confidence: scamCheck.confidence
+        })
+      }
 
-      // Generate recommendations
+      // Add token risks
+      if (tokenRisk.hasRiskTokens) {
+        for (const token of tokenRisk.riskTokens) {
+          if (token.riskLevel === 'high') {
+            result.threats.push(`High-risk token: ${token.name}`)
+            result.flags.push({
+              type: 'suspicious_pattern',
+              severity: 'high',
+              description: `Holds high-risk token: ${token.reasons.join(', ')}`,
+              confidence: 75
+            })
+          }
+        }
+      }
+
+      // Get enhanced transaction data
+      const heliusTransactions = await BlockchainAnalysisService.getHeliusTransactionHistory(walletAddress, 100)
+      
+      // Calculate unique interactions
+      const uniqueAddresses = new Set<string>()
+      let totalValue = 0
+      let txCount = 0
+      
+      for (const tx of heliusTransactions) {
+        if (tx.nativeTransfers) {
+          for (const transfer of tx.nativeTransfers) {
+            const counterparty = transfer.fromUserAccount === walletAddress 
+              ? transfer.toUserAccount 
+              : transfer.fromUserAccount
+            uniqueAddresses.add(counterparty)
+            totalValue += transfer.amount / 1e9 // Convert to SOL
+            txCount++
+          }
+        }
+      }
+      
+      result.analysis.uniqueInteractions = uniqueAddresses.size
+      result.analysis.averageTransactionValue = txCount > 0 ? totalValue / txCount : 0
+
+      // Use the comprehensive risk score from blockchain analysis
+      result.riskScore = riskScore.score
+      result.riskLevel = riskScore.level
+
+      // Add risk factors as threats
+      for (const factor of riskScore.factors) {
+        if (factor.impact > 15) {
+          result.threats.push(factor.description)
+        }
+      }
+
+      // Adjust reputation based on risk score
+      result.reputation.score = Math.max(0, 1000 - (riskScore.score * 10))
+      result.reputation.communityTrust = Math.max(0, 100 - riskScore.score)
+
+      // Generate recommendations based on real data
       this.generateRecommendations(result)
 
       // Cache the result
@@ -150,10 +234,34 @@ export class WalletSecurityService {
 
     } catch (error) {
       console.error(`[WalletSecurity] Analysis failed for ${walletAddress}:`, error)
-      result.riskLevel = 'medium'
-      result.riskScore = 50
-      result.threats.push('Analysis failed - treat with caution')
-      return result
+      
+      // Fallback to basic analysis if APIs fail
+      try {
+        const transactions = await getRecentTransactions(walletAddress, 100)
+        result.analysis.transactionCount = transactions.length
+        
+        if (transactions.length > 0) {
+          const oldestTx = transactions[transactions.length - 1]
+          if (oldestTx.blockTime) {
+            const firstTxDate = new Date(oldestTx.blockTime * 1000)
+            result.analysis.accountAge = Math.floor((Date.now() - firstTxDate.getTime()) / (1000 * 60 * 60 * 24))
+          }
+        }
+        
+        await this.analyzeTransactionPatterns(walletAddress, transactions, result)
+        await this.checkScammerPatterns(walletAddress, result)
+        this.calculateRiskScore(result)
+        this.generateRecommendations(result)
+        await this.cacheSecurityResult(walletAddress, result)
+        
+        return result
+      } catch (fallbackError) {
+        console.error(`[WalletSecurity] Fallback analysis also failed:`, fallbackError)
+        result.riskLevel = 'medium'
+        result.riskScore = 50
+        result.threats.push('Analysis failed - treat with caution')
+        return result
+      }
     }
   }
 

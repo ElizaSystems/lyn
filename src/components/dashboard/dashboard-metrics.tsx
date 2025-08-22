@@ -51,9 +51,7 @@ export function DashboardMetrics() {
       
       // Fetch recent scans
       const scansRes = await fetch('/api/security/scans?limit=5', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
-        }
+        credentials: 'include'
       })
       const scansData = await scansRes.json()
       

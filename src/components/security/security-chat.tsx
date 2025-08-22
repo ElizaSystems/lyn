@@ -187,9 +187,9 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
     try {
       const response = await fetch('/api/security/analyze-link', {
         method: 'POST',
+        credentials: 'include',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`,
           'X-Session-Id': sessionId
         },
         body: JSON.stringify({ url })
@@ -266,8 +266,8 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
       
       const response = await fetch('/api/security/analyze-document', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`,
           'X-Session-Id': sessionId
         },
         body: formData

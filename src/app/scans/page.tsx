@@ -135,12 +135,10 @@ export default function ScansPage() {
       if (!localStorage.getItem('security-session-id')) {
         localStorage.setItem('security-session-id', sessionId)
       }
-      
-      const token = localStorage.getItem('auth-token')
 
       const response = await fetch('/api/security/scans?limit=20', {
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token || ''}`,
           'X-Session-Id': sessionId
         }
       })
@@ -187,14 +185,9 @@ export default function ScansPage() {
   // Fetch user profile and token balance
   const fetchUserProfile = async () => {
     try {
-      const token = localStorage.getItem('auth-token')
-      if (!token) return
-
       // Check if user has a username
       const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       })
 
       if (response.ok) {
@@ -297,15 +290,14 @@ export default function ScansPage() {
 
       // Step 2: Register username with burn proof
       setRegisterStep('registering')
-      const token = localStorage.getItem('auth-token')
       const walletAddress = publicKey?.toString() || userProfile?.walletAddress || ''
       
       console.log(`[Registration] Registering username with burn proof...`)
       const response = await fetch('/api/user/register-username', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           username: usernameInput,

@@ -50,9 +50,7 @@ export default function TasksPage() {
   const fetchTasks = async () => {
     try {
       const response = await fetch('/api/tasks', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
-        }
+        credentials: 'include'
       })
       
       if (response.status === 401) {
@@ -117,9 +115,9 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
+        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'toggle', id: taskId })
       })
@@ -137,9 +135,9 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
+        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'delete', id: taskId })
       })
@@ -157,9 +155,9 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
+        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'execute', id: taskId })
       })
@@ -187,9 +185,9 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
+        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'history', id: taskId, limit: 10 })
       })
@@ -208,9 +206,9 @@ export default function TasksPage() {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
+        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'create', ...taskData })
       })

@@ -71,9 +71,7 @@ export default function ReferralPage() {
         let username = ''
         try {
           const userResponse = await fetch('/api/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-            }
+            credentials: 'include'
           })
           if (userResponse.ok) {
             const userData = await userResponse.json()

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Shield, 
   Search, 
@@ -71,6 +71,20 @@ export default function WalletSecurityPage() {
     description: '',
     evidence: { transactionHashes: [], additionalInfo: '' }
   })
+  const [stats, setStats] = useState({
+    walletsAnalyzed: { total: 0, thisMonth: 0 },
+    scammersFound: { total: 0, blacklisted: 0 },
+    communityReports: { total: 0, verified: 0 },
+    detectionRate: { percentage: 0, accuracy: 'Loading...' }
+  })
+
+  useEffect(() => {
+    // Fetch real statistics
+    fetch('/api/security/stats')
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error('Failed to fetch stats:', err))
+  }, [])
 
   const analyzeWallet = async (address: string) => {
     if (!address.trim()) return
@@ -448,15 +462,19 @@ export default function WalletSecurityPage() {
         </div>
       )}
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Real Data */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="glass-card p-4 rounded-xl border border-border/50">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-muted-foreground">Wallets Analyzed</span>
             <Eye className="w-4 h-4 text-primary" />
           </div>
-          <div className="text-2xl font-bold">12,847</div>
-          <div className="text-xs text-muted-foreground">This month</div>
+          <div className="text-2xl font-bold">{stats.walletsAnalyzed.total.toLocaleString()}</div>
+          <div className="text-xs text-muted-foreground">
+            {stats.walletsAnalyzed.thisMonth > 0 
+              ? `${stats.walletsAnalyzed.thisMonth} this month`
+              : 'Total analyzed'}
+          </div>
         </div>
 
         <div className="glass-card p-4 rounded-xl border border-border/50">
@@ -464,7 +482,7 @@ export default function WalletSecurityPage() {
             <span className="text-sm text-muted-foreground">Scammers Found</span>
             <AlertTriangle className="w-4 h-4 text-red-500" />
           </div>
-          <div className="text-2xl font-bold text-red-500">247</div>
+          <div className="text-2xl font-bold text-red-500">{stats.scammersFound.total}</div>
           <div className="text-xs text-muted-foreground">Blacklisted</div>
         </div>
 
@@ -473,8 +491,12 @@ export default function WalletSecurityPage() {
             <span className="text-sm text-muted-foreground">Community Reports</span>
             <Flag className="w-4 h-4 text-yellow-500" />
           </div>
-          <div className="text-2xl font-bold">1,892</div>
-          <div className="text-xs text-muted-foreground">Total reports</div>
+          <div className="text-2xl font-bold">{stats.communityReports.total}</div>
+          <div className="text-xs text-muted-foreground">
+            {stats.communityReports.verified > 0 
+              ? `${stats.communityReports.verified} verified`
+              : 'Total reports'}
+          </div>
         </div>
 
         <div className="glass-card p-4 rounded-xl border border-border/50">
@@ -482,8 +504,12 @@ export default function WalletSecurityPage() {
             <span className="text-sm text-muted-foreground">Detection Rate</span>
             <Zap className="w-4 h-4 text-green-500" />
           </div>
-          <div className="text-2xl font-bold text-green-500">98.7%</div>
-          <div className="text-xs text-muted-foreground">Accuracy</div>
+          <div className="text-2xl font-bold text-green-500">
+            {stats.detectionRate.percentage > 0 
+              ? `${stats.detectionRate.percentage}%`
+              : 'N/A'}
+          </div>
+          <div className="text-xs text-muted-foreground">{stats.detectionRate.accuracy}</div>
         </div>
       </div>
 

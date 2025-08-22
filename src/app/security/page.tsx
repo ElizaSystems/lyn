@@ -70,8 +70,8 @@ export default function SecurityPage() {
                        `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
       
       const response = await fetch('/api/security/scans?limit=5', {
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`,
           'X-Session-Id': sessionId
         }
       })
