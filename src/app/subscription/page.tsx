@@ -83,7 +83,7 @@ function SubscriptionContent() {
     
     try {
       // Get the agent wallet address from environment or use default
-      const agentWallet = process.env.NEXT_PUBLIC_AGENT_WALLET || 'LYNAIagent1111111111111111111111111111111111'
+      const agentWallet = process.env.NEXT_PUBLIC_AGENT_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
       const agentPubkey = new PublicKey(agentWallet)
       
       // Create SOL transfer transaction
