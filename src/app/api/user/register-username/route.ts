@@ -50,10 +50,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Check token balance
+    console.log(`[Username Reg] Checking balance for wallet: ${user.walletAddress}`)
+    console.log(`[Username Reg] Using token mint: ${config.token.mintAddress}`)
+    
     const balance = await getTokenBalance(user.walletAddress, config.token.mintAddress)
+    console.log(`[Username Reg] Balance found: ${balance} LYN`)
+    
     if (balance < REQUIRED_BALANCE) {
       return NextResponse.json({ 
-        error: `Insufficient balance. Required: ${REQUIRED_BALANCE} LYN, Current: ${balance} LYN` 
+        error: `Insufficient balance. Required: ${REQUIRED_BALANCE.toLocaleString()} LYN, Current: ${Math.floor(balance).toLocaleString()} LYN`,
+        currentBalance: Math.floor(balance),
+        requiredBalance: REQUIRED_BALANCE
       }, { status: 400 })
     }
 

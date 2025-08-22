@@ -19,6 +19,9 @@ export async function getWalletBalance(walletAddress: string) {
 
 export async function getTokenBalance(walletAddress: string, tokenMint: string) {
   try {
+    console.log(`[Solana] Fetching token balance for wallet: ${walletAddress}`)
+    console.log(`[Solana] Token mint: ${tokenMint}`)
+    
     const walletPublicKey = new PublicKey(walletAddress)
     const mintPublicKey = new PublicKey(tokenMint)
     
@@ -27,14 +30,43 @@ export async function getTokenBalance(walletAddress: string, tokenMint: string) 
       { mint: mintPublicKey }
     )
     
+    console.log(`[Solana] Found ${tokenAccounts.value.length} token accounts`)
+    
     if (tokenAccounts.value.length === 0) {
+      console.log(`[Solana] No token accounts found for mint ${tokenMint}`)
+      
+      // Try to get all token accounts to see what tokens the wallet has
+      try {
+        const allTokenAccounts = await connection.getParsedTokenAccountsByOwner(
+          walletPublicKey,
+          { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
+        )
+        console.log(`[Solana] Wallet has ${allTokenAccounts.value.length} total token accounts`)
+        
+        // Log the first few token mints to help debug
+        allTokenAccounts.value.slice(0, 5).forEach((account, i) => {
+          const mint = account.account.data.parsed.info.mint
+          const balance = account.account.data.parsed.info.tokenAmount.uiAmount
+          console.log(`[Solana] Token ${i + 1}: ${mint} = ${balance}`)
+        })
+      } catch (debugError) {
+        console.error('[Solana] Failed to get debug token info:', debugError)
+      }
+      
       return 0
     }
     
-    const balance = tokenAccounts.value[0].account.data.parsed.info.tokenAmount.uiAmount
+    // Get the balance from the first token account
+    const tokenAccount = tokenAccounts.value[0]
+    const balance = tokenAccount.account.data.parsed.info.tokenAmount.uiAmount
+    
+    console.log(`[Solana] Token balance found: ${balance}`)
+    
     return balance || 0
   } catch (error) {
     console.error('Error fetching token balance:', error)
+    console.error('Wallet address:', walletAddress)
+    console.error('Token mint:', tokenMint)
     return 0
   }
 }
@@ -45,30 +77,34 @@ export async function getTokenPrice(): Promise<number> {
 
 export async function getTokenSupply() {
   try {
-    if (!TOKEN_MINT) return { total: 0, circulating: 0, burned: 0 }
+    if (!TOKEN_MINT) return { total: 0, circulating: 0, burned: 0, burnPercentage: 0 }
     
     const mintPublicKey = new PublicKey(TOKEN_MINT)
     const supply = await connection.getTokenSupply(mintPublicKey)
     
-    const total = supply.value.uiAmount || 1000000000 // 1 billion default
+    // Get the initial total supply (max supply)
+    const maxSupply = 1000000000 // 1 billion total minted
     
-    // For now, no burns have occurred - the burn tracker will show 0
-    // When actual burns happen, this will be updated
-    const burned = 0
+    // Current supply from blockchain
+    const currentSupply = supply.value.uiAmount || maxSupply
     
-    const circulating = total - burned
+    // Calculate burned amount (difference between max and current)
+    // If tokens are burned, current supply will be less than max supply
+    const burned = maxSupply - currentSupply
+    
+    const circulating = currentSupply
     
     return {
-      total,
+      total: maxSupply,
       circulating,
       burned,
-      burnPercentage: total > 0 ? (burned / total) * 100 : 0
+      burnPercentage: maxSupply > 0 ? (burned / maxSupply) * 100 : 0
     }
   } catch (error) {
     console.error('Error fetching token supply:', error)
     return {
       total: 1000000000,
-      circulating: 1000000000, // No burns in fallback
+      circulating: 1000000000,
       burned: 0,
       burnPercentage: 0
     }

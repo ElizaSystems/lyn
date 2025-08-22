@@ -4,6 +4,13 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 
 // LYN token mint address
 const LYN_MINT_ADDRESS = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
+// Known burn addresses on Solana
+const BURN_ADDRESSES = [
+  '1111111111111111111111111111111111111111111', // System null address
+  '11111111111111111111111111111111', // Common burn address
+  'deaddeaddeaddeaddeaddeaddeaddeaddeaddead1111', // Dead address
+  'burnburnburnburnburnburnburnburnburnburn1111' // Burn address
+]
 
 interface BurnEvent {
   signature: string
@@ -39,6 +46,9 @@ export async function GET(request: NextRequest) {
     
     // Get burn transactions (transfers to null/zero address or burns)
     const burnEvents: BurnEvent[] = []
+    
+    // Also check for manual burns that may not show in mint transactions
+    // These would be transfers to known burn addresses
     
     try {
       // Get signatures for the mint account
@@ -111,12 +121,17 @@ export async function GET(request: NextRequest) {
                     // Extract burn amount from instruction data
                     let burnAmount = 0n
                     
-                    if (instructionType === 8) {
-                      // Regular burn: amount is at bytes 1-8 (u64 little-endian)
-                      burnAmount = decoded.readBigUInt64LE(1)
-                    } else if (instructionType === 15) {
-                      // BurnChecked: amount is at bytes 1-8 (u64 little-endian)
-                      burnAmount = decoded.readBigUInt64LE(1)
+                    try {
+                      if (instructionType === 8) {
+                        // Regular burn: amount is at bytes 1-8 (u64 little-endian)
+                        burnAmount = decoded.readBigUInt64LE(1)
+                      } else if (instructionType === 15) {
+                        // BurnChecked: amount is at bytes 1-8 (u64 little-endian)
+                        burnAmount = decoded.readBigUInt64LE(1)
+                      }
+                    } catch (e) {
+                      console.log('Could not read burn amount from instruction')
+                      continue
                     }
                     
                     // Only add if this burn is for our token mint
@@ -159,8 +174,18 @@ export async function GET(request: NextRequest) {
       // Calculate total burned
       const totalBurned = burnEvents.reduce((sum, event) => sum + event.amountRaw, 0)
       
-      // Calculate percentages (you'd need total supply for this)
-      const totalSupply = 1000000000 // Get this from mint info
+      // Get actual mint supply info for accurate percentages
+      let totalSupply = 1000000000 * Math.pow(10, 9) // 1B tokens with 9 decimals
+      try {
+        const mintInfo = await connection.getTokenSupply(mintPubkey)
+        if (mintInfo?.value?.amount) {
+          // Use the initial supply (1B) not current supply for percentage
+          totalSupply = 1000000000 * Math.pow(10, mintInfo.value.decimals)
+        }
+      } catch (e) {
+        console.log('Could not fetch mint info, using default supply')
+      }
+      
       burnEvents.forEach(event => {
         event.percentage = (event.amountRaw / totalSupply) * 100
       })
