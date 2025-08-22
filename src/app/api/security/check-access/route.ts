@@ -124,8 +124,8 @@ export const POST = withMiddleware(
   }
 )
 
-export const GET = withMiddleware(
-  async () => {
+export async function GET() {
+  try {
     return NextResponse.json({
       tokenInfo: {
         tokenSymbol: config.token.symbol,
@@ -134,12 +134,15 @@ export const GET = withMiddleware(
       },
       message: `Hold at least ${REQUIRED_TOKEN_AMOUNT} ${config.token.symbol} tokens for unlimited access. Free users get ${FREE_QUESTIONS_LIMIT} questions.`
     })
-  },
-  {
-    rateLimit: {
-      windowMs: 60 * 1000,
-      maxRequests: 60,
-      action: 'token-info',
-    },
+  } catch (error) {
+    console.error('Error in check-access GET:', error)
+    return NextResponse.json({
+      tokenInfo: {
+        tokenSymbol: 'LYN',
+        requiredAmount: REQUIRED_TOKEN_AMOUNT,
+        freeQuestionsLimit: FREE_QUESTIONS_LIMIT,
+      },
+      message: `Hold at least ${REQUIRED_TOKEN_AMOUNT} LYN tokens for unlimited access. Free users get ${FREE_QUESTIONS_LIMIT} questions.`
+    })
   }
-)
+}

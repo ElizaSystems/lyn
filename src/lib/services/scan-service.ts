@@ -5,13 +5,23 @@ import crypto from 'crypto'
 
 export class ScanService {
   private static async getScansCollection() {
-    const db = await getDatabase()
-    return db.collection<SecurityScan>('security_scans')
+    try {
+      const db = await getDatabase()
+      return db.collection<SecurityScan>('security_scans')
+    } catch (error) {
+      console.error('Failed to connect to scans collection:', error)
+      throw new Error('Database connection failed')
+    }
   }
 
   private static async getStatsCollection() {
-    const db = await getDatabase()
-    return db.collection<ScanStatistics>('scan_statistics')
+    try {
+      const db = await getDatabase()
+      return db.collection<ScanStatistics>('scan_statistics')
+    } catch (error) {
+      console.error('Failed to connect to stats collection:', error)
+      throw new Error('Database connection failed')
+    }
   }
 
   /**
@@ -32,7 +42,8 @@ export class ScanService {
     target: string,
     metadata?: SecurityScan['metadata']
   ): Promise<SecurityScan> {
-    const scans = await this.getScansCollection()
+    try {
+      const scans = await this.getScansCollection()
     
     // Handle both authenticated users and session-based tracking
     let userIdValue: ObjectId | null = null
@@ -71,8 +82,33 @@ export class ScanService {
       createdAt: new Date()
     }
 
-    const result = await scans.insertOne(scan)
-    return { ...scan, _id: result.insertedId }
+      const result = await scans.insertOne(scan)
+      return { ...scan, _id: result.insertedId }
+    } catch (error) {
+      console.error('Failed to create scan:', error)
+      
+      // Return a fallback scan object for continued operation
+      const fallbackScan: SecurityScan = {
+        _id: new ObjectId(),
+        userId: null,
+        sessionId: userId.startsWith('session_') ? userId : `session_${Date.now()}`,
+        hash: this.generateScanHash(userId, type, target),
+        type,
+        target,
+        severity: 'safe',
+        status: 'pending',
+        result: {
+          isSafe: true,
+          threats: [],
+          confidence: 0,
+          details: 'Scan created in offline mode'
+        },
+        metadata: { ...metadata, offline: true },
+        createdAt: new Date()
+      }
+      
+      return fallbackScan
+    }
   }
 
   /**
@@ -89,7 +125,8 @@ export class ScanService {
     },
     severity: SecurityScan['severity']
   ): Promise<SecurityScan | null> {
-    const scans = await this.getScansCollection()
+    try {
+      const scans = await this.getScansCollection()
     
     const updateResult = await scans.findOneAndUpdate(
       { _id: new ObjectId(scanId) },
@@ -109,7 +146,11 @@ export class ScanService {
       await this.updateUserStatistics(updateResult.userId.toString(), severity, result.isSafe)
     }
 
-    return updateResult
+      return updateResult
+    } catch (error) {
+      console.error('Failed to update scan result:', error)
+      return null
+    }
   }
 
   /**

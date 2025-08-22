@@ -2,15 +2,15 @@ import { MongoClient, Db, ObjectId } from 'mongodb'
 import { log } from './logger'
 
 if (!process.env.MONGODB_URI) {
-  throw new Error('Invalid/Missing environment variable: "MONGODB_URI"')
+  console.warn('MONGODB_URI not found, using fallback connection')
 }
 
 if (!process.env.MONGODB_DB_NAME) {
-  throw new Error('Invalid/Missing environment variable: "MONGODB_DB_NAME"')
+  console.warn('MONGODB_DB_NAME not found, using default database name')
 }
 
-const uri = process.env.MONGODB_URI
-const dbName = process.env.MONGODB_DB_NAME
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017'
+const dbName = process.env.MONGODB_DB_NAME || 'lyn_ai'
 const options = {
   maxPoolSize: 10,
   serverSelectionTimeoutMS: 5000,

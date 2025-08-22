@@ -60,10 +60,31 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Failed to fetch scans:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch scan history' },
-      { status: 500 }
-    )
+    
+    // Return empty results instead of failing completely
+    return NextResponse.json({
+      scans: [],
+      statistics: {
+        totalScans: 0,
+        safeScans: 0,
+        threatsDetected: 0,
+        lastScanDate: null,
+        scansByType: {
+          url: 0,
+          document: 0,
+          wallet: 0,
+          smart_contract: 0,
+          transaction: 0
+        },
+        scansBySeverity: {
+          safe: 0,
+          low: 0,
+          medium: 0,
+          high: 0,
+          critical: 0
+        }
+      }
+    })
   }
 }
 

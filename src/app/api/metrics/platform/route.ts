@@ -4,7 +4,9 @@ import { getTokenSupply } from '@/lib/solana'
 
 export async function GET() {
   try {
+    // Check database connection first
     const db = await getDatabase()
+    await db.admin().ping() // Test connection
     
     // Get various collections for metrics
     const [

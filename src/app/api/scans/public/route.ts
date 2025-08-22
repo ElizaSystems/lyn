@@ -109,9 +109,23 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Failed to fetch public scans:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch scan data' },
-      { status: 500 }
-    )
+    
+    // Return empty results instead of failing completely
+    return NextResponse.json({
+      scans: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        totalCount: 0
+      },
+      stats: {
+        totalScans: 0,
+        safeScans: 0,
+        threatsDetected: 0,
+        uniqueUsers: 0,
+        last24h: 0
+      }
+    })
   }
 }

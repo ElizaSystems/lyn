@@ -3,6 +3,17 @@ import { ThreatIntelligenceService } from '@/lib/services/threat-intelligence'
 import { ScanService } from '@/lib/services/scan-service'
 import { requireAuth } from '@/lib/auth'
 
+// Handle GET requests for testing
+export async function GET() {
+  return NextResponse.json({
+    error: 'Use POST method to analyze a link',
+    example: {
+      method: 'POST',
+      body: { url: 'https://example.com' }
+    }
+  }, { status: 405 })
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Check authentication (now handles anonymous users with sessionId)
@@ -152,9 +163,32 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Link analysis error:', error)
-    return NextResponse.json(
-      { error: 'Failed to analyze link. Please try again.' },
-      { status: 500 }
-    )
+    
+    // Return a fallback analysis result instead of complete failure
+    const { url } = await request.json().catch(() => ({ url: 'unknown' }))
+    
+    return NextResponse.json({
+      scanId: `fallback-${Date.now()}`,
+      scanHash: `fallback-${Date.now()}`,
+      safe: false,
+      risk_level: 'medium',
+      confidence_score: 50,
+      details: [
+        '⚠️ Analysis service temporarily unavailable',
+        'Unable to connect to threat intelligence services',
+        'Please try again in a few moments'
+      ],
+      recommendations: [
+        'Exercise caution when visiting this link',
+        'Check the URL manually for suspicious patterns',
+        'Consider using a sandbox environment',
+        'Try the analysis again later when services are restored'
+      ],
+      threat_sources: [],
+      consensus: 'suspicious',
+      checked_url: url,
+      timestamp: new Date().toISOString(),
+      fallback: true
+    })
   }
 }
