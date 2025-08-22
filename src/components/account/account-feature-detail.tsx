@@ -1,4 +1,4 @@
-import { assertIsAddress } from 'gill'
+import { address, Address } from 'gill'
 import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { ExplorerLink } from '@/components/cluster/cluster-ui'
@@ -9,34 +9,37 @@ import { AccountBalance, AccountButtons, AccountTokens, AccountTransactions } fr
 
 export default function AccountFeatureDetail() {
   const params = useParams()
-  const address = useMemo(() => {
+  const validAddress = useMemo(() => {
     if (!params.address || typeof params.address !== 'string') {
       return
     }
-    assertIsAddress(params.address)
-    return params.address
+    try {
+      return address(params.address)
+    } catch {
+      return
+    }
   }, [params])
-  if (!address) {
+  if (!validAddress) {
     return <div>Error loading account</div>
   }
 
   return (
     <div>
       <AppHero
-        title={<AccountBalance address={address} />}
+        title={<AccountBalance address={validAddress} />}
         subtitle={
           <div className="my-4">
-            <ExplorerLink address={address.toString()} label={ellipsify(address.toString())} />
+            <ExplorerLink address={validAddress.toString()} label={ellipsify(validAddress.toString())} />
           </div>
         }
       >
         <div className="my-4">
-          <AccountButtons address={address} />
+          <AccountButtons address={validAddress} />
         </div>
       </AppHero>
       <div className="space-y-8">
-        <AccountTokens address={address} />
-        <AccountTransactions address={address} />
+        <AccountTokens address={validAddress} />
+        <AccountTransactions address={validAddress} />
       </div>
     </div>
   )

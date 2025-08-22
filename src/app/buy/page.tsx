@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button'
 export default function BuyLYNPage() {
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [marketData, setMarketData] = useState({
-    price: 0.042,
+    price: 0.0003,
     volume24h: 892000,
-    marketCap: 4200000,
-    change24h: '+12.5%'
+    marketCap: 30000,
+    change24h: '+0.0%'
   })
   const [loading, setLoading] = useState(true)
   const tokenAddress = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'

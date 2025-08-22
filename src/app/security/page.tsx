@@ -27,6 +27,16 @@ export default function SecurityPage() {
     safeScans: number
     threatsDetected: number
   } | null>(null)
+  const [activeView, setActiveView] = useState<'main' | 'scan-url' | 'analyze-document' | 'check-wallet'>('main')
+  const [scanInput, setScanInput] = useState('')
+  const [scanResult, setScanResult] = useState<{
+    safe?: boolean
+    message?: string
+    error?: string
+    details?: string[]
+    balance?: number
+  } | null>(null)
+  const [scanning, setScanning] = useState(false)
 
   const features = [
     {
@@ -101,6 +111,67 @@ export default function SecurityPage() {
     }
   }
 
+  const handleScanURL = async () => {
+    if (!scanInput.trim()) return
+    
+    setScanning(true)
+    setScanResult(null)
+    
+    try {
+      const response = await fetch('/api/security/analyze-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: scanInput })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setScanResult(data)
+        await fetchRecentScans() // Refresh the list
+      }
+    } catch (error) {
+      console.error('Scan failed:', error)
+      setScanResult({ error: 'Failed to scan URL' })
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const handleCheckWallet = async () => {
+    if (!scanInput.trim()) return
+    
+    setScanning(true)
+    setScanResult(null)
+    
+    try {
+      // Use the wallet balance API to check if wallet is valid
+      const response = await fetch('/api/wallet/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: scanInput })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setScanResult({
+          safe: true,
+          message: 'Wallet is valid and active',
+          balance: data.balance
+        })
+      } else {
+        setScanResult({
+          safe: false,
+          message: 'Invalid wallet address'
+        })
+      }
+    } catch (error) {
+      console.error('Wallet check failed:', error)
+      setScanResult({ error: 'Failed to check wallet' })
+    } finally {
+      setScanning(false)
+    }
+  }
+
   const getSeverityBadge = (severity: string) => {
     const color = getSeverityColor(severity)
     return (
@@ -151,6 +222,202 @@ export default function SecurityPage() {
     const start = target.substring(0, 10)
     const end = target.substring(target.length - 10)
     return `${start}...${end}`
+  }
+
+  // Render scan URL view
+  if (activeView === 'scan-url') {
+    return (
+      <div className="h-full p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="glass-card p-6 rounded-xl border border-border/50">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Link className="w-5 h-5 text-primary" />
+                Scan URL
+              </h2>
+              <button
+                onClick={() => {
+                  setActiveView('main')
+                  setScanInput('')
+                  setScanResult(null)
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={scanInput}
+                onChange={(e) => setScanInput(e.target.value)}
+                placeholder="Enter URL to scan (e.g., https://example.com)"
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary"
+                onKeyPress={(e) => e.key === 'Enter' && handleScanURL()}
+              />
+              
+              <button
+                onClick={handleScanURL}
+                disabled={scanning || !scanInput.trim()}
+                className="w-full py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              >
+                {scanning ? 'Scanning...' : 'Scan URL'}
+              </button>
+              
+              {scanResult && (
+                <div className={`p-4 rounded-lg border ${scanResult.safe ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {scanResult.safe ? <CheckCircle className="w-5 h-5 text-green-500" /> : <AlertTriangle className="w-5 h-5 text-red-500" />}
+                    <span className="font-semibold">{scanResult.safe ? 'Safe' : 'Warning'}</span>
+                  </div>
+                  <p className="text-sm">{scanResult.message || scanResult.details?.join(', ')}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render analyze document view
+  if (activeView === 'analyze-document') {
+    return (
+      <div className="h-full p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="glass-card p-6 rounded-xl border border-border/50">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                Analyze Document
+              </h2>
+              <button
+                onClick={() => setActiveView('main')}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground mb-2">Drop your file here or click to browse</p>
+                <input
+                  type="file"
+                  className="hidden"
+                  id="file-upload"
+                  accept=".pdf,.doc,.docx,.txt,.json"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setScanning(true)
+                      setScanResult(null)
+                      
+                      const formData = new FormData()
+                      formData.append('file', file)
+                      
+                      try {
+                        const response = await fetch('/api/security/analyze-document', {
+                          method: 'POST',
+                          body: formData
+                        })
+                        
+                        if (response.ok) {
+                          const data = await response.json()
+                          setScanResult(data)
+                        }
+                      } catch {
+                        setScanResult({ error: 'Failed to analyze document' })
+                      } finally {
+                        setScanning(false)
+                      }
+                    }
+                  }}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg cursor-pointer hover:bg-primary/90"
+                >
+                  {scanning ? 'Analyzing...' : 'Choose File'}
+                </label>
+              </div>
+              
+              {scanResult && (
+                <div className={`p-4 rounded-lg border ${scanResult.safe ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {scanResult.safe ? <CheckCircle className="w-5 h-5 text-green-500" /> : <AlertTriangle className="w-5 h-5 text-red-500" />}
+                    <span className="font-semibold">{scanResult.safe ? 'Safe Document' : 'Warning'}</span>
+                  </div>
+                  <p className="text-sm">{scanResult.message || scanResult.details?.join(', ')}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render check wallet view
+  if (activeView === 'check-wallet') {
+    return (
+      <div className="h-full p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="glass-card p-6 rounded-xl border border-border/50">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-primary" />
+                Check Wallet
+              </h2>
+              <button
+                onClick={() => {
+                  setActiveView('main')
+                  setScanInput('')
+                  setScanResult(null)
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={scanInput}
+                onChange={(e) => setScanInput(e.target.value)}
+                placeholder="Enter wallet address"
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary"
+                onKeyPress={(e) => e.key === 'Enter' && handleCheckWallet()}
+              />
+              
+              <button
+                onClick={handleCheckWallet}
+                disabled={scanning || !scanInput.trim()}
+                className="w-full py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              >
+                {scanning ? 'Checking...' : 'Check Wallet'}
+              </button>
+              
+              {scanResult && (
+                <div className={`p-4 rounded-lg border ${scanResult.safe ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {scanResult.safe ? <CheckCircle className="w-5 h-5 text-green-500" /> : <AlertTriangle className="w-5 h-5 text-red-500" />}
+                    <span className="font-semibold">{scanResult.safe ? 'Valid Wallet' : 'Invalid'}</span>
+                  </div>
+                  <p className="text-sm">{scanResult.message}</p>
+                  {scanResult.balance !== undefined && (
+                    <p className="text-sm mt-1">Balance: {scanResult.balance} SOL</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -290,15 +557,24 @@ export default function SecurityPage() {
           <div className="glass-card p-6 rounded-xl border border-border/50">
             <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-2">
-              <button className="w-full text-left p-3 rounded-lg bg-sidebar/30 hover:bg-sidebar/50 transition-colors">
+              <button 
+                onClick={() => setActiveView('scan-url')}
+                className="w-full text-left p-3 rounded-lg bg-sidebar/30 hover:bg-sidebar/50 transition-colors"
+              >
                 <div className="text-sm font-medium">Scan URL</div>
                 <div className="text-xs text-muted-foreground">Check if a link is safe</div>
               </button>
-              <button className="w-full text-left p-3 rounded-lg bg-sidebar/30 hover:bg-sidebar/50 transition-colors">
+              <button 
+                onClick={() => setActiveView('analyze-document')}
+                className="w-full text-left p-3 rounded-lg bg-sidebar/30 hover:bg-sidebar/50 transition-colors"
+              >
                 <div className="text-sm font-medium">Analyze Document</div>
                 <div className="text-xs text-muted-foreground">Upload and scan files</div>
               </button>
-              <button className="w-full text-left p-3 rounded-lg bg-sidebar/30 hover:bg-sidebar/50 transition-colors">
+              <button 
+                onClick={() => setActiveView('check-wallet')}
+                className="w-full text-left p-3 rounded-lg bg-sidebar/30 hover:bg-sidebar/50 transition-colors"
+              >
                 <div className="text-sm font-medium">Check Wallet</div>
                 <div className="text-xs text-muted-foreground">Verify wallet safety</div>
               </button>

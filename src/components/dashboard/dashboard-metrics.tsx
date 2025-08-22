@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Shield, Activity, Users, TrendingUp, BarChart3, Zap, DollarSign, AlertTriangle, CheckCircle, Clock, RefreshCw, ExternalLink, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SecurityChat } from '@/components/security/security-chat'
@@ -34,6 +35,7 @@ interface DashboardMetrics {
 }
 
 export function DashboardMetrics() {
+  const router = useRouter()
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [showChat, setShowChat] = useState(false)
@@ -248,7 +250,7 @@ export function DashboardMetrics() {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => window.location.href = '/scans'}
+              onClick={() => router.push('/scans')}
               className="hover:bg-primary/10"
             >
               View All
@@ -330,26 +332,34 @@ export function DashboardMetrics() {
               <Button 
                 className="w-full justify-start"
                 variant="outline"
-                onClick={() => window.location.href = '/security'}
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Security Scanner
-              </Button>
-              <Button 
-                className="w-full justify-start"
-                variant="outline"
-                onClick={() => window.location.href = '/wallet'}
+                onClick={() => router.push('/buy')}
               >
                 <DollarSign className="w-4 h-4 mr-2" />
-                Check Wallet
+                Buy LYN
               </Button>
               <Button 
                 className="w-full justify-start"
                 variant="outline"
-                onClick={() => window.location.href = '/analytics'}
+                onClick={() => router.push('/staking')}
               >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                View Analytics
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Stake
+              </Button>
+              <Button 
+                className="w-full justify-start"
+                variant="outline"
+                onClick={() => router.push('/burn')}
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Burn Tracker
+              </Button>
+              <Button 
+                className="w-full justify-start"
+                variant="outline"
+                onClick={() => router.push('/audit')}
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Audit
               </Button>
             </div>
           </div>
