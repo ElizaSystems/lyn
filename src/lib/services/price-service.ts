@@ -173,7 +173,12 @@ async function fetchJupiterPrice(mint: string): Promise<number> {
         
         if (dexData.pairs && dexData.pairs.length > 0) {
           // Get the pair with highest liquidity
-          const bestPair = dexData.pairs.reduce((best: any, current: any) => {
+          interface DexPair {
+            liquidity?: { usd?: number }
+            priceUsd?: string
+            priceChange?: { h24?: number }
+          }
+          const bestPair = dexData.pairs.reduce((best: DexPair, current: DexPair) => {
             const bestLiquidity = best?.liquidity?.usd || 0
             const currentLiquidity = current?.liquidity?.usd || 0
             return currentLiquidity > bestLiquidity ? current : best

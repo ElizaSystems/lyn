@@ -234,7 +234,14 @@ export async function fetchPriceData(mintAddress: string): Promise<Partial<Token
         
         if (dexData.pairs && dexData.pairs.length > 0) {
           // Get the pair with highest liquidity
-          const bestPair = dexData.pairs.reduce((best: any, current: any) => {
+          interface DexPair {
+            liquidity?: { usd?: number }
+            priceUsd?: string
+            volume?: { h24?: number }
+            priceChange?: { h24?: number }
+            dexId?: string
+          }
+          const bestPair = dexData.pairs.reduce((best: DexPair, current: DexPair) => {
             const bestLiquidity = best?.liquidity?.usd || 0
             const currentLiquidity = current?.liquidity?.usd || 0
             return currentLiquidity > bestLiquidity ? current : best
