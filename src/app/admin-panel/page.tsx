@@ -103,20 +103,16 @@ export default function AdminPanel() {
     const checkAdminAccess = async () => {
       if (connected && publicKey) {
         try {
-          const token = localStorage.getItem('auth-token')
-          if (!token) {
-            setIsAdmin(false)
-            setLoading(false)
-            return
-          }
-          
-          const response = await fetch('/api/admin/check', {
-            headers: { Authorization: `Bearer ${token}` }
+          const response = await fetch('/api/admin/simple-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ walletAddress: publicKey.toString() })
           })
           
           if (response.ok) {
             const data = await response.json()
             setIsAdmin(data.isAdmin)
+            console.log('[Admin Panel] Admin check result:', data)
           } else {
             setIsAdmin(false)
           }
