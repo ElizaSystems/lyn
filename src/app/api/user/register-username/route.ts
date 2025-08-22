@@ -229,11 +229,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       username,
-      profileUrl: `https://lynai.xyz/profile/${username}`,
+      profileUrl: `https://app.lynai.xyz/profile/${username}`,
       reputationScore: 100,
       referralCode: newUserReferralCode?.code || 'PENDING',
       referralLink: newUserReferralCode?.code 
-        ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${newUserReferralCode.code}`
+        ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${newUserReferralCode.code}`
         : null
     })
 
