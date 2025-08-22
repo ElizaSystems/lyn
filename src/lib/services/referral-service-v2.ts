@@ -82,8 +82,8 @@ export class ReferralServiceV2 {
       let code = this.generateCode(walletAddress, username)
       let attempts = 0
       
-      // Ensure uniqueness
-      while (await collection.findOne({ code }) && attempts < 10) {
+      // Ensure uniqueness (case-insensitive check)
+      while (await collection.findOne({ code: { $regex: new RegExp(`^${code}$`, 'i') } }) && attempts < 10) {
         code = this.generateCode(walletAddress, username)
         attempts++
       }
@@ -177,8 +177,11 @@ export class ReferralServiceV2 {
       const codesCollection = db.collection('referral_codes_v2')
       const relationshipsCollection = db.collection('referral_relationships_v2')
       
-      // Find the referral code (tier 1 - direct referrer)
-      const codeDoc = await codesCollection.findOne({ code: referralCode, isActive: true })
+      // Find the referral code (tier 1 - direct referrer) - case-insensitive
+      const codeDoc = await codesCollection.findOne({ 
+        code: { $regex: new RegExp(`^${referralCode}$`, 'i') }, 
+        isActive: true 
+      })
       
       if (!codeDoc) {
         console.log(`[ReferralV2] Code not found: ${referralCode}`)

@@ -113,9 +113,9 @@ export class ReferralService {
     // Generate new referral code
     let code = this.generateReferralCode(username)
     
-    // Ensure uniqueness
+    // Ensure uniqueness (case-insensitive check)
     let attempts = 0
-    while (await codes.findOne({ code }) && attempts < 10) {
+    while (await codes.findOne({ code: { $regex: new RegExp(`^${code}$`, 'i') } }) && attempts < 10) {
       code = this.generateReferralCode(username)
       attempts++
     }
@@ -155,8 +155,11 @@ export class ReferralService {
     const codes = await this.getReferralCodesCollection()
     const relationships = await this.getReferralRelationshipsCollection()
     
-    // Find the referral code
-    const codeDoc = await codes.findOne({ code: referralCode, isActive: true })
+    // Find the referral code (case-insensitive)
+    const codeDoc = await codes.findOne({ 
+      code: { $regex: new RegExp(`^${referralCode}$`, 'i') }, 
+      isActive: true 
+    })
     if (!codeDoc) {
       console.log(`[Referral] Code not found or inactive: ${referralCode}`)
       return null

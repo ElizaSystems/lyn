@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
     const db = await getDatabase()
     const referralCodesCollection = db.collection('referral_codes')
     
-    // Find the referral code
+    // Find the referral code (case-insensitive)
     const referralCode = await referralCodesCollection.findOne({ 
-      code: code.toUpperCase(), // Codes are stored in uppercase
+      code: { $regex: new RegExp(`^${code}$`, 'i') },
       isActive: true 
     })
     
