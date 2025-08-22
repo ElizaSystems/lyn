@@ -27,6 +27,11 @@ interface UserProfile {
   walletAddress: string
   registeredAt: string
   accountCreated: string
+  referrer?: {
+    walletAddress: string
+    username?: string
+    referralCode: string
+  }
 }
 
 interface ReputationData {
@@ -251,6 +256,43 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+
+            {/* My Referrer Section */}
+            {profile?.referrer && (
+              <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <Users className="w-5 h-5 mr-2" />
+                  My Referrer
+                </h2>
+                <div className="space-y-3">
+                  <div className="bg-gray-800/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Referred By</div>
+                    {profile.referrer.username ? (
+                      <a 
+                        href={`/profile/${profile.referrer.username}`}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        @{profile.referrer.username}
+                      </a>
+                    ) : (
+                      <div className="font-mono text-sm text-muted-foreground">Anonymous</div>
+                    )}
+                  </div>
+                  <div className="bg-gray-800/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Referrer Wallet</div>
+                    <div className="font-mono text-xs break-all">
+                      {profile.referrer.walletAddress}
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Referral Code Used</div>
+                    <div className="font-mono text-sm">
+                      {profile.referrer.referralCode}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Badges Section */}
             <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
