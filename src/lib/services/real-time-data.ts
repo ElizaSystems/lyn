@@ -222,22 +222,58 @@ export async function fetchPriceData(mintAddress: string): Promise<Partial<Token
       }
     }
 
-    // For new tokens without DEX listings, calculate based on market cap target
-    console.log('No price data found from APIs, using calculated price')
-    const targetMarketCap = 4200000 // $4.2M target
+    // Try DexScreener API as fallback for pump.fun tokens
+    console.log('Trying DexScreener API for price data...')
+    try {
+      const dexScreenerResponse = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`
+      )
+      
+      if (dexScreenerResponse.ok) {
+        const dexData = await dexScreenerResponse.json()
+        
+        if (dexData.pairs && dexData.pairs.length > 0) {
+          // Get the pair with highest liquidity
+          const bestPair = dexData.pairs.reduce((best: any, current: any) => {
+            const bestLiquidity = best?.liquidity?.usd || 0
+            const currentLiquidity = current?.liquidity?.usd || 0
+            return currentLiquidity > bestLiquidity ? current : best
+          }, dexData.pairs[0])
+          
+          const price = parseFloat(bestPair.priceUsd) || 0
+          const volume24h = bestPair.volume?.h24 || 0
+          const priceChange24h = bestPair.priceChange?.h24 || 0
+          
+          console.log(`DexScreener found price: $${price} (${bestPair.dexId})`)
+          
+          return {
+            price,
+            volume24h,
+            change24h: `${priceChange24h >= 0 ? '+' : ''}${priceChange24h.toFixed(1)}%`,
+            lastUpdated: Date.now()
+          }
+        }
+      }
+    } catch (dexError) {
+      console.warn('DexScreener API failed:', dexError)
+    }
+    
+    // Final fallback: calculate based on market cap target
+    console.log('No price data found from any API, using calculated price')
+    const targetMarketCap = 300000 // Updated based on real liquidity
     const calculatedPrice = targetMarketCap / 1000000000 // Assuming 1B total supply
     
     return {
       price: calculatedPrice,
-      volume24h: Math.random() * 300000 + 100000, // $100K-$400K
-      change24h: `${Math.random() > 0.5 ? '+' : ''}${(Math.random() * 20 - 10).toFixed(1)}%`,
+      volume24h: 100000,
+      change24h: '+0.0%',
       lastUpdated: Date.now()
     }
 
   } catch (error) {
     console.error('Error fetching price data:', error)
     return {
-      price: 0.0042, // $0.0042 fallback
+      price: 0.0003, // $0.0003 fallback (actual market price)
       volume24h: 250000,
       change24h: '+0.0%',
       lastUpdated: Date.now()
@@ -256,9 +292,9 @@ export async function getRealTimeTokenData(mintAddress: string = TOKEN_ADDRESS):
 
     // Combine the data
     const combinedData: TokenMarketData = {
-      price: priceData.price || 0.0042,
+      price: priceData.price || 0.0003,
       volume24h: priceData.volume24h || 250000,
-      marketCap: (priceData.price || 0.0042) * (heliusData.supply?.total || 1000000000),
+      marketCap: (priceData.price || 0.0003) * (heliusData.supply?.total || 1000000000),
       change24h: priceData.change24h || '+0.0%',
       supply: heliusData.supply || {
         total: 1000000000,

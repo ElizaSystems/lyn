@@ -162,9 +162,41 @@ async function fetchJupiterPrice(mint: string): Promise<number> {
       console.warn('Jupiter API failed:', apiError)
     }
 
-    // For new/unverified tokens, Jupiter may not have price data
-    // This is normal for tokens not yet listed on major DEXes
+    // Try DexScreener API for pump.fun tokens
+    try {
+      const dexScreenerResponse = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${mint}`
+      )
+      
+      if (dexScreenerResponse.ok) {
+        const dexData = await dexScreenerResponse.json()
+        
+        if (dexData.pairs && dexData.pairs.length > 0) {
+          // Get the pair with highest liquidity
+          const bestPair = dexData.pairs.reduce((best: any, current: any) => {
+            const bestLiquidity = best?.liquidity?.usd || 0
+            const currentLiquidity = current?.liquidity?.usd || 0
+            return currentLiquidity > bestLiquidity ? current : best
+          }, dexData.pairs[0])
+          
+          const price = parseFloat(bestPair.priceUsd) || 0
+          
+          if (price > 0) {
+            priceCache[mint] = {
+              price,
+              change24h: `${bestPair.priceChange?.h24 >= 0 ? '+' : ''}${bestPair.priceChange?.h24?.toFixed(1) || 0}%`,
+              timestamp: Date.now()
+            }
+            
+            return price
+          }
+        }
+      }
+    } catch (dexError) {
+      console.warn('DexScreener API failed:', dexError)
+    }
 
+    // For new/unverified tokens without any price data
     return 0
   } catch (error) {
     console.error('Jupiter API error:', error)
