@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/mongodb'
 import { ScanService } from '@/lib/services/scan-service'
+import { BadgeService } from '@/lib/services/badge-service'
 
 export async function GET(
   request: NextRequest,
@@ -65,29 +66,81 @@ export async function GET(
     const accountAge = user.createdAt ? 
       Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0
 
-    // Update reputation metrics if needed
-    if (reputation) {
-      const updatedMetrics = {
-        ...reputation.metrics,
-        totalScans: userStats?.totalScans || 0,
-        accountAge,
-        verifiedScans: publicScans.length
-      }
+    // Get referral count for the user
+    const referralCount = await referralRelationshipsCollection.countDocuments({ 
+      referrerId: user._id 
+    })
 
-      // Calculate reputation score
-      const reputationScore = calculateReputationScore(updatedMetrics)
+    // Get burn and stake amounts (if available)
+    const burnCollection = db.collection('burns')
+    const stakingCollection = db.collection('stakes')
+    
+    const burnStats = await burnCollection.aggregate([
+      { $match: { walletAddress: user.walletAddress } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]).toArray()
+    
+    const stakeStats = await stakingCollection.aggregate([
+      { $match: { walletAddress: user.walletAddress } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]).toArray()
+    
+    // Get reports submitted count
+    const reportsCollection = db.collection('security_reports')
+    const reportsCount = await reportsCollection.countDocuments({ 
+      reporterAddress: user.walletAddress 
+    })
 
-      await reputationCollection.updateOne(
-        { username },
-        {
-          $set: {
-            metrics: updatedMetrics,
-            reputationScore,
-            updatedAt: new Date()
-          }
-        }
-      )
+    // Prepare comprehensive metrics
+    const comprehensiveMetrics = {
+      totalScans: userStats?.totalScans || 0,
+      safeScans: userStats?.safeScans || 0,
+      threatsDetected: userStats?.threatsDetected || 0,
+      accountAge,
+      verifiedScans: publicScans.length,
+      referralCount,
+      stakingAmount: stakeStats[0]?.total || 0,
+      burnAmount: burnStats[0]?.total || 0,
+      reportsSubmitted: reportsCount,
+      accurateReports: reputation?.metrics?.accurateReports || 0,
+      communityContributions: reputation?.metrics?.communityContributions || 0
     }
+
+    // Calculate badges dynamically
+    const earnedBadges = await BadgeService.calculateUserBadges(
+      user._id.toString(),
+      comprehensiveMetrics
+    )
+
+    // Calculate reputation score with badge bonuses
+    const reputationScore = BadgeService.calculateReputationScore(
+      comprehensiveMetrics,
+      earnedBadges
+    )
+
+    // Update reputation in database
+    await reputationCollection.updateOne(
+      { username },
+      {
+        $set: {
+          metrics: comprehensiveMetrics,
+          reputationScore,
+          badges: earnedBadges,
+          updatedAt: new Date()
+        },
+        $setOnInsert: {
+          username,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true }
+    )
+
+    // Get next achievable badges
+    const nextBadges = BadgeService.getNextAchievableBadges(
+      earnedBadges,
+      comprehensiveMetrics
+    )
 
     return NextResponse.json({
       profile: {
@@ -98,9 +151,11 @@ export async function GET(
         referrer: referrerInfo
       },
       reputation: {
-        score: reputation?.reputationScore || 100,
-        metrics: reputation?.metrics || {},
-        badges: reputation?.badges || []
+        score: reputationScore,
+        metrics: comprehensiveMetrics,
+        badges: earnedBadges,
+        badgeStats: BadgeService.getBadgeStats(earnedBadges),
+        nextBadges
       },
       statistics: userStats || {
         totalScans: 0,
@@ -120,41 +175,4 @@ export async function GET(
       { status: 500 }
     )
   }
-}
-
-function calculateReputationScore(metrics: {
-  totalScans?: number
-  accountAge?: number
-  accurateReports?: number
-  communityContributions?: number
-  stakingAmount?: number
-  verifiedScans?: number
-}): number {
-  let score = 100 // Base score
-
-  // Scan activity bonus (up to +50 points)
-  const scanBonus = Math.min(50, (metrics.totalScans || 0) * 2)
-  score += scanBonus
-
-  // Account age bonus (up to +30 points)
-  const ageBonus = Math.min(30, (metrics.accountAge || 0) / 10)
-  score += ageBonus
-
-  // Accuracy bonus (up to +40 points)
-  const accuracyBonus = Math.min(40, (metrics.accurateReports || 0) * 5)
-  score += accuracyBonus
-
-  // Community contributions bonus (up to +30 points)
-  const communityBonus = Math.min(30, (metrics.communityContributions || 0) * 10)
-  score += communityBonus
-
-  // Staking bonus (up to +50 points)
-  const stakingBonus = Math.min(50, (metrics.stakingAmount || 0) / 1000)
-  score += stakingBonus
-
-  // Verified scans bonus (up to +20 points)
-  const verifiedBonus = Math.min(20, (metrics.verifiedScans || 0))
-  score += verifiedBonus
-
-  return Math.min(1000, Math.max(0, Math.round(score)))
 }
