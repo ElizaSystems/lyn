@@ -1,6 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Shield, Search, RefreshCw, AlertTriangle, CheckCircle, Link, FileText, Wallet, Code, TrendingUp, Users, Activity, Globe, Lock, Copy } from 'lucide-react'
+import { Shield, Search, RefreshCw, AlertTriangle, CheckCircle, Link, FileText, Wallet, Code, TrendingUp, Users, Activity, Globe, Lock, Copy, Star, Trophy, User, ExternalLink } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface Scan {
   id: string
@@ -32,7 +35,7 @@ interface ScanStats {
 }
 
 export default function ScansPage() {
-  const [activeTab, setActiveTab] = useState<'personal' | 'public'>('personal') // Default to personal to show user's scans
+  const [activeTab, setActiveTab] = useState<'profile' | 'personal' | 'public'>('profile') // Default to profile
   const [personalScans, setPersonalScans] = useState<Scan[]>([])
   const [publicScans, setPublicScans] = useState<Scan[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,6 +55,18 @@ export default function ScansPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [refreshing, setRefreshing] = useState(false)
+  
+  // Profile/Username related state
+  const [userProfile, setUserProfile] = useState<{
+    username?: string
+    walletAddress?: string
+    id?: string
+  } | null>(null)
+  const [showUsernameRegistration, setShowUsernameRegistration] = useState(false)
+  const [usernameInput, setUsernameInput] = useState('')
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+  const [registering, setRegistering] = useState(false)
+  const [tokenBalance, setTokenBalance] = useState<number>(0)
 
   // Fetch personal scans
   const fetchPersonalScans = async () => {
@@ -113,9 +128,94 @@ export default function ScansPage() {
     }
   }
 
+  // Fetch user profile and token balance
+  const fetchUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('auth-token')
+      if (!token) return
+
+      // Check if user has a username
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setUserProfile(userData)
+        
+        // Fetch token balance
+        const balanceResponse = await fetch(`/api/wallet/balance?address=${userData.walletAddress}`)
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json()
+          setTokenBalance(balanceData.balance || 0)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error)
+    }
+  }
+
+  // Check username availability
+  const checkUsernameAvailability = async (username: string) => {
+    if (username.length < 3) {
+      setUsernameAvailable(null)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/user/register-username?username=${encodeURIComponent(username)}`)
+      const data = await response.json()
+      setUsernameAvailable(data.available)
+    } catch (error) {
+      console.error('Failed to check username:', error)
+      setUsernameAvailable(null)
+    }
+  }
+
+  // Register username
+  const registerUsername = async () => {
+    if (!usernameInput || !usernameAvailable) return
+
+    setRegistering(true)
+    try {
+      const token = localStorage.getItem('auth-token')
+      const response = await fetch('/api/user/register-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          username: usernameInput,
+          signature: 'mock_signature', // In production, get real signature
+          transaction: 'mock_transaction' // In production, get real transaction
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setUserProfile({ ...userProfile, username: usernameInput })
+        setShowUsernameRegistration(false)
+        setUsernameInput('')
+        alert(`Username registered successfully! Your profile: ${data.profileUrl}`)
+      } else {
+        const error = await response.json()
+        alert(`Registration failed: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      alert('Registration failed. Please try again.')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
   useEffect(() => {
     fetchPersonalScans()
     fetchPublicScans()
+    fetchUserProfile()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -255,6 +355,19 @@ export default function ScansPage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 mb-6">
         <button
+          onClick={() => setActiveTab('profile')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            activeTab === 'profile' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-sidebar/30 hover:bg-sidebar/50 text-muted-foreground'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4" />
+            My Profile
+          </div>
+        </button>
+        <button
           onClick={() => setActiveTab('public')}
           className={`px-4 py-2 rounded-lg font-medium transition-all ${
             activeTab === 'public' 
@@ -333,8 +446,204 @@ export default function ScansPage() {
         </div>
       </div>
 
+      {/* Profile Tab Content */}
+      {activeTab === 'profile' && (
+        <div className="space-y-6 mb-8">
+          {/* Profile Header */}
+          <div className="glass-card p-6 rounded-xl border border-border/50">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">
+                    {userProfile?.username || 'Anonymous User'}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {userProfile?.walletAddress ? 
+                      `${userProfile.walletAddress.substring(0, 8)}...${userProfile.walletAddress.slice(-8)}` : 
+                      'Not connected'
+                    }
+                  </p>
+                  <div className="flex items-center mt-2 space-x-4">
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">LYN Balance:</span>
+                      <span className="ml-1 font-semibold">{tokenBalance.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {!userProfile?.username && (
+                <Button
+                  onClick={() => setShowUsernameRegistration(true)}
+                  disabled={tokenBalance < 100000}
+                  className="bg-primary hover:bg-primary/80"
+                >
+                  <Star className="w-4 h-4 mr-2" />
+                  Register Username
+                </Button>
+              )}
+              
+              {userProfile?.username && (
+                <Button
+                  onClick={() => {
+                    const profileUrl = `${window.location.origin}/profile/${userProfile.username}`
+                    navigator.clipboard.writeText(profileUrl)
+                  }}
+                  variant="outline"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Share Profile
+                </Button>
+              )}
+            </div>
+
+            {/* Reputation Score */}
+            {userProfile?.username && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border/50 pt-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-500 mb-1">750</div>
+                  <div className="text-sm text-muted-foreground">Reputation Score</div>
+                  <div className="text-xs text-blue-400">Security Expert</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-500 mb-1">{personalStats?.totalScans || 0}</div>
+                  <div className="text-sm text-muted-foreground">Total Scans</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-500 mb-1">3</div>
+                  <div className="text-sm text-muted-foreground">Badges Earned</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Username Registration Requirements */}
+          {!userProfile?.username && (
+            <div className="glass-card p-6 rounded-xl border border-yellow-500/20 bg-yellow-500/5">
+              <div className="flex items-start space-x-3">
+                <Trophy className="w-6 h-6 text-yellow-500 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-yellow-500 mb-2">Register Your Username</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Secure your unique username and create a shareable profile. Requirements:
+                  </p>
+                  <ul className="text-sm space-y-1 mb-4">
+                    <li className={`flex items-center space-x-2 ${tokenBalance >= 100000 ? 'text-green-400' : 'text-red-400'}`}>
+                      <span>{tokenBalance >= 100000 ? '✓' : '✗'}</span>
+                      <span>Hold 100,000+ LYN tokens (Current: {tokenBalance.toLocaleString()})</span>
+                    </li>
+                    <li className="flex items-center space-x-2 text-muted-foreground">
+                      <span>•</span>
+                      <span>Pay 10,000 LYN registration fee</span>
+                    </li>
+                    <li className="flex items-center space-x-2 text-muted-foreground">
+                      <span>•</span>
+                      <span>Get shareable profile URL</span>
+                    </li>
+                  </ul>
+                  {tokenBalance < 100000 && (
+                    <p className="text-sm text-red-400">
+                      You need {(100000 - tokenBalance).toLocaleString()} more LYN tokens to register.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Badge Preview Section */}
+          <div className="glass-card p-6 rounded-xl border border-border/50">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <Trophy className="w-5 h-5 mr-2" />
+              Achievement Badges
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                <div className="text-2xl mb-2">🛡️</div>
+                <div className="text-sm font-medium">First Scan</div>
+                <div className="text-xs text-muted-foreground">Complete your first security scan</div>
+              </div>
+              <div className="text-center p-4 bg-gray-800/30 rounded-lg border border-gray-600 opacity-50">
+                <div className="text-2xl mb-2">🔍</div>
+                <div className="text-sm font-medium">Threat Hunter</div>
+                <div className="text-xs text-muted-foreground">Find 10 security threats</div>
+              </div>
+              <div className="text-center p-4 bg-gray-800/30 rounded-lg border border-gray-600 opacity-50">
+                <div className="text-2xl mb-2">⭐</div>
+                <div className="text-sm font-medium">Community Hero</div>
+                <div className="text-xs text-muted-foreground">Help 100 community members</div>
+              </div>
+              <div className="text-center p-4 bg-gray-800/30 rounded-lg border border-gray-600 opacity-50">
+                <div className="text-2xl mb-2">👑</div>
+                <div className="text-sm font-medium">Elite Guardian</div>
+                <div className="text-xs text-muted-foreground">Reach 1000 reputation score</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Username Registration Modal */}
+      {showUsernameRegistration && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Register Username</h3>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={usernameInput}
+                  onChange={(e) => {
+                    setUsernameInput(e.target.value)
+                    checkUsernameAvailability(e.target.value)
+                  }}
+                  placeholder="Enter your username"
+                  className="mt-1"
+                />
+                {usernameInput.length >= 3 && (
+                  <p className={`text-sm mt-1 ${usernameAvailable === true ? 'text-green-400' : usernameAvailable === false ? 'text-red-400' : 'text-muted-foreground'}`}>
+                    {usernameAvailable === true ? '✓ Username available' : 
+                     usernameAvailable === false ? '✗ Username taken' : 'Checking...'}
+                  </p>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>• 3-20 characters</p>
+                <p>• Letters, numbers, underscores, hyphens only</p>
+                <p>• Fee: 10,000 LYN tokens</p>
+              </div>
+              <div className="flex space-x-3">
+                <Button
+                  onClick={registerUsername}
+                  disabled={!usernameAvailable || registering}
+                  className="flex-1"
+                >
+                  {registering ? 'Registering...' : 'Register (10,000 LYN)'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowUsernameRegistration(false)
+                    setUsernameInput('')
+                    setUsernameAvailable(null)
+                  }}
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Scans Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      {activeTab !== 'profile' && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="glass-card p-4 rounded-xl border border-border/50 animate-pulse">
@@ -425,36 +734,36 @@ export default function ScansPage() {
             </div>
           ))
         )}
-      </div>
-
-      {/* Pagination */}
-      {activeTab === 'public' && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8">
-          <button
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page === 1}
-            className="px-3 py-1 bg-sidebar/30 border border-border/50 rounded-lg hover:bg-sidebar/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(Math.min(totalPages, page + 1))}
-            disabled={page === totalPages}
-            className="px-3 py-1 bg-sidebar/30 border border-border/50 rounded-lg hover:bg-sidebar/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
         </div>
-      )}
 
-      {/* Personal Stats */}
-      {activeTab === 'personal' && personalStats && (
-        <div className="mt-8 glass-card p-6 rounded-xl border border-border/50">
-          <h3 className="text-lg font-semibold mb-4">Your Security Statistics</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Pagination */}
+        {activeTab === 'public' && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <button
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 bg-sidebar/30 border border-border/50 rounded-lg hover:bg-sidebar/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 bg-sidebar/30 border border-border/50 rounded-lg hover:bg-sidebar/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
+
+        {/* Personal Stats */}
+        {activeTab === 'personal' && personalStats && (
+          <div className="mt-8 glass-card p-6 rounded-xl border border-border/50">
+            <h3 className="text-lg font-semibold mb-4">Your Security Statistics</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Total Scans</p>
               <p className="text-2xl font-bold">{personalStats.totalScans}</p>
@@ -475,21 +784,23 @@ export default function ScansPage() {
                   : 0}%
               </p>
             </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Empty State */}
-      {!loading && (activeTab === 'public' ? publicScans : filteredPersonalScans).length === 0 && (
-        <div className="text-center py-12">
-          <Shield className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-          <h3 className="text-lg font-semibold mb-2">No scans found</h3>
-          <p className="text-muted-foreground">
-            {activeTab === 'public' 
-              ? 'No public scans available yet'
-              : 'You haven\'t performed any scans yet'}
-          </p>
-        </div>
+        {/* Empty State */}
+        {!loading && (activeTab === 'public' ? publicScans : filteredPersonalScans).length === 0 && (
+          <div className="text-center py-12">
+            <Shield className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+            <h3 className="text-lg font-semibold mb-2">No scans found</h3>
+            <p className="text-muted-foreground">
+              {activeTab === 'public' 
+                ? 'No public scans available yet'
+                : 'You haven\'t performed any scans yet'}
+            </p>
+          </div>
+        )}
+        </>
       )}
     </div>
   )
