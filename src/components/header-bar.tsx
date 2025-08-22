@@ -126,11 +126,7 @@ export function HeaderBar() {
   return (
     <header className="h-16 border-b border-border bg-background/50 backdrop-blur-sm fixed lg:relative top-0 left-0 right-0 z-30">
       <div className="h-full px-4 sm:px-6 pl-[72px] lg:pl-6 flex items-center justify-between">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <Button variant="ghost" size="sm" className="text-muted-foreground hidden sm:flex">
-            <span className="mr-2">📄</span> Edit
-          </Button>
-        </div>
+        <div className="flex-1" />
 
         <div className="flex items-center gap-1 sm:gap-2">
           <span className="text-xs text-muted-foreground hidden sm:inline">
