@@ -20,7 +20,8 @@ import {
   FileSearch,
   Scan,
   Sparkles,
-  Gift
+  Gift,
+  Crown
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -97,8 +98,15 @@ export function Sidebar() {
       label: 'Referral Program',
       path: '/referral',
       icon: <Gift className="w-5 h-5" />,
-      badge: 'Earn 20%',
+      badge: 'Earn SOL',
       badgeType: 'pink'
+    },
+    {
+      label: 'Premium',
+      path: '/subscription',
+      icon: <Crown className="w-5 h-5" />,
+      badge: '0.5 SOL',
+      badgeType: 'cyan'
     },
     { 
       label: 'Metrics', 
