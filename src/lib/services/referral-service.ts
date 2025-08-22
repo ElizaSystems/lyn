@@ -382,7 +382,7 @@ export class ReferralService {
     // Build dashboard
     const dashboard: ReferralDashboard = {
       referralCode: referralCode.code,
-      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${referralCode.code}`,
+      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${referralCode.code}`,
       stats: {
         totalReferrals: referralCode.totalReferrals,
         activeReferrals,

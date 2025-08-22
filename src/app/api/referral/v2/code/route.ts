@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const fallbackCode = username || `LYN${walletAddress.slice(-6).toUpperCase()}`
     return NextResponse.json({
       code: fallbackCode,
-      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${fallbackCode}`,
+      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${fallbackCode}`,
       stats: {
         totalReferrals: 0,
         totalBurned: 0,
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   
   return NextResponse.json({
     code: result.code,
-    link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${result.code}`,
+    link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${result.code}`,
     stats,
     isVanity: result.isVanity || false,
     success: true
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       code: fallbackCode,
-      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${fallbackCode}`,
+      link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lynai.xyz'}?ref=${fallbackCode}`,
       stats: {
         totalReferrals: 0,
         totalBurned: 0,
