@@ -321,98 +321,81 @@ export default function GetStartedPage() {
           </div>
         </div>
 
-        {/* Subscription Tiers */}
+        {/* Premium Subscription */}
         <div className="mb-12">
           <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
             <Star className="w-6 h-6 text-primary" />
-            Subscription Plans
+            Premium Subscription
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-6 rounded-xl border border-border/50 bg-muted/30">
-              <div className="text-center mb-4">
-                <div className="text-2xl mb-2">🥉</div>
-                <h3 className="font-semibold">Bronze</h3>
-                <p className="text-2xl font-bold text-primary mt-2">5 SOL<span className="text-sm text-muted-foreground">/month</span></p>
+          <div className="max-w-3xl mx-auto">
+            <div className="p-6 rounded-xl border border-primary/50 bg-gradient-to-br from-primary/10 to-accent/10">
+              <div className="text-center mb-6">
+                <div className="text-3xl mb-2">👑</div>
+                <h3 className="text-2xl font-semibold mb-2">Premium Tier</h3>
+                <p className="text-3xl font-bold text-primary">0.5 SOL<span className="text-sm text-muted-foreground">/month</span></p>
               </div>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>100 API calls/day</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Basic threat detection</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Email support</span>
-                </li>
-              </ul>
-            </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Priority access to all features</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Enhanced security scans</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Advanced analytics & insights</span>
+                  </li>
+                </ul>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Referral network benefits</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Exclusive premium badge</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Monthly bonus rewards</span>
+                  </li>
+                </ul>
+              </div>
 
-            <div className="p-6 rounded-xl border border-primary/50 bg-primary/10 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-xs rounded-full font-semibold">
-                POPULAR
+              {/* Referral Rewards Info */}
+              <div className="p-4 bg-background/50 rounded-lg mb-6">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  2-Tier Referral Rewards
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="p-3 bg-primary/10 rounded">
+                    <p className="font-medium text-primary">Tier 1: Direct Referrals</p>
+                    <p className="text-lg font-bold">10% (0.05 SOL)</p>
+                    <p className="text-xs text-muted-foreground">Per subscription</p>
+                  </div>
+                  <div className="p-3 bg-secondary/10 rounded">
+                    <p className="font-medium text-secondary">Tier 2: Network Rewards</p>
+                    <p className="text-lg font-bold">5% (0.025 SOL)</p>
+                    <p className="text-xs text-muted-foreground">From referral's referrals</p>
+                  </div>
+                </div>
               </div>
-              <div className="text-center mb-4">
-                <div className="text-2xl mb-2">🥈</div>
-                <h3 className="font-semibold">Silver</h3>
-                <p className="text-2xl font-bold text-primary mt-2">10 SOL<span className="text-sm text-muted-foreground">/month</span></p>
-              </div>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>500 API calls/day</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Advanced detection</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Priority support</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Real-time alerts</span>
-                </li>
-              </ul>
-            </div>
 
-            <div className="p-6 rounded-xl border border-border/50 bg-muted/30">
-              <div className="text-center mb-4">
-                <div className="text-2xl mb-2">🥇</div>
-                <h3 className="font-semibold">Gold</h3>
-                <p className="text-2xl font-bold text-primary mt-2">20 SOL<span className="text-sm text-muted-foreground">/month</span></p>
+              <div className="text-center">
+                <button
+                  onClick={() => router.push('/subscription')}
+                  className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
+                >
+                  Subscribe Now
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Unlimited API calls</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Enterprise detection</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>Dedicated support</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  <span>API access</span>
-                </li>
-              </ul>
             </div>
-          </div>
-          <div className="text-center mt-6">
-            <button
-              onClick={() => router.push('/subscription')}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
-            >
-              View All Plans
-              <ArrowRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
