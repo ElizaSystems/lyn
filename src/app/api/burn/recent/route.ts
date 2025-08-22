@@ -3,10 +3,13 @@ import { BurnService } from '@/lib/services/burn-service'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log(`[Burn Recent] Fetching recent burns`)
+    
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
     
     const recentBurns = await BurnService.getRecentBurns(limit)
+    console.log(`[Burn Recent] Found ${recentBurns.length} burns`)
     
     // Format burns for display
     const formattedBurns = recentBurns.map(burn => ({
@@ -29,10 +32,16 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Recent burns fetch error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch recent burns' },
-      { status: 500 }
-    )
+    
+    // Return empty burns instead of error to keep UI working
+    return NextResponse.json({
+      success: false,
+      burns: [],
+      count: 0,
+      timestamp: new Date(),
+      error: 'Failed to fetch recent burns',
+      fallback: true
+    }, { status: 200 })
   }
 }
 

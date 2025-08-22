@@ -117,7 +117,9 @@ export async function POST(request: NextRequest) {
     
     // Record the burn in the burns collection
     try {
-      await BurnService.recordBurn({
+      console.log(`[Username Reg] Attempting to record burn for ${walletAddress}`)
+      
+      const burnRecord = await BurnService.recordBurn({
         walletAddress,
         username,
         userId: userId?.toString(),
@@ -129,10 +131,36 @@ export async function POST(request: NextRequest) {
           referralCode: referralCode || undefined
         }
       })
-      console.log(`[Username Reg] Burn recorded in database`)
+      
+      console.log(`[Username Reg] Burn recorded successfully with ID: ${burnRecord._id}`)
     } catch (burnError) {
       console.error('[Username Reg] Failed to record burn:', burnError)
-      // Don't fail registration if burn recording fails
+      
+      // Try to record manually in the database as fallback
+      try {
+        const db = await getDatabase()
+        const burnsCollection = db.collection('burns')
+        
+        const fallbackBurn = {
+          walletAddress,
+          username,
+          userId: userId?.toString(),
+          amount: BURN_AMOUNT,
+          type: 'username_registration',
+          transactionSignature: signature,
+          description: `Username registration: @${username}`,
+          metadata: {
+            referralCode: referralCode || undefined
+          },
+          timestamp: new Date(),
+          verified: true
+        }
+        
+        const result = await burnsCollection.insertOne(fallbackBurn)
+        console.log(`[Username Reg] Fallback burn recorded with ID: ${result.insertedId}`)
+      } catch (fallbackError) {
+        console.error('[Username Reg] Fallback burn recording also failed:', fallbackError)
+      }
     }
 
     // Initialize reputation score
