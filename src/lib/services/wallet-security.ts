@@ -168,7 +168,13 @@ export class WalletSecurityService {
     try {
       const blacklistCollection = await this.getBlacklistCollection()
       const entry = await blacklistCollection.findOne({ walletAddress })
-      return entry || null
+      if (!entry) return null
+      
+      return {
+        reason: entry.reason as string,
+        addedBy: entry.addedBy as string,
+        addedAt: entry.addedAt as Date
+      }
     } catch (error) {
       console.error('[WalletSecurity] Blacklist check failed:', error)
       return null
