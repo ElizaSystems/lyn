@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     // Update scan with results (with error handling)
     if (scan._id) {
       try {
-        await ScanService.updateScanResult(
+        const updateResult = await ScanService.updateScanResult(
           scan._id.toString(),
           {
             isSafe: scanResult.safe,
@@ -193,8 +193,9 @@ export async function POST(request: NextRequest) {
           },
           severity
         )
+        console.log(`[Document Analysis] Updated scan ${scan._id} with result:`, updateResult ? 'success' : 'failed')
       } catch (error) {
-        console.error('Failed to update scan result:', error)
+        console.error(`[Document Analysis] Failed to update scan ${scan._id}:`, error)
         // Continue without updating scan record
       }
     }

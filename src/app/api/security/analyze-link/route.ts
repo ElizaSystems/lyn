@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ThreatIntelligenceService } from '@/lib/services/threat-intelligence'
 import { ScanService } from '@/lib/services/scan-service'
-import { requireAuth } from '@/lib/auth'
 
 // Handle GET requests for testing
 export async function GET() {
@@ -16,9 +15,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication (now handles anonymous users with sessionId)
-    const authResult = await requireAuth(request)
-    const userId = authResult.user?.id || 'anonymous' // Will have sessionId for anonymous users
+    // Get session ID for tracking (no auth required)
+    const sessionId = request.headers.get('x-session-id') || 
+                     request.cookies.get('sessionId')?.value ||
+                     `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
     
     const { url } = await request.json()
     
@@ -60,16 +60,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL format. Please check the URL and try again.' }, { status: 400 })
     }
 
-    // Create scan record
-    const scan = await ScanService.createScan(
-      userId,
-      'url',
-      validUrl,
-      {
-        domain: new URL(validUrl).hostname,
-        sslCertificate: validUrl.startsWith('https')
+    // Try to create scan record in database, but continue if it fails
+    let scan = null
+    try {
+      scan = await ScanService.createScan(
+        sessionId,
+        'url',
+        validUrl,
+        {
+          domain: new URL(validUrl).hostname,
+          sslCertificate: validUrl.startsWith('https')
+        }
+      )
+    } catch (dbError) {
+      console.log('Could not save scan to database, continuing without persistence')
+      // Create a mock scan object for the response
+      scan = {
+        _id: null,
+        hash: `temp-${Date.now()}`,
+        userId: null,
+        sessionId: sessionId
       }
-    )
+    }
 
     // Get real threat intelligence
     const threatResults = await ThreatIntelligenceService.checkURL(validUrl)
@@ -128,19 +140,23 @@ export async function POST(request: NextRequest) {
       'dangerous': aggregated.overallScore < 30 ? 'critical' : 'high'
     } as const
 
-    // Update scan with results
+    // Try to update scan with results if we have a database connection
     if (scan._id) {
-      await ScanService.updateScanResult(
-        scan._id.toString(),
-        {
-          isSafe: aggregated.overallSafe,
-          threats: aggregated.totalThreats,
-          confidence: aggregated.overallScore,
-          details: details.join('\n'),
-          recommendations
-        },
-        severityMap[aggregated.consensus]
-      )
+      try {
+        await ScanService.updateScanResult(
+          scan._id.toString(),
+          {
+            isSafe: aggregated.overallSafe,
+            threats: aggregated.totalThreats,
+            confidence: aggregated.overallScore,
+            details: details.join('\n'),
+            recommendations
+          },
+          severityMap[aggregated.consensus]
+        )
+      } catch (dbError) {
+        console.log('Could not update scan in database')
+      }
     }
 
     return NextResponse.json({

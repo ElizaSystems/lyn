@@ -5,37 +5,43 @@ import { SecurityScan } from '@/lib/models/scan'
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication (now handles both authenticated and anonymous users)
-    const authResult = await requireAuth(request)
-    
-    // If we have a user (authenticated or anonymous with sessionId), proceed
-    const userId = authResult.user?.id || 'anonymous'
+    // Get session ID from headers or cookies
+    const sessionId = request.headers.get('x-session-id') || 
+                     request.cookies.get('sessionId')?.value ||
+                     `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
 
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '10')
-    const type = searchParams.get('type') as SecurityScan['type'] | null
-    const severity = searchParams.get('severity') as SecurityScan['severity'] | null
+    
+    // Try to get scans from database, fall back to empty array
+    let scans: SecurityScan[] = []
+    let stats = null
+    
+    try {
+      // Check authentication (now handles both authenticated and anonymous users)
+      const authResult = await requireAuth(request)
+      const userId = authResult.user?.id || sessionId
+      
+      const type = searchParams.get('type') as SecurityScan['type'] | null
+      const severity = searchParams.get('severity') as SecurityScan['severity'] | null
 
-    let scans
-
-    if (type) {
-      // Get scans by type
-      scans = await ScanService.getUserScansByType(userId, type, limit)
-    } else if (severity) {
-      // Get scans by severity
-      scans = await ScanService.getUserScansBySeverity(userId, severity, limit)
-    } else {
-      // Get recent scans (works with both userId and sessionId)
-      scans = await ScanService.getUserRecentScans(userId, limit)
+      if (type) {
+        scans = await ScanService.getUserScansByType(userId, type, limit)
+      } else if (severity) {
+        scans = await ScanService.getUserScansBySeverity(userId, severity, limit)
+      } else {
+        scans = await ScanService.getUserRecentScans(userId, limit)
+      }
+      
+      stats = await ScanService.getUserStatistics(userId)
+    } catch (dbError) {
+      console.log('Database not available, using fallback data')
     }
 
-    // Get user statistics (works with both userId and sessionId)
-    const stats = await ScanService.getUserStatistics(userId)
-
     // Format the scans for the frontend
-    const formattedScans = scans.map(scan => ({
-      id: scan._id?.toString(),
+    const formattedScans = scans.map((scan: SecurityScan) => ({
+      id: scan._id?.toString() || `scan-${Date.now()}`,
       hash: scan.hash,
       type: scan.type,
       target: scan.target,
@@ -56,7 +62,26 @@ export async function GET(request: NextRequest) {
         lastScanDate: stats.lastScanDate,
         scansByType: stats.scansByType,
         scansBySeverity: stats.scansBySeverity
-      } : null
+      } : {
+        totalScans: 0,
+        safeScans: 0,
+        threatsDetected: 0,
+        lastScanDate: null,
+        scansByType: {
+          url: 0,
+          document: 0,
+          wallet: 0,
+          smart_contract: 0,
+          transaction: 0
+        },
+        scansBySeverity: {
+          safe: 0,
+          low: 0,
+          medium: 0,
+          high: 0,
+          critical: 0
+        }
+      }
     })
   } catch (error) {
     console.error('Failed to fetch scans:', error)

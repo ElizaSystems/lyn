@@ -127,28 +127,39 @@ export class ScanService {
   ): Promise<SecurityScan | null> {
     try {
       const scans = await this.getScansCollection()
+      
+      console.log(`[ScanService] Attempting to update scan ${scanId} with severity ${severity}`)
     
-    const updateResult = await scans.findOneAndUpdate(
-      { _id: new ObjectId(scanId) },
-      {
-        $set: {
-          result,
-          severity,
-          status: 'completed',
-          completedAt: new Date()
-        }
-      },
-      { returnDocument: 'after' }
-    )
+      const updateResult = await scans.findOneAndUpdate(
+        { _id: new ObjectId(scanId) },
+        {
+          $set: {
+            result,
+            severity,
+            status: 'completed',
+            completedAt: new Date()
+          }
+        },
+        { returnDocument: 'after' }
+      )
 
-    if (updateResult && updateResult.userId) {
-      // Update user statistics
-      await this.updateUserStatistics(updateResult.userId.toString(), severity, result.isSafe)
-    }
+      if (updateResult) {
+        console.log(`[ScanService] Successfully updated scan ${scanId}`)
+        if (updateResult.userId) {
+          // Update user statistics
+          try {
+            await this.updateUserStatistics(updateResult.userId.toString(), severity, result.isSafe)
+          } catch (statsError) {
+            console.error(`[ScanService] Failed to update user statistics for scan ${scanId}:`, statsError)
+          }
+        }
+      } else {
+        console.log(`[ScanService] No scan found with ID ${scanId}`)
+      }
 
       return updateResult
     } catch (error) {
-      console.error('Failed to update scan result:', error)
+      console.error(`[ScanService] Failed to update scan result for ${scanId}:`, error)
       return null
     }
   }

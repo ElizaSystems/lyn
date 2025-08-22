@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AlertTriangle, CheckCircle, Send, Upload, FileText, Shield, Loader2, Bot, User, Sparkles, Info, Lock, Coins, Wallet } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Send, Upload, FileText, Shield, Loader2, Bot, User, Sparkles, Info, Lock, Coins, Wallet, Activity, Clock, Zap, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Message {
@@ -26,6 +26,12 @@ interface UsageInfo {
   questionsAsked: number
   questionsRemaining?: number
   hasTokenAccess: boolean
+  accessTier?: 'free' | 'basic' | 'premium' | 'elite' | 'unlimited'
+  scansToday?: number
+  scansRemaining?: number | 'unlimited'
+  canScan?: boolean
+  hoursUntilReset?: number
+  upgradeMessage?: string
 }
 
 interface SecurityChatProps {
@@ -432,16 +438,39 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
             <Sparkles className="h-4 w-4 text-secondary" />
           </div>
           <div className="flex items-center gap-2">
-            {!usage.hasTokenAccess && usage.questionsRemaining !== undefined && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-sm">
-                <Info className="h-3 w-3" />
-                <span>{usage.questionsRemaining} free questions left</span>
+            {usage.accessTier && (
+              <div className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-lg text-sm",
+                usage.accessTier === 'unlimited' ? 'bg-purple-500/10 text-purple-600' :
+                usage.accessTier === 'elite' ? 'bg-green-500/10 text-green-600' :
+                usage.accessTier === 'premium' ? 'bg-blue-500/10 text-blue-600' :
+                usage.accessTier === 'basic' ? 'bg-cyan-500/10 text-cyan-600' :
+                'bg-yellow-500/10 text-yellow-600'
+              )}>
+                {usage.accessTier === 'unlimited' && <Zap className="h-3 w-3" />}
+                {usage.accessTier === 'elite' && <TrendingUp className="h-3 w-3" />}
+                {usage.accessTier === 'premium' && <TrendingUp className="h-3 w-3" />}
+                {usage.accessTier === 'basic' && <Activity className="h-3 w-3" />}
+                {usage.accessTier === 'free' && <Info className="h-3 w-3" />}
+                <span>
+                  {usage.accessTier === 'unlimited' && 'Unlimited'}
+                  {usage.accessTier === 'elite' && `${usage.scansRemaining}/250 scans today`}
+                  {usage.accessTier === 'premium' && `${usage.scansRemaining}/20 scans today`}
+                  {usage.accessTier === 'basic' && `${usage.scansRemaining}/2 scans today`}
+                  {usage.accessTier === 'free' && `${usage.scansRemaining}/1 free scan`}
+                </span>
+              </div>
+            )}
+            {usage.hoursUntilReset && usage.accessTier !== 'unlimited' && (
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted text-sm">
+                <Clock className="h-3 w-3" />
+                <span>Resets in {usage.hoursUntilReset}h</span>
               </div>
             )}
             {connected && tokenBalance !== null && (
               <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-secondary/10 text-sm">
                 <Coins className="h-3 w-3" />
-                <span>{tokenBalance.toLocaleString()} PUMP</span>
+                <span>{tokenBalance.toLocaleString()} LYN</span>
               </div>
             )}
           </div>
@@ -458,7 +487,12 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
             <div className="flex-1">
               <p className="text-sm font-medium">Token Access Required</p>
               <p className="text-xs text-muted-foreground">
-                Hold 10,000+ LYN tokens for unlimited access
+                {usage.accessTier === 'free' && 'Free tier: 1 scan/day • Upgrade with LYN tokens'}
+                {usage.accessTier === 'basic' && 'Basic: 2 scans/day • 10k LYN'}
+                {usage.accessTier === 'premium' && 'Premium: 20 scans/day • 100k LYN'}
+                {usage.accessTier === 'elite' && 'Elite: 250 scans/day • 1M LYN'}
+                {usage.accessTier === 'unlimited' && 'Unlimited scans • 10M LYN'}
+                {!usage.accessTier && 'Get LYN tokens for more scans'}
               </p>
             </div>
             {!connected && (

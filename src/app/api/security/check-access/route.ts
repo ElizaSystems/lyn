@@ -5,8 +5,86 @@ import { getTokenBalance } from '@/lib/solana'
 import { config } from '@/lib/config'
 import { PublicKey } from '@solana/web3.js'
 
-const REQUIRED_TOKEN_AMOUNT = 1000 // Minimum LYN tokens required
-const FREE_QUESTIONS_LIMIT = 10 // Free questions per session
+// Token tier thresholds
+const UNLIMITED_TOKEN_AMOUNT = 10000000 // 10M LYN for unlimited access
+const ELITE_TOKEN_AMOUNT = 1000000 // 1M LYN for 250 scans per day
+const PREMIUM_TOKEN_AMOUNT = 100000 // 100k LYN for 20 scans per day
+const BASIC_TOKEN_AMOUNT = 10000 // 10k LYN for 2 scans per day
+const FREE_QUESTIONS_LIMIT = 1 // Free questions per day for users with no tokens
+
+// Helper to get user's daily usage (works with both userId and sessionId)
+async function getDailyUsage(identifier: string): Promise<{ scansToday: number; lastResetDate: Date }> {
+  try {
+    const database = await db.checkDatabaseHealth() ? await import('@/lib/mongodb').then(m => m.getDatabase()) : null
+    if (!database) {
+      // Use in-memory storage as fallback
+      return { scansToday: 0, lastResetDate: new Date() }
+    }
+    
+    const usageCollection = database.collection('daily_usage')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const usage = await usageCollection.findOne({ 
+      $or: [
+        { userId: identifier },
+        { sessionId: identifier }
+      ],
+      date: { $gte: today } 
+    })
+    
+    if (!usage) {
+      // Create new daily usage record
+      await usageCollection.insertOne({
+        sessionId: identifier,
+        userId: identifier.startsWith('session_') ? null : identifier,
+        date: today,
+        scansToday: 0,
+        lastResetDate: today
+      })
+      return { scansToday: 0, lastResetDate: today }
+    }
+    
+    return { 
+      scansToday: usage.scansToday || 0, 
+      lastResetDate: usage.lastResetDate || today 
+    }
+  } catch (error) {
+    console.log('Could not get daily usage from DB:', error)
+    return { scansToday: 0, lastResetDate: new Date() }
+  }
+}
+
+// Helper to increment daily usage (works with both userId and sessionId)
+async function incrementDailyUsage(identifier: string): Promise<void> {
+  try {
+    const database = await db.checkDatabaseHealth() ? await import('@/lib/mongodb').then(m => m.getDatabase()) : null
+    if (!database) return
+    
+    const usageCollection = database.collection('daily_usage')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const query = identifier.startsWith('session_') 
+      ? { sessionId: identifier, date: { $gte: today } }
+      : { userId: identifier, date: { $gte: today } }
+    
+    await usageCollection.updateOne(
+      query,
+      { 
+        $inc: { scansToday: 1 },
+        $set: { 
+          lastUpdate: new Date(),
+          sessionId: identifier.startsWith('session_') ? identifier : undefined,
+          userId: !identifier.startsWith('session_') ? identifier : undefined
+        }
+      },
+      { upsert: true }
+    )
+  } catch (error) {
+    console.log('Could not update daily usage:', error)
+  }
+}
 
 export const POST = withMiddleware(
   async (req: NextRequest, context) => {
@@ -18,6 +96,8 @@ export const POST = withMiddleware(
 
     let user = context.user
     let tokenBalance = 0
+    let accessTier: 'unlimited' | 'elite' | 'premium' | 'basic' | 'free' = 'free'
+    let dailyLimit = FREE_QUESTIONS_LIMIT
     let hasTokenAccess = false
 
     // If wallet address provided, check token balance and get/create user
@@ -28,7 +108,29 @@ export const POST = withMiddleware(
         
         // Get token balance
         tokenBalance = await getTokenBalance(walletAddress, config.token.mintAddress)
-        hasTokenAccess = tokenBalance >= REQUIRED_TOKEN_AMOUNT
+        
+        // Determine access tier based on token balance
+        if (tokenBalance >= UNLIMITED_TOKEN_AMOUNT) {
+          accessTier = 'unlimited'
+          hasTokenAccess = true
+          dailyLimit = -1 // No limit
+        } else if (tokenBalance >= ELITE_TOKEN_AMOUNT) {
+          accessTier = 'elite'
+          hasTokenAccess = true
+          dailyLimit = 250 // 250 scans per day
+        } else if (tokenBalance >= PREMIUM_TOKEN_AMOUNT) {
+          accessTier = 'premium'
+          hasTokenAccess = true
+          dailyLimit = 20 // 20 scans per day
+        } else if (tokenBalance >= BASIC_TOKEN_AMOUNT) {
+          accessTier = 'basic'
+          hasTokenAccess = true
+          dailyLimit = 2 // 2 scans per day
+        } else {
+          accessTier = 'free'
+          hasTokenAccess = false
+          dailyLimit = FREE_QUESTIONS_LIMIT
+        }
 
         // Get or create user
         const existingUser = await db.users.findByWalletAddress(walletAddress)
@@ -85,30 +187,110 @@ export const POST = withMiddleware(
       }
     }
 
-    // Calculate questions remaining (track separately in analytics)
-    const questionsAsked = 0 // Will be tracked in analytics collection
-    const questionsRemaining = hasTokenAccess 
-      ? null // Unlimited for token holders
-      : Math.max(0, FREE_QUESTIONS_LIMIT - questionsAsked)
+    // Get the identifier for tracking (userId if logged in, sessionId if anonymous)
+    const trackingId = user?.id || sessionId
     
-    const canAskQuestion = hasTokenAccess || questionsAsked < FREE_QUESTIONS_LIMIT
+    // Get daily usage
+    const { scansToday, lastResetDate } = await getDailyUsage(trackingId)
+    
+    // Calculate remaining scans based on tier
+    let scansRemaining: number | null = null
+    let canScan = false
+    let upgradeMessage = ''
+    
+    if (accessTier === 'unlimited') {
+      scansRemaining = null // Unlimited
+      canScan = true
+      upgradeMessage = ''
+    } else if (accessTier === 'elite') {
+      scansRemaining = Math.max(0, 250 - scansToday)
+      canScan = scansToday < 250
+      if (!canScan) {
+        upgradeMessage = `Daily limit reached (250 scans). Hold ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN tokens for unlimited access.`
+      }
+    } else if (accessTier === 'premium') {
+      scansRemaining = Math.max(0, 20 - scansToday)
+      canScan = scansToday < 20
+      if (!canScan) {
+        upgradeMessage = `Daily limit reached (20 scans). Upgrade for more:\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN = Unlimited`
+      }
+    } else if (accessTier === 'basic') {
+      scansRemaining = Math.max(0, 2 - scansToday)
+      canScan = scansToday < 2
+      if (!canScan) {
+        upgradeMessage = `Daily limit reached (2 scans). Upgrade for more:\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN = Unlimited`
+      }
+    } else {
+      // Free tier
+      scansRemaining = Math.max(0, FREE_QUESTIONS_LIMIT - scansToday)
+      canScan = scansToday < FREE_QUESTIONS_LIMIT
+      if (!canScan) {
+        if (!walletAddress) {
+          upgradeMessage = `Daily free scan used. Connect wallet with LYN tokens for more scans:\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN = 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN = Unlimited`
+        } else {
+          upgradeMessage = `Daily free scan used. Get more LYN tokens:\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN = 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN = Unlimited`
+        }
+      }
+    }
+    
+    // Calculate time until reset (midnight UTC)
+    const now = new Date()
+    const tomorrow = new Date(now)
+    tomorrow.setUTCHours(24, 0, 0, 0)
+    const hoursUntilReset = Math.ceil((tomorrow.getTime() - now.getTime()) / (1000 * 60 * 60))
 
     return NextResponse.json({
       hasAccess: hasTokenAccess,
       tokenBalance,
-      requiredTokens: REQUIRED_TOKEN_AMOUNT,
-      questionsAsked,
-      freeQuestionsLimit: FREE_QUESTIONS_LIMIT,
-      canAskQuestion,
-      questionsRemaining,
-      reason: !canAskQuestion 
-        ? `Free limit of ${FREE_QUESTIONS_LIMIT} questions reached. Hold ${REQUIRED_TOKEN_AMOUNT} LYN tokens for unlimited access.`
-        : null,
-      requiresTokens: !hasTokenAccess && questionsAsked >= FREE_QUESTIONS_LIMIT,
+      accessTier,
+      scansToday,
+      dailyLimit: dailyLimit === -1 ? 'unlimited' : dailyLimit,
+      scansRemaining: scansRemaining === null ? 'unlimited' : scansRemaining,
+      canScan,
+      hoursUntilReset,
+      lastResetDate,
+      upgradeMessage,
+      requiresTokens: !hasTokenAccess && scansToday >= FREE_QUESTIONS_LIMIT,
       tokenInfo: {
         tokenSymbol: config.token.symbol,
-        requiredAmount: REQUIRED_TOKEN_AMOUNT,
-        freeQuestionsLimit: FREE_QUESTIONS_LIMIT,
+        tiers: {
+          free: {
+            tokens: 0,
+            scansPerDay: FREE_QUESTIONS_LIMIT,
+            description: '1 free scan per day'
+          },
+          basic: {
+            tokens: BASIC_TOKEN_AMOUNT,
+            scansPerDay: 2,
+            description: '2 scans per day'
+          },
+          premium: {
+            tokens: PREMIUM_TOKEN_AMOUNT,
+            scansPerDay: 20,
+            description: '20 scans per day'
+          },
+          elite: {
+            tokens: ELITE_TOKEN_AMOUNT,
+            scansPerDay: 250,
+            description: '250 scans per day'
+          },
+          unlimited: {
+            tokens: UNLIMITED_TOKEN_AMOUNT,
+            scansPerDay: 'unlimited',
+            description: 'Unlimited scans'
+          }
+        },
+        currentTier: accessTier,
+        nextTier: 
+          accessTier === 'free' ? 'basic' : 
+          accessTier === 'basic' ? 'premium' : 
+          accessTier === 'premium' ? 'elite' :
+          accessTier === 'elite' ? 'unlimited' : null,
+        tokensNeededForNextTier: 
+          accessTier === 'free' ? BASIC_TOKEN_AMOUNT - tokenBalance :
+          accessTier === 'basic' ? PREMIUM_TOKEN_AMOUNT - tokenBalance :
+          accessTier === 'premium' ? ELITE_TOKEN_AMOUNT - tokenBalance :
+          accessTier === 'elite' ? UNLIMITED_TOKEN_AMOUNT - tokenBalance : 0
       }
     })
   },
@@ -129,20 +311,70 @@ export async function GET() {
     return NextResponse.json({
       tokenInfo: {
         tokenSymbol: config.token.symbol,
-        requiredAmount: REQUIRED_TOKEN_AMOUNT,
-        freeQuestionsLimit: FREE_QUESTIONS_LIMIT,
+        tiers: {
+          free: {
+            tokens: 0,
+            scansPerDay: FREE_QUESTIONS_LIMIT,
+            description: `${FREE_QUESTIONS_LIMIT} free scan per day`
+          },
+          basic: {
+            tokens: BASIC_TOKEN_AMOUNT,
+            scansPerDay: 2,
+            description: '2 scans per day'
+          },
+          premium: {
+            tokens: PREMIUM_TOKEN_AMOUNT,
+            scansPerDay: 20,
+            description: '20 scans per day'
+          },
+          elite: {
+            tokens: ELITE_TOKEN_AMOUNT,
+            scansPerDay: 250,
+            description: '250 scans per day'
+          },
+          unlimited: {
+            tokens: UNLIMITED_TOKEN_AMOUNT,
+            scansPerDay: 'unlimited',
+            description: 'Unlimited scans'
+          }
+        }
       },
-      message: `Hold at least ${REQUIRED_TOKEN_AMOUNT} ${config.token.symbol} tokens for unlimited access. Free users get ${FREE_QUESTIONS_LIMIT} questions.`
+      message: `LYN Token Access Tiers:\n• Free: ${FREE_QUESTIONS_LIMIT} scan/day\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN: 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN: 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN: 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN: Unlimited scans`
     })
   } catch (error) {
     console.error('Error in check-access GET:', error)
     return NextResponse.json({
       tokenInfo: {
         tokenSymbol: 'LYN',
-        requiredAmount: REQUIRED_TOKEN_AMOUNT,
-        freeQuestionsLimit: FREE_QUESTIONS_LIMIT,
+        tiers: {
+          free: {
+            tokens: 0,
+            scansPerDay: FREE_QUESTIONS_LIMIT,
+            description: `${FREE_QUESTIONS_LIMIT} free scan per day`
+          },
+          basic: {
+            tokens: BASIC_TOKEN_AMOUNT,
+            scansPerDay: 2,
+            description: '2 scans per day'
+          },
+          premium: {
+            tokens: PREMIUM_TOKEN_AMOUNT,
+            scansPerDay: 20,
+            description: '20 scans per day'
+          },
+          elite: {
+            tokens: ELITE_TOKEN_AMOUNT,
+            scansPerDay: 250,
+            description: '250 scans per day'
+          },
+          unlimited: {
+            tokens: UNLIMITED_TOKEN_AMOUNT,
+            scansPerDay: 'unlimited',
+            description: 'Unlimited scans'
+          }
+        }
       },
-      message: `Hold at least ${REQUIRED_TOKEN_AMOUNT} LYN tokens for unlimited access. Free users get ${FREE_QUESTIONS_LIMIT} questions.`
+      message: `LYN Token Access Tiers:\n• Free: ${FREE_QUESTIONS_LIMIT} scan/day\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN: 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN: 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN: 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN: Unlimited scans`
     })
   }
 }
