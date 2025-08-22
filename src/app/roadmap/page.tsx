@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Map, Check, Clock, Calendar, Users, Code, Sparkles, Globe } from 'lucide-react'
+import { Map, Check, Clock, Calendar, Users, Globe } from 'lucide-react'
 
 interface RoadmapItem {
   id: string
@@ -27,103 +27,164 @@ export default function RoadmapPage() {
 
   const roadmapItems: RoadmapItem[] = [
     {
-      id: 'current',
-      title: 'Core Platform Stabilization',
-      description: 'Focus on stability, testing, and core security features that are already built',
-      status: 'in-progress',
-      quarter: 'Q3 2025',
-      timeline: 'Aug - Sep 2025',
+      id: 'completed-phase-1',
+      title: 'Platform Foundation & Core Features',
+      description: 'Essential security features, user system, and blockchain integration',
+      status: 'completed',
+      quarter: 'Q4 2024',
+      timeline: 'Oct - Dec 2024',
       features: [
-        'Complete test suite coverage (85% → 95%)',
-        'Performance optimization for existing features',
-        'Bug fixes and stability improvements', 
-        'Enhanced error handling and logging',
-        'Mobile-responsive UI improvements'
+        '✅ Multi-type security scanner (URL, wallet, contract, transaction)',
+        '✅ User registration and profile system',
+        '✅ Wallet authentication and connection',
+        '✅ Real-time threat intelligence dashboard',
+        '✅ Basic security chat assistant',
+        '✅ Mobile-responsive design implementation'
+      ],
+      priority: 'high',
+      effort: 'Completed'
+    },
+    {
+      id: 'completed-phase-2',
+      title: 'Community & Monetization Features',
+      description: 'Engagement systems, token economy, and revenue generation',
+      status: 'completed',
+      quarter: 'Q4 2024',
+      timeline: 'Nov - Dec 2024',
+      features: [
+        '✅ Dynamic badge and achievement system',
+        '✅ Reputation scoring with multiple factors',
+        '✅ 2-tier referral rewards program',
+        '✅ SOL-based premium subscriptions (Bronze/Silver/Gold)',
+        '✅ Token burn tracking and leaderboard',
+        '✅ Admin panel with wallet authentication',
+        '✅ Platform metrics and analytics dashboard'
+      ],
+      priority: 'high',
+      effort: 'Completed'
+    },
+    {
+      id: 'current',
+      title: 'Security API Integration & Testing',
+      description: 'Connect real security APIs and comprehensive testing',
+      status: 'in-progress',
+      quarter: 'Q1 2025',
+      timeline: 'Jan - Feb 2025',
+      features: [
+        '🔄 Integrate VirusTotal API for malware scanning',
+        '🔄 Connect Google Safe Browsing API',
+        '🔄 Implement URLVoid and PhishTank APIs',
+        '⏳ Complete test suite coverage (current: ~40%)',
+        '⏳ Performance optimization and caching',
+        '⏳ Enhanced error handling for API failures'
+      ],
+      priority: 'high',
+      effort: '4-6 weeks part-time'
+    },
+    {
+      id: 'q2-2025',
+      title: 'Automated Tasks & Enhanced UX',
+      description: 'Task automation system and user experience improvements',
+      status: 'planned',
+      quarter: 'Q2 2025',
+      timeline: 'Mar - Apr 2025',
+      features: [
+        'Automated task system implementation',
+        'Scheduled security scans and monitoring',
+        'Enhanced AI chat with conversation history',
+        'Webhook and email notifications',
+        'User settings and preferences dashboard',
+        'Bulk scanning capabilities'
       ],
       priority: 'high',
       effort: '6-8 weeks part-time'
     },
     {
-      id: 'q4-2025',
-      title: 'User Experience & Automation',
-      description: 'Improve existing features and implement the automated task system',
+      id: 'q3-2025',
+      title: 'Advanced Security Features',
+      description: 'Sophisticated threat detection and analysis tools',
       status: 'planned',
-      quarter: 'Q4 2025',
-      timeline: 'Oct - Dec 2025',
+      quarter: 'Q3 2025',
+      timeline: 'May - Jun 2025',
       features: [
-        'Automated security scanning system',
-        'Task scheduling and notifications',
-        'Enhanced AI chat with conversation history',
-        'Improved wallet integration and transaction tracking',
-        'User settings and preferences system'
+        'Smart contract vulnerability scanner',
+        'DeFi protocol risk assessment',
+        'Transaction pattern analysis',
+        'Cross-chain wallet tracking',
+        'Custom alert conditions',
+        'Security report generation (PDF export)'
       ],
       priority: 'high',
+      effort: '8-10 weeks part-time'
+    },
+    {
+      id: 'q4-2025',
+      title: 'Mobile & Browser Extensions',
+      description: 'Expand platform reach with mobile and browser integration',
+      status: 'planned',
+      quarter: 'Q4 2025',
+      timeline: 'Jul - Sep 2025',
+      features: [
+        'Progressive Web App (PWA) development',
+        'Chrome extension for real-time protection',
+        'Firefox extension support',
+        'Mobile app prototypes (iOS/Android)',
+        'Push notifications system',
+        'Offline scanning capabilities'
+      ],
+      priority: 'medium',
       effort: '10-12 weeks part-time'
     },
     {
       id: 'q1-2026',
-      title: 'Mobile & Browser Extensions',
-      description: 'Expand platform reach with mobile support and browser extensions',
+      title: 'Community Platform & API',
+      description: 'Developer tools and community-driven security',
       status: 'planned',
       quarter: 'Q1 2026',
-      timeline: 'Jan - Mar 2026',
+      timeline: 'Oct - Dec 2025',
       features: [
-        'Progressive Web App (PWA) support',
-        'Browser extension (Chrome/Firefox)',
-        'Mobile-optimized interface',
-        'Offline capability for basic features',
-        'Push notifications system'
+        'Public REST API for developers',
+        'API documentation and SDK',
+        'Community threat reporting system',
+        'Decentralized threat intelligence network',
+        'Bug bounty program launch',
+        'Educational content platform'
       ],
-      priority: 'high',
+      priority: 'medium',
       effort: '8-10 weeks part-time'
     },
     {
       id: 'q2-2026',
-      title: 'Advanced Security & Analytics',
-      description: 'Add sophisticated security analysis and improved analytics',
+      title: 'Cross-Chain & Enterprise',
+      description: 'Multi-chain support and enterprise features',
       status: 'planned',
       quarter: 'Q2 2026',
-      timeline: 'Apr - Jun 2026',
+      timeline: 'Jan - Mar 2026',
       features: [
-        'Enhanced smart contract analysis',
-        'DeFi protocol risk assessment',
-        'Advanced analytics dashboard',
-        'Transaction pattern analysis',
-        'Threat intelligence integration'
+        'Ethereum chain integration',
+        'BSC and Polygon support',
+        'Enterprise dashboard and APIs',
+        'White-label solutions',
+        'Advanced compliance tools',
+        'Multi-language support (5+ languages)'
       ],
       priority: 'medium',
-      effort: '10-12 weeks part-time'
-    },
-    {
-      id: 'q3-2026',
-      title: 'Community & API Platform',
-      description: 'Build community features and developer API access',
-      status: 'planned',
-      quarter: 'Q3 2026',
-      timeline: 'Jul - Sep 2026',
-      features: [
-        'Public API for developers',
-        'Community threat sharing',
-        'Integration marketplace',
-        'Educational content system',
-        'Advanced user analytics'
-      ],
-      priority: 'medium',
-      effort: '8-10 weeks part-time'
+      effort: '12-14 weeks part-time'
     },
     {
       id: 'future',
-      title: 'Enterprise & Ecosystem',
-      description: 'Enterprise solutions and broader ecosystem integrations',
+      title: 'Long-Term Vision',
+      description: 'DAO governance and advanced AI features',
       status: 'planned',
-      quarter: 'Q4 2026+',
-      timeline: 'Oct 2026 & Beyond',
+      quarter: 'Q3 2026+',
+      timeline: 'Apr 2026 & Beyond',
       features: [
-        'Enterprise security dashboard',
-        'Multi-language support',
-        'Cross-chain compatibility',
-        'White-label solutions',
-        'AI model improvements'
+        'DAO governance implementation',
+        'Smart contract insurance products',
+        'NFT security verification system',
+        'AI model fine-tuning and improvements',
+        'Integration marketplace expansion',
+        'Global security network scaling'
       ],
       priority: 'low',
       effort: 'Ongoing development'
@@ -180,7 +241,7 @@ export default function RoadmapPage() {
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-xl sm:text-2xl font-bold">Development Roadmap</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">Fixed start: August 18, 2025</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Project launched: October 2024 | Last updated: {currentDate || 'Loading...'}</p>
             </div>
           </div>
         </div>
@@ -193,19 +254,19 @@ export default function RoadmapPage() {
           <div className="flex items-start gap-3 sm:gap-4">
             <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary mt-1 flex-shrink-0" />
             <div className="min-w-0 flex-1">
-              <h2 className="text-base sm:text-lg font-semibold mb-2">Team & Timeline Context</h2>
+              <h2 className="text-base sm:text-lg font-semibold mb-2">Project Status & Context</h2>
               <div className="grid grid-cols-1 gap-3 sm:gap-4 text-sm">
                 <div>
-                  <p className="font-medium text-foreground mb-1">Team Size</p>
-                  <p className="text-muted-foreground text-xs sm:text-sm">2-3 developers working part-time</p>
+                  <p className="font-medium text-foreground mb-1">Completion Status</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">Core platform: ✅ Complete | Security APIs: 🔄 In Progress</p>
                 </div>
                 <div>
-                  <p className="font-medium text-foreground mb-1">Current Date</p>
-                  <p className="text-muted-foreground text-xs sm:text-sm">{currentDate || 'Loading...'}</p>
+                  <p className="font-medium text-foreground mb-1">Features Delivered</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">20+ major features including scanners, subscriptions, referrals, and badges</p>
                 </div>
                 <div>
-                  <p className="font-medium text-foreground mb-1">Development Approach</p>
-                  <p className="text-muted-foreground text-xs sm:text-sm">Aggressive timeline, quality-focused delivery</p>
+                  <p className="font-medium text-foreground mb-1">Next Milestone</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">Real security API integration and comprehensive testing suite</p>
                 </div>
               </div>
             </div>
@@ -267,32 +328,32 @@ export default function RoadmapPage() {
 
         {/* Footer notes */}
         <div className="mt-8 sm:mt-12 space-y-4 sm:space-y-6">
-          {/* Development philosophy */}
-          <div className="p-4 sm:p-6 bg-primary/5 rounded-xl border border-primary/20">
+          {/* Current Progress */}
+          <div className="p-4 sm:p-6 bg-green-500/5 rounded-xl border border-green-500/20">
             <div className="flex items-start gap-3 sm:gap-4">
-              <Code className="w-5 h-5 sm:w-6 sm:h-6 text-primary mt-1 flex-shrink-0" />
+              <Check className="w-5 h-5 sm:w-6 sm:h-6 text-green-500 mt-1 flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold mb-2 text-primary text-sm sm:text-base">Aggressive Development Philosophy</h3>
+                <h3 className="font-semibold mb-2 text-green-500 text-sm sm:text-base">Major Achievements</h3>
                 <div className="space-y-2 text-xs sm:text-sm">
-                  <p>• <strong>Fast Iteration:</strong> Rapid feature development with shorter release cycles</p>
-                  <p>• <strong>MVP Approach:</strong> Launch features quickly and iterate based on user feedback</p>
-                  <p>• <strong>User-Driven Priorities:</strong> Features prioritized based on user feedback and usage patterns</p>
-                  <p>• <strong>Continuous Deployment:</strong> Regular releases with automated testing and monitoring</p>
+                  <p>• <strong>Platform Launch:</strong> Successfully deployed with 20+ features</p>
+                  <p>• <strong>User System:</strong> Complete authentication, profiles, and reputation</p>
+                  <p>• <strong>Monetization:</strong> Subscriptions, referrals, and burn mechanisms live</p>
+                  <p>• <strong>Security Core:</strong> Multi-type scanner and threat detection operational</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Flexibility note */}
-          <div className="p-4 sm:p-6 bg-muted/30 rounded-xl border border-border/50">
+          {/* Next Steps */}
+          <div className="p-4 sm:p-6 bg-blue-500/5 rounded-xl border border-blue-500/20">
             <div className="flex items-start gap-3 sm:gap-4">
-              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-secondary mt-1 flex-shrink-0" />
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 mt-1 flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold mb-2 text-sm sm:text-base">Fixed Timeline Commitment</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  This roadmap uses a fixed start date of August 18, 2025, regardless of when you&apos;re viewing it. 
-                  Timelines are aggressive but achievable with focused part-time development. Features may be reprioritized 
-                  based on community needs, but delivery dates remain target-focused.
+                <h3 className="font-semibold mb-2 text-blue-500 text-sm sm:text-base">Current Focus (Q1 2025)</h3>
+                <p className="text-xs sm:text-sm">
+                  We&apos;re currently integrating real security APIs including VirusTotal, Google Safe Browsing, 
+                  and PhishTank to enhance threat detection accuracy. Additionally, we&apos;re building comprehensive 
+                  test coverage and optimizing performance for scale.
                 </p>
               </div>
             </div>

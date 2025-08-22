@@ -6,7 +6,7 @@ const conversations = new Map<string, ChatMessage[]>()
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, sessionId = 'default', context } = await request.json()
+    const { message, sessionId = 'default', context, username } = await request.json()
     
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -21,14 +21,15 @@ export async function POST(request: NextRequest) {
     // Analyze user intent
     const intentAnalysis = await VeniceAIService.analyzeIntent(message)
     
-    // Generate AI response
+    // Generate AI response with username context
     const aiResponse = await VeniceAIService.generateSecurityResponse(
       message,
       history,
       {
         hasUrlToAnalyze: intentAnalysis.intent === 'check_url',
         hasFileToScan: intentAnalysis.intent === 'scan_file',
-        previousAnalysisResult: context?.analysisResult
+        previousAnalysisResult: context?.analysisResult,
+        username: username
       }
     )
     

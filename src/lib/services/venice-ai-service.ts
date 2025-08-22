@@ -56,6 +56,7 @@ export class VeniceAIService {
       hasUrlToAnalyze?: boolean
       hasFileToScan?: boolean
       previousAnalysisResult?: Record<string, unknown>
+      username?: string
     }
   ): Promise<string> {
     const client = this.getClient()
@@ -67,10 +68,12 @@ export class VeniceAIService {
 
     try {
       // Build the conversation with Lyn AI space agent system prompt
+      const userIdentity = context?.username ? `The user's name is ${context.username}. Address them by their name when appropriate, making the conversation more personal and friendly.` : ''
+      
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `I'm Lyn, your AI space agent. I specialize in cybersecurity and protecting users from online threats in the digital space. My capabilities include:
+          content: `I'm Lyn, your AI space agent. I specialize in cybersecurity and protecting users from online threats in the digital space. ${userIdentity} My capabilities include:
 
 1. **Phishing Detection**: Analyzing URLs for phishing indicators using multiple threat intelligence sources (VirusTotal, Google Safe Browsing, URLVoid, IPQualityScore, PhishTank, AbuseIPDB)
 2. **Malware Scanning**: Scanning documents and files for malware using antivirus engines

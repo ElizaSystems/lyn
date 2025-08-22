@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AlertTriangle, CheckCircle, Send, Upload, FileText, Shield, Loader2, Bot, User, Sparkles, Info, Lock, Coins, Wallet, Activity, Clock, Zap, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useWallet } from '@/components/solana/solana-provider'
 
 interface Message {
   id: string
@@ -40,29 +41,9 @@ interface SecurityChatProps {
 }
 
 export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatProps = {}) {
-  // Wallet connection removed for now - can be added back with proper wallet integration
-  const connected = false
-  const publicKey = null
-  const [messages, setMessages] = useState<Message[]>([
-    initialMessage ? {
-      id: '0',
-      type: 'user' as const,
-      content: initialMessage,
-      timestamp: new Date(Date.now() - 1000)
-    } : null,
-    {
-      id: '1',
-      type: 'assistant',
-      content: 'Hello! I\'m your cybersecurity assistant. I\'m here to help you stay safe online by checking suspicious links and scanning documents for potential threats. How can I help protect you today?',
-      timestamp: new Date(),
-      suggestions: [
-        "I received a suspicious email with a link",
-        "I want to scan a document for malware",
-        "How do I identify phishing attempts?",
-        "What are common online security threats?"
-      ]
-    }
-  ].filter(Boolean) as Message[])
+  const { connected, publicKey } = useWallet()
+  const [username, setUsername] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -93,6 +74,65 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
     scrollToBottom()
   }, [messages])
 
+  // Fetch username and show personalized greeting
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      // Try to get username from localStorage first (if previously fetched)
+      const storedUsername = localStorage.getItem('user-username')
+      if (storedUsername) {
+        setUsername(storedUsername)
+      }
+
+      // If we have a wallet address, fetch the latest username from database
+      if (publicKey) {
+        try {
+          const response = await fetch(`/api/user/info?walletAddress=${publicKey.toString()}`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.username) {
+              setUsername(data.username)
+              localStorage.setItem('user-username', data.username)
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user info:', error)
+        }
+      }
+    }
+
+    fetchUserInfo()
+  }, [publicKey])
+
+  // Initialize messages with personalized greeting
+  useEffect(() => {
+    if (messages.length === 0) {
+      const greeting = username 
+        ? `Hello ${username}! I'm your cybersecurity assistant. I'm here to help you stay safe online by checking suspicious links and scanning documents for potential threats. How can I help protect you today?`
+        : 'Hello! I\'m your cybersecurity assistant. I\'m here to help you stay safe online by checking suspicious links and scanning documents for potential threats. How can I help protect you today?'
+      
+      setMessages([
+        initialMessage ? {
+          id: '0',
+          type: 'user' as const,
+          content: initialMessage,
+          timestamp: new Date(Date.now() - 1000)
+        } : null,
+        {
+          id: '1',
+          type: 'assistant',
+          content: greeting,
+          timestamp: new Date(),
+          suggestions: [
+            "I received a suspicious email with a link",
+            "I want to scan a document for malware",
+            "How do I identify phishing attempts?",
+            "What are common online security threats?"
+          ]
+        }
+      ].filter(Boolean) as Message[])
+    }
+  }, [username, initialMessage])
+
   // Check access when wallet connects/disconnects
   useEffect(() => {
     const checkAccess = async (walletAddress?: string) => {
@@ -102,7 +142,7 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             sessionId, 
-            walletAddress 
+            walletAddress: publicKey?.toString()
           })
         })
         
@@ -120,9 +160,8 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
       }
     }
 
-    // Since connected is always false and publicKey is always null for now,
-    // we just call checkAccess without wallet address
-    checkAccess()
+    // Check access with wallet address if connected
+    checkAccess(publicKey?.toString())
   }, [connected, publicKey, sessionId])
 
 
@@ -134,7 +173,8 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
         body: JSON.stringify({ 
           message: userInput, 
           sessionId,
-          walletAddress: undefined // Wallet integration disabled for now
+          walletAddress: publicKey?.toString(),
+          username: username // Pass username to AI for personalization
         })
       })
       

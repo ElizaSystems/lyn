@@ -39,9 +39,14 @@ export default function TasksPage() {
     type: 'security-scan' as Task['type'],
     frequency: 'Every 24 hours'
   })
+  // Holds per-type configuration while creating a custom task
+  const [customConfig, setCustomConfig] = useState<Record<string, unknown>>({})
   const [executingTask, setExecutingTask] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState<string | null>(null)
   const [taskHistory, setTaskHistory] = useState<Array<{ id: string; status: string; result?: Record<string, unknown>; executedAt: string; success?: boolean; startTime?: string; duration?: number; error?: string }>>([])
+  // Settings modal state for editing an existing task's configuration
+  const [settingsTask, setSettingsTask] = useState<Task | null>(null)
+  const [editConfig, setEditConfig] = useState<Record<string, unknown>>({})
 
   useEffect(() => {
     fetchTasks()
@@ -202,7 +207,7 @@ export default function TasksPage() {
     }
   }
 
-  const createTask = async (taskData: { name: string; description: string; type: string; frequency: string }) => {
+  const createTask = async (taskData: { name: string; description: string; type: string; frequency: string; config?: Record<string, unknown>; executeNow?: boolean }) => {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
@@ -217,9 +222,30 @@ export default function TasksPage() {
         const newTask = await response.json()
         setTasks([...tasks, newTask])
         setShowCreateModal(false)
+        setShowCustomForm(false)
       }
     } catch (error) {
       console.error('Failed to create task:', error)
+    }
+  }
+
+  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'update', id: taskId, updates })
+      })
+      if (response.ok) {
+        const updated = await response.json()
+        setTasks(tasks.map(t => (t._id || t.id) === taskId ? updated : t))
+        return updated as Task
+      }
+    } catch (error) {
+      console.error('Failed to update task:', error)
     }
   }
 
@@ -417,6 +443,11 @@ export default function TasksPage() {
                   size="sm"
                   className="hover:bg-primary/10"
                   title="Settings"
+                  onClick={() => {
+                    setSettingsTask(task)
+                    // Prime edit config with existing config
+                    setEditConfig(task.config || {})
+                  }}
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
@@ -575,6 +606,86 @@ export default function TasksPage() {
                   <option value="Weekly">Weekly</option>
                 </select>
               </div>
+
+              {/* Conditional configuration for specific task types */}
+              {customTask.type === 'price-alert' && (
+                <div className="space-y-3 border-t border-border/50 pt-4">
+                  <div className="text-sm font-medium">Price Alert Settings</div>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Token Mint (Solana)</label>
+                    <input
+                      type="text"
+                      value={(customConfig.tokenMint as string) || ''}
+                      onChange={(e) => setCustomConfig({ ...customConfig, tokenMint: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                      placeholder="Token mint address (defaults to env if empty)"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Token Symbol</label>
+                    <input
+                      type="text"
+                      value={(customConfig.tokenSymbol as string) || ''}
+                      onChange={(e) => setCustomConfig({ ...customConfig, tokenSymbol: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                      placeholder="e.g., LYN"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Above ($)</label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={(customConfig as any)?.priceThreshold?.above ?? ''}
+                        onChange={(e) => {
+                          const above = e.target.value
+                          setCustomConfig({
+                            ...customConfig,
+                            priceThreshold: { ...(customConfig as any).priceThreshold, above: above === '' ? undefined : parseFloat(above) }
+                          })
+                        }}
+                        className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                        placeholder="Notify when price goes above"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Below ($)</label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={(customConfig as any)?.priceThreshold?.below ?? ''}
+                        onChange={(e) => {
+                          const below = e.target.value
+                          setCustomConfig({
+                            ...customConfig,
+                            priceThreshold: { ...(customConfig as any).priceThreshold, below: below === '' ? undefined : parseFloat(below) }
+                          })
+                        }}
+                        className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                        placeholder="Notify when price goes below"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Change (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={(customConfig as any)?.priceThreshold?.percentChange ?? ''}
+                        onChange={(e) => {
+                          const pct = e.target.value
+                          setCustomConfig({
+                            ...customConfig,
+                            priceThreshold: { ...(customConfig as any).priceThreshold, percentChange: pct === '' ? undefined : parseFloat(pct) }
+                          })
+                        }}
+                        className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                        placeholder="Absolute % change vs last run"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="flex gap-3 mt-6">
@@ -582,7 +693,19 @@ export default function TasksPage() {
                 className="flex-1 bg-primary hover:bg-primary/90"
                 onClick={() => {
                   if (customTask.name && customTask.description) {
-                    createTask(customTask)
+                    // Only include non-empty config keys
+                    const config: Record<string, unknown> = {}
+                    if (customTask.type === 'price-alert') {
+                      if ((customConfig.tokenMint as string)?.trim()) config.tokenMint = (customConfig.tokenMint as string).trim()
+                      if ((customConfig.tokenSymbol as string)?.trim()) config.tokenSymbol = (customConfig.tokenSymbol as string).trim()
+                      const threshold = (customConfig as any).priceThreshold || {}
+                      const cleaned: Record<string, number> = {}
+                      if (typeof threshold.above === 'number' && !Number.isNaN(threshold.above)) cleaned.above = threshold.above
+                      if (typeof threshold.below === 'number' && !Number.isNaN(threshold.below)) cleaned.below = threshold.below
+                      if (typeof threshold.percentChange === 'number' && !Number.isNaN(threshold.percentChange)) cleaned.percentChange = threshold.percentChange
+                      if (Object.keys(cleaned).length > 0) config.priceThreshold = cleaned
+                    }
+                    createTask({ ...customTask, config })
                     setShowCustomForm(false)
                     setCustomTask({
                       name: '',
@@ -590,6 +713,7 @@ export default function TasksPage() {
                       type: 'security-scan',
                       frequency: 'Every 24 hours'
                     })
+                    setCustomConfig({})
                   }
                 }}
                 disabled={!customTask.name || !customTask.description}
@@ -607,6 +731,7 @@ export default function TasksPage() {
                     type: 'security-scan',
                     frequency: 'Every 24 hours'
                   })
+                  setCustomConfig({})
                 }}
               >
                 Cancel
@@ -724,12 +849,18 @@ export default function TasksPage() {
                 <Button 
                   className="w-full justify-start text-left" 
                   variant="outline"
-                  onClick={() => createTask({
-                    name: 'Price Alert',
-                    description: 'Monitor token price changes and market movements',
-                    type: 'price-alert',
-                    frequency: 'Every 5 minutes'
-                  })}
+                  onClick={() => {
+                    // Open the custom form prefilled for Price Alert so user can enter thresholds
+                    setShowCreateModal(false)
+                    setShowCustomForm(true)
+                    setCustomTask({
+                      name: 'Price Alert',
+                      description: 'Monitor token price changes and market movements',
+                      type: 'price-alert',
+                      frequency: 'Every 5 minutes'
+                    })
+                    setCustomConfig({ priceThreshold: {} })
+                  }}
                 >
                   <div>
                     <div className="font-medium">💰 Price Alert</div>
@@ -771,6 +902,103 @@ export default function TasksPage() {
             >
               Cancel
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal for editing an existing task */}
+      {settingsTask && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl border border-border/50 max-w-md w-full mx-4">
+            <h2 className="text-xl font-semibold mb-4">Edit Task Settings</h2>
+            {settingsTask.type === 'price-alert' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Token Mint (Solana)</label>
+                  <input
+                    type="text"
+                    value={(editConfig.tokenMint as string) || ''}
+                    onChange={(e) => setEditConfig({ ...editConfig, tokenMint: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Token Symbol</label>
+                  <input
+                    type="text"
+                    value={(editConfig.tokenSymbol as string) || ''}
+                    onChange={(e) => setEditConfig({ ...editConfig, tokenSymbol: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Above ($)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={(editConfig as any)?.priceThreshold?.above ?? ''}
+                      onChange={(e) => setEditConfig({ ...editConfig, priceThreshold: { ...(editConfig as any).priceThreshold, above: e.target.value === '' ? undefined : parseFloat(e.target.value) } })}
+                      className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Below ($)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={(editConfig as any)?.priceThreshold?.below ?? ''}
+                      onChange={(e) => setEditConfig({ ...editConfig, priceThreshold: { ...(editConfig as any).priceThreshold, below: e.target.value === '' ? undefined : parseFloat(e.target.value) } })}
+                      className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Change (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={(editConfig as any)?.priceThreshold?.percentChange ?? ''}
+                      onChange={(e) => setEditConfig({ ...editConfig, priceThreshold: { ...(editConfig as any).priceThreshold, percentChange: e.target.value === '' ? undefined : parseFloat(e.target.value) } })}
+                      className="w-full px-3 py-2 bg-background border border-border/50 rounded-lg focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No configurable settings for this task type yet.</div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                className="flex-1 bg-primary hover:bg-primary/90"
+                onClick={async () => {
+                  const id = settingsTask._id || settingsTask.id || ''
+                  const cleaned: Record<string, unknown> = { ...editConfig }
+                  if ((cleaned as any).priceThreshold) {
+                    const pt = (cleaned as any).priceThreshold
+                    const pruned: Record<string, number> = {}
+                    if (typeof pt.above === 'number' && !Number.isNaN(pt.above)) pruned.above = pt.above
+                    if (typeof pt.below === 'number' && !Number.isNaN(pt.below)) pruned.below = pt.below
+                    if (typeof pt.percentChange === 'number' && !Number.isNaN(pt.percentChange)) pruned.percentChange = pt.percentChange
+                    ;(cleaned as any).priceThreshold = pruned
+                  }
+                  const updated = await updateTask(id, { config: cleaned })
+                  if (updated) {
+                    setSettingsTask(null)
+                    setEditConfig({})
+                  }
+                }}
+              >
+                Save
+              </Button>
+              <Button
+                className="flex-1"
+                variant="ghost"
+                onClick={() => { setSettingsTask(null); setEditConfig({}) }}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       )}
