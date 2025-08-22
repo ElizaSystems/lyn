@@ -5,6 +5,7 @@ import { getTokenBalance, connection } from '@/lib/solana'
 import { verifyBurnTransaction } from '@/lib/solana-burn'
 import { config } from '@/lib/config'
 import { ReferralService } from '@/lib/services/referral-service'
+import { BurnService } from '@/lib/services/burn-service'
 
 const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required to hold
 const BURN_AMOUNT = 10000 // 10,000 LYN tokens to burn for registration
@@ -109,6 +110,30 @@ export async function POST(request: NextRequest) {
       },
       { upsert: true }
     )
+    
+    // Get the user document to get the user ID
+    const userDoc = await usersCollection.findOne({ walletAddress })
+    const userId = userDoc?._id
+    
+    // Record the burn in the burns collection
+    try {
+      await BurnService.recordBurn({
+        walletAddress,
+        username,
+        userId: userId?.toString(),
+        amount: BURN_AMOUNT,
+        type: 'username_registration',
+        transactionSignature: signature,
+        description: `Username registration: @${username}`,
+        metadata: {
+          referralCode: referralCode || undefined
+        }
+      })
+      console.log(`[Username Reg] Burn recorded in database`)
+    } catch (burnError) {
+      console.error('[Username Reg] Failed to record burn:', burnError)
+      // Don't fail registration if burn recording fails
+    }
 
     // Initialize reputation score
     await db.collection('user_reputation').updateOne(
