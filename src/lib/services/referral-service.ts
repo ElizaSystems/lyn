@@ -74,23 +74,33 @@ export class ReferralService {
       console.log('[ReferralService] Got referral codes collection')
     
     // Check if user already has a referral code
+    // When userId is a wallet address, just search by wallet
     let existing
-    try {
-      existing = await codes.findOne({ 
-        $or: [
-          { userId: new ObjectId(userId) },
-          { userId: userId },
-          { walletAddress }
-        ]
-      })
-    } catch {
-      // If ObjectId fails, try string and wallet address only
-      existing = await codes.findOne({ 
-        $or: [
-          { userId: userId },
-          { walletAddress }
-        ]
-      })
+    
+    // Check if userId is a valid ObjectId format (24 hex characters)
+    const isObjectId = /^[a-f\d]{24}$/i.test(userId)
+    
+    if (isObjectId) {
+      try {
+        existing = await codes.findOne({ 
+          $or: [
+            { userId: new ObjectId(userId) },
+            { userId: userId },
+            { walletAddress }
+          ]
+        })
+      } catch (err) {
+        console.log('[ReferralService] ObjectId conversion failed, trying string search')
+        existing = await codes.findOne({ 
+          $or: [
+            { userId: userId },
+            { walletAddress }
+          ]
+        })
+      }
+    } else {
+      // userId is likely a wallet address, search by wallet
+      existing = await codes.findOne({ walletAddress })
     }
     
       if (existing) {
@@ -287,17 +297,29 @@ export class ReferralService {
     
     // Get user's referral code
     let referralCode
-    try {
-      // Try ObjectId first
+    
+    // Check if userId is a valid ObjectId format
+    const isObjectId = /^[a-f\d]{24}$/i.test(userId)
+    
+    if (isObjectId) {
+      try {
+        referralCode = await codes.findOne({ 
+          $or: [
+            { userId: new ObjectId(userId) },
+            { userId: userId }
+          ]
+        })
+      } catch {
+        referralCode = await codes.findOne({ userId: userId })
+      }
+    } else {
+      // userId is likely a wallet address, search by wallet or userId
       referralCode = await codes.findOne({ 
         $or: [
-          { userId: new ObjectId(userId) },
-          { userId: userId }
+          { userId: userId },
+          { walletAddress: userId }
         ]
       })
-    } catch {
-      // If ObjectId fails, try string only
-      referralCode = await codes.findOne({ userId: userId })
     }
     
     if (!referralCode) {
@@ -460,20 +482,41 @@ export class ReferralService {
     
     // Get user details
     const userIds = topReferrers.map(r => {
-      // Convert to ObjectId if it's a string
-      if (typeof r.userId === 'string') {
-        return new ObjectId(r.userId)
+      // Check if it's a valid ObjectId format
+      if (typeof r.userId === 'string' && /^[a-f\d]{24}$/i.test(r.userId)) {
+        try {
+          return new ObjectId(r.userId)
+        } catch {
+          return r.userId
+        }
       }
-      return r.userId as ObjectId
+      return r.userId
     })
+    
+    // Separate ObjectIds from wallet addresses
+    const objectIds = userIds.filter(id => id instanceof ObjectId)
+    const walletAddresses = userIds.filter(id => typeof id === 'string')
+    
+    // Query for both ObjectIds and wallet addresses
     const users = await db.collection('users').find({
-      _id: { $in: userIds }
+      $or: [
+        ...(objectIds.length > 0 ? [{ _id: { $in: objectIds } }] : []),
+        ...(walletAddresses.length > 0 ? [{ walletAddress: { $in: walletAddresses } }] : [])
+      ]
     }).toArray()
     
-    const userMap = new Map(users.map(u => [u._id.toString(), u]))
+    // Create map with both _id and walletAddress as keys
+    const userMap = new Map()
+    users.forEach(u => {
+      userMap.set(u._id.toString(), u)
+      if (u.walletAddress) {
+        userMap.set(u.walletAddress, u)
+      }
+    })
     
     return topReferrers.map((ref, index) => {
-      const user = userMap.get(ref.userId.toString())
+      const userIdStr = typeof ref.userId === 'object' ? ref.userId.toString() : ref.userId
+      const user = userMap.get(userIdStr)
       return {
         rank: index + 1,
         code: ref.code,
