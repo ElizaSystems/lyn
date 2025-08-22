@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Shield, Search, RefreshCw, AlertTriangle, CheckCircle, Link, FileText, Wallet, Code, TrendingUp, Users, Activity, Globe, Lock, Copy, Star, Trophy, User, ExternalLink } from 'lucide-react'
+import { Shield, Search, RefreshCw, AlertTriangle, CheckCircle, Link, FileText, Wallet, Code, TrendingUp, Users, Activity, Globe, Lock, Copy, Star, Trophy, User, ExternalLink, Flame, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useWallet } from '@/components/solana/solana-provider'
+import { burnTokensWithWallet, isPhantomAvailable } from '@/lib/burn-tokens'
 
 interface Scan {
   id: string
@@ -68,6 +69,7 @@ export default function ScansPage() {
   const [usernameInput, setUsernameInput] = useState('')
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [registering, setRegistering] = useState(false)
+  const [registerStep, setRegisterStep] = useState<'idle' | 'burning' | 'registering'>('idle')
   const [tokenBalance, setTokenBalance] = useState<number>(0)
 
   // Fetch token balance when wallet connects
@@ -213,9 +215,49 @@ export default function ScansPage() {
   const registerUsername = async () => {
     if (!usernameInput || !usernameAvailable) return
 
+    // Check if Phantom wallet is available
+    if (!isPhantomAvailable()) {
+      alert('Please install Phantom wallet to burn tokens and register your username.')
+      return
+    }
+
     setRegistering(true)
+    setRegisterStep('burning')
     try {
+      // Step 1: Burn tokens
+      const burnAmount = 10000 // 10,000 LYN tokens to burn
+      const confirmBurn = window.confirm(
+        `This will burn ${burnAmount.toLocaleString()} LYN tokens from your wallet.\n\n` +
+        `This action is irreversible. The tokens will be permanently destroyed.\n\n` +
+        `Do you want to continue?`
+      )
+
+      if (!confirmBurn) {
+        setRegistering(false)
+        setRegisterStep('idle')
+        return
+      }
+
+      console.log(`[Registration] Starting burn of ${burnAmount} LYN tokens...`)
+      let burnSignature: string
+      
+      try {
+        burnSignature = await burnTokensWithWallet(burnAmount)
+        console.log(`[Registration] Burn successful! Signature: ${burnSignature}`)
+      } catch (burnError) {
+        console.error('[Registration] Burn failed:', burnError)
+        alert(`Failed to burn tokens: ${(burnError as Error).message}`)
+        setRegistering(false)
+        setRegisterStep('idle')
+        return
+      }
+
+      // Step 2: Register username with burn proof
+      setRegisterStep('registering')
       const token = localStorage.getItem('auth-token')
+      const walletAddress = publicKey?.toString() || userProfile?.walletAddress || ''
+      
+      console.log(`[Registration] Registering username with burn proof...`)
       const response = await fetch('/api/user/register-username', {
         method: 'POST',
         headers: {
@@ -224,9 +266,9 @@ export default function ScansPage() {
         },
         body: JSON.stringify({
           username: usernameInput,
-          walletAddress: publicKey?.toString() || userProfile?.walletAddress || '',
-          signature: 'mock_signature', // In production, get real signature
-          transaction: 'mock_transaction' // In production, get real transaction
+          walletAddress,
+          signature: burnSignature,
+          transaction: burnSignature // Using signature as transaction ID
         })
       })
 
@@ -235,16 +277,23 @@ export default function ScansPage() {
         setUserProfile({ ...userProfile, username: usernameInput })
         setShowUsernameRegistration(false)
         setUsernameInput('')
-        alert(`Username registered successfully! Your profile: ${data.profileUrl}`)
+        alert(
+          `✅ Username registered successfully!\n\n` +
+          `Username: @${usernameInput}\n` +
+          `${burnAmount.toLocaleString()} LYN tokens burned\n` +
+          `Transaction: ${burnSignature.slice(0, 8)}...${burnSignature.slice(-8)}\n\n` +
+          `Your profile: ${data.profileUrl}`
+        )
       } else {
         const error = await response.json()
-        alert(`Registration failed: ${error.error}`)
+        alert(`Registration failed: ${error.error}\n\nYour tokens were burned but registration failed. Please contact support with transaction: ${burnSignature}`)
       }
     } catch (error) {
       console.error('Registration error:', error)
       alert('Registration failed. Please try again.')
     } finally {
       setRegistering(false)
+      setRegisterStep('idle')
     }
   }
 
@@ -650,7 +699,7 @@ export default function ScansPage() {
               <div className="text-sm text-muted-foreground">
                 <p>• 3-20 characters</p>
                 <p>• Letters, numbers, underscores, hyphens only</p>
-                <p>• Fee: 10,000 LYN tokens</p>
+                <p>• Fee: 10,000 LYN tokens (burned permanently)</p>
               </div>
               <div className="flex space-x-3">
                 <Button
@@ -658,7 +707,17 @@ export default function ScansPage() {
                   disabled={!usernameAvailable || registering}
                   className="flex-1"
                 >
-                  {registering ? 'Registering...' : 'Register (10,000 LYN)'}
+                  {registering ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {registerStep === 'burning' ? 'Burning Tokens...' : 'Registering...'}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Flame className="h-4 w-4" />
+                      Register (Burn 10,000 LYN)
+                    </span>
+                  )}
                 </Button>
                 <Button
                   onClick={() => {
