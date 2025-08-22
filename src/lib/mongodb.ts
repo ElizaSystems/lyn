@@ -1,5 +1,4 @@
 import { MongoClient, Db, ObjectId } from 'mongodb'
-import { log } from './logger'
 
 if (!process.env.MONGODB_URI) {
   console.warn('MONGODB_URI not found, using fallback connection')
@@ -64,7 +63,7 @@ export async function checkDatabaseHealth(): Promise<boolean> {
     await db.admin().ping()
     return true
   } catch (error) {
-    log.error('Database health check failed', { error })
+    console.error('Database health check failed', error)
     return false
   }
 }
