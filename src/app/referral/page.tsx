@@ -66,12 +66,46 @@ export default function ReferralPage() {
         // Use wallet address as user ID
         const userIdToUse = publicKey.toString()
         setUserId(userIdToUse)
+        
+        // Check if user has a username
+        let username = ''
+        try {
+          const userResponse = await fetch('/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+            }
+          })
+          if (userResponse.ok) {
+            const userData = await userResponse.json()
+            username = userData.username || ''
+          }
+        } catch (e) {
+          console.log('Could not fetch user data')
+        }
 
         // Get or create referral code using V2 API
-        const codeResponse = await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}`)
+        const codeResponse = await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}${username ? `&username=${username}` : ''}`)
         
         if (!codeResponse.ok) {
-          console.error('Failed to get referral code')
+          console.error('Failed to get referral code, using fallback')
+          // Use fallback code generation
+          const fallbackCode = `${publicKey.toString().slice(0, 4)}${publicKey.toString().slice(-4)}`.toUpperCase()
+          setDashboard({
+            referralCode: fallbackCode,
+            referralLink: `${window.location.origin}?ref=${fallbackCode}`,
+            isVanity: false,
+            stats: {
+              totalReferrals: 0,
+              activeReferrals: 0,
+              totalBurned: 0,
+              totalRewards: 0,
+              pendingRewards: 0,
+              paidRewards: 0,
+              conversionRate: 0
+            },
+            recentReferrals: [],
+            recentRewards: []
+          })
           setLoading(false)
           return
         }
