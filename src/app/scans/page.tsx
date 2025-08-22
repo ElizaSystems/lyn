@@ -224,6 +224,7 @@ export default function ScansPage() {
         },
         body: JSON.stringify({
           username: usernameInput,
+          walletAddress: publicKey?.toString() || userProfile?.walletAddress || '',
           signature: 'mock_signature', // In production, get real signature
           transaction: 'mock_transaction' // In production, get real transaction
         })
