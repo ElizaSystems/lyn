@@ -50,13 +50,24 @@ export class ReferralService {
     const codes = await this.getReferralCodesCollection()
     
     // Check if user already has a referral code
-    const existing = await codes.findOne({ 
-      $or: [
-        { userId: new ObjectId(userId) },
-        { userId: userId },
-        { walletAddress }
-      ]
-    })
+    let existing
+    try {
+      existing = await codes.findOne({ 
+        $or: [
+          { userId: new ObjectId(userId) },
+          { userId: userId },
+          { walletAddress }
+        ]
+      })
+    } catch {
+      // If ObjectId fails, try string and wallet address only
+      existing = await codes.findOne({ 
+        $or: [
+          { userId: userId },
+          { walletAddress }
+        ]
+      })
+    }
     
     if (existing) {
       return existing
@@ -73,7 +84,7 @@ export class ReferralService {
     }
     
     const referralCode: ReferralCode = {
-      userId: new ObjectId(userId),
+      userId: userId, // Use string directly instead of ObjectId
       code,
       walletAddress,
       createdAt: new Date(),
@@ -108,10 +119,19 @@ export class ReferralService {
     }
     
     // Check if relationship already exists
-    const existing = await relationships.findOne({
-      referrerId: codeDoc.userId,
-      referredId: new ObjectId(referredUserId)
-    })
+    let existing
+    try {
+      existing = await relationships.findOne({
+        referrerId: codeDoc.userId,
+        referredId: new ObjectId(referredUserId)
+      })
+    } catch {
+      // If ObjectId fails, try string
+      existing = await relationships.findOne({
+        referrerId: codeDoc.userId,
+        referredId: referredUserId
+      })
+    }
     
     if (existing) {
       console.log(`[Referral] Relationship already exists`)
@@ -121,7 +141,7 @@ export class ReferralService {
     // Create new relationship
     const relationship: ReferralRelationship = {
       referrerId: codeDoc.userId,
-      referredId: new ObjectId(referredUserId),
+      referredId: referredUserId, // Use string directly
       referralCode,
       createdAt: new Date(),
       registrationBurnAmount,
@@ -172,8 +192,8 @@ export class ReferralService {
     const rewards = await this.getReferralRewardsCollection()
     
     const reward: ReferralReward = {
-      referrerId: new ObjectId(referrerId),
-      referredId: new ObjectId(referredId),
+      referrerId: referrerId, // Use string directly
+      referredId: referredId, // Use string directly
       burnTransaction,
       burnAmount,
       rewardAmount: burnAmount * 0.2, // 20% reward
@@ -188,8 +208,10 @@ export class ReferralService {
     const relationships = await this.getReferralRelationshipsCollection()
     await relationships.updateOne(
       { 
-        referrerId: new ObjectId(referrerId),
-        referredId: new ObjectId(referredId)
+        $or: [
+          { referrerId: referrerId, referredId: referredId },
+          { referrerId: referrerId, referredId: referredId }
+        ]
       },
       {
         $inc: {
@@ -202,7 +224,12 @@ export class ReferralService {
     // Update referral code stats
     const codes = await this.getReferralCodesCollection()
     await codes.updateOne(
-      { userId: new ObjectId(referrerId) },
+      { 
+        $or: [
+          { userId: referrerId },
+          { walletAddress: referrerId }
+        ]
+      },
       {
         $inc: {
           totalBurned: burnAmount,
@@ -225,12 +252,19 @@ export class ReferralService {
     const db = await getDatabase()
     
     // Get user's referral code
-    const referralCode = await codes.findOne({ 
-      $or: [
-        { userId: new ObjectId(userId) },
-        { userId: userId }
-      ]
-    })
+    let referralCode
+    try {
+      // Try ObjectId first
+      referralCode = await codes.findOne({ 
+        $or: [
+          { userId: new ObjectId(userId) },
+          { userId: userId }
+        ]
+      })
+    } catch {
+      // If ObjectId fails, try string only
+      referralCode = await codes.findOne({ userId: userId })
+    }
     
     if (!referralCode) {
       return null

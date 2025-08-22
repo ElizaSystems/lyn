@@ -207,10 +207,11 @@ export class WalletSecurityService {
       
       // Calculate transaction metrics
       const values = recentTxs.map(tx => {
-        const meta = tx.transaction?.meta
+        const transaction = tx as Record<string, unknown>
+        const meta = (transaction.transaction as Record<string, unknown>)?.meta as Record<string, unknown>
         if (!meta) return 0
-        const preBalance = meta.preBalances?.[0] || 0
-        const postBalance = meta.postBalances?.[0] || 0
+        const preBalance = (meta.preBalances as number[])?.[0] || 0
+        const postBalance = (meta.postBalances as number[])?.[0] || 0
         return Math.abs(postBalance - preBalance) / 1e9 // Convert to SOL
       }).filter(v => v > 0)
 
@@ -221,9 +222,10 @@ export class WalletSecurityService {
       // Check for suspicious patterns
       
       // 1. High frequency trading (potential bot)
-      const recentHour = recentTxs.filter(tx => 
-        tx.blockTime && (Date.now() / 1000 - tx.blockTime) < 3600
-      )
+      const recentHour = recentTxs.filter(tx => {
+        const transaction = tx as Record<string, unknown>
+        return transaction.blockTime && (Date.now() / 1000 - (transaction.blockTime as number)) < 3600
+      })
       
       if (recentHour.length > 50) {
         result.flags.push({
@@ -259,7 +261,11 @@ export class WalletSecurityService {
       }
 
       // 4. Failed transactions (potential failed attacks)
-      const failedTxs = recentTxs.filter(tx => tx.transaction?.meta?.err !== null)
+      const failedTxs = recentTxs.filter(tx => {
+        const transaction = tx as Record<string, unknown>
+        const meta = (transaction.transaction as Record<string, unknown>)?.meta as Record<string, unknown>
+        return meta?.err !== null
+      })
       if (failedTxs.length > 10) {
         result.flags.push({
           type: 'suspicious_pattern',
@@ -273,7 +279,9 @@ export class WalletSecurityService {
       // 5. Check for known mixer/tumbler usage patterns
       const uniqueInteractions = new Set()
       recentTxs.forEach(tx => {
-        const accounts = tx.transaction?.message?.accountKeys || []
+        const transaction = tx as Record<string, unknown>
+        const message = (transaction.transaction as Record<string, unknown>)?.message as Record<string, unknown>
+        const accounts = (message?.accountKeys as Array<Record<string, unknown>>) || []
         accounts.forEach((account: Record<string, unknown>) => {
           if (account.pubkey && account.pubkey !== walletAddress) {
             uniqueInteractions.add(account.pubkey)
@@ -584,7 +592,18 @@ export class WalletSecurityService {
       if (cached && cached.cachedAt) {
         const age = Date.now() - cached.cachedAt.getTime()
         if (age < 3600000) { // 1 hour cache
-          return cached as WalletSecurityResult
+          return {
+            address: cached.address,
+            riskLevel: cached.riskLevel,
+            riskScore: cached.riskScore,
+            isBlacklisted: cached.isBlacklisted,
+            reputation: cached.reputation,
+            threats: cached.threats,
+            flags: cached.flags,
+            analysis: cached.analysis,
+            recommendations: cached.recommendations,
+            lastChecked: cached.lastChecked
+          } as WalletSecurityResult
         }
       }
 

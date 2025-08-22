@@ -62,19 +62,9 @@ export default function ReferralPage() {
       }
 
       try {
-        // First get or create user
-        const authResponse = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-          }
-        })
-        
-        let userIdToUse = publicKey.toString()
-        if (authResponse.ok) {
-          const userData = await authResponse.json()
-          userIdToUse = userData.id || userData._id || publicKey.toString()
-          setUserId(userIdToUse)
-        }
+        // Use wallet address as user ID
+        const userIdToUse = publicKey.toString()
+        setUserId(userIdToUse)
 
         // Get or create referral code
         const codeResponse = await fetch(`/api/referral/code?userId=${userIdToUse}&walletAddress=${publicKey.toString()}`)
