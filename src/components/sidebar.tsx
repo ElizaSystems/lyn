@@ -42,12 +42,19 @@ export function Sidebar() {
       path: '/security', 
       icon: <MessageCircle className="w-5 h-5" />
     },
-    {
-      label: 'SecScan',
-      path: '/scans',
+        { 
+      label: 'SecScan', 
+      path: '/scans', 
       icon: <Scan className="w-5 h-5" />,
       badge: 'Live',
       badgeType: 'pink'
+    },
+    { 
+      label: 'Wallet Security', 
+      path: '/wallet-security', 
+      icon: <Shield className="w-5 h-5" />,
+      badge: 'New',
+      badgeType: 'cyan'
     },
     { 
       label: 'Terminal', 

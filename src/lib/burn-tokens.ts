@@ -6,6 +6,7 @@ import {
   getMint,
   getAccount
 } from '@solana/spl-token'
+import { validateReferrerTokenAccount } from './solana-token-account'
 
 // Token configuration
 const TOKEN_MINT = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
@@ -167,4 +168,39 @@ export function getConnectedWallet(): string | null {
     return null
   }
   return window.solana.publicKey.toString()
+}
+
+/**
+ * Burns tokens with referrer validation
+ * @param amount Amount of tokens to burn (without decimals)
+ * @param referrerWallet Optional referrer wallet to validate
+ * @returns Transaction signature
+ */
+export async function burnTokensWithReferrerCheck(
+  amount: number, 
+  referrerWallet?: string | null
+): Promise<string> {
+  const connection = new Connection(RPC_ENDPOINT, 'confirmed')
+  
+  // Validate referrer token account if provided
+  if (referrerWallet) {
+    console.log(`[Burn] Validating referrer token account: ${referrerWallet}`)
+    const validation = await validateReferrerTokenAccount(
+      connection,
+      referrerWallet,
+      TOKEN_MINT
+    )
+    
+    if (!validation.isValid) {
+      throw new Error(
+        validation.error || 
+        'Referrer does not have a LYN token account. They need to create one before you can burn tokens.'
+      )
+    }
+    
+    console.log(`[Burn] Referrer validation successful`)
+  }
+  
+  // Proceed with regular burn
+  return burnTokensWithWallet(amount)
 }

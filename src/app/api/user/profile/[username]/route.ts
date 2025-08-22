@@ -16,6 +16,7 @@ export async function GET(
     const db = await getDatabase()
     const usersCollection = db.collection('users')
     const reputationCollection = db.collection('user_reputation')
+    const referralRelationshipsCollection = db.collection('referral_relationships')
 
     // Get user data
     const user = await usersCollection.findOne({ username })
@@ -25,6 +26,23 @@ export async function GET(
 
     // Get reputation data
     const reputation = await reputationCollection.findOne({ username })
+    
+    // Get referrer data if exists
+    let referrerInfo = null
+    const referralRelationship = await referralRelationshipsCollection.findOne({ 
+      referredId: user._id 
+    })
+    
+    if (referralRelationship) {
+      const referrer = await usersCollection.findOne({ _id: referralRelationship.referrerId })
+      if (referrer) {
+        referrerInfo = {
+          walletAddress: referrer.walletAddress,
+          username: referrer.username,
+          referralCode: referralRelationship.referralCode
+        }
+      }
+    }
 
     // Get user's scan statistics
     const userStats = await ScanService.getUserStatistics(user._id.toString())
@@ -76,7 +94,8 @@ export async function GET(
         username,
         walletAddress: user.walletAddress,
         registeredAt: user.usernameRegisteredAt,
-        accountCreated: user.createdAt
+        accountCreated: user.createdAt,
+        referrer: referrerInfo
       },
       reputation: {
         score: reputation?.reputationScore || 100,

@@ -146,22 +146,8 @@ ${data.recommendations ? '\nRecommendations:\n' + data.recommendations.map((r: s
         if (args.length < 2) {
           output = 'Usage: check <wallet_address>'
         } else {
-          const address = args.slice(1).join(' ').trim() // Handle full address
-          const isValid = await validateSolanaAddress(address)
-          
-          if (isValid) {
-            const balance = await getWalletBalance(address)
-            const tokenBalance = await getTokenBalance(address, TOKEN_MINT)
-            
-            output = `Wallet Analysis: ${address.slice(0, 8)}...${address.slice(-8)}
-Status: VALID ✓
-SOL Balance: ${balance.toFixed(4)} SOL
-LYN Balance: ${tokenBalance.toLocaleString()} LYN
-Risk Level: LOW
-Reputation: CLEAN`
-          } else {
-            output = `Invalid wallet address: ${address}`
-          }
+          const address = args.slice(1).join(' ').trim()
+          output = await handleWalletSecurityCheck(address)
         }
         break
         

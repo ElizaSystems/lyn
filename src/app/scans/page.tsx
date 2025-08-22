@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useWallet } from '@/components/solana/solana-provider'
-import { burnTokensWithWallet, isPhantomAvailable } from '@/lib/burn-tokens'
+import { burnTokensWithReferrerCheck, isPhantomAvailable } from '@/lib/burn-tokens'
 
 interface Scan {
   id: string
@@ -71,6 +71,25 @@ export default function ScansPage() {
   const [registering, setRegistering] = useState(false)
   const [registerStep, setRegisterStep] = useState<'idle' | 'burning' | 'registering'>('idle')
   const [tokenBalance, setTokenBalance] = useState<number>(0)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [referrerInfo, setReferrerInfo] = useState<{ walletAddress: string } | null>(null)
+
+  // Check for referral code in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const ref = urlParams.get('ref')
+    if (ref) {
+      setReferralCode(ref)
+      // Store in localStorage for persistence
+      localStorage.setItem('referralCode', ref)
+    } else {
+      // Check localStorage for existing referral code
+      const storedRef = localStorage.getItem('referralCode')
+      if (storedRef) {
+        setReferralCode(storedRef)
+      }
+    }
+  }, [])
 
   // Fetch token balance when wallet connects
   useEffect(() => {
@@ -229,6 +248,7 @@ export default function ScansPage() {
       const confirmBurn = window.confirm(
         `This will burn ${burnAmount.toLocaleString()} LYN tokens from your wallet.\n\n` +
         `This action is irreversible. The tokens will be permanently destroyed.\n\n` +
+        (referralCode ? `Referral code: ${referralCode}\n\n` : '') +
         `Do you want to continue?`
       )
 
@@ -238,11 +258,28 @@ export default function ScansPage() {
         return
       }
 
+      // Get referrer info if we have a referral code
+      let referrerWallet: string | null = null
+      if (referralCode) {
+        try {
+          console.log(`[Registration] Fetching referrer info for code: ${referralCode}`)
+          const refResponse = await fetch(`/api/referral/info?code=${referralCode}`)
+          if (refResponse.ok) {
+            const refData = await refResponse.json()
+            referrerWallet = refData.walletAddress
+            setReferrerInfo({ walletAddress: referrerWallet })
+            console.log(`[Registration] Referrer wallet: ${referrerWallet}`)
+          }
+        } catch (e) {
+          console.error('[Registration] Failed to fetch referrer info:', e)
+        }
+      }
+      
       console.log(`[Registration] Starting burn of ${burnAmount} LYN tokens...`)
       let burnSignature: string
       
       try {
-        burnSignature = await burnTokensWithWallet(burnAmount)
+        burnSignature = await burnTokensWithReferrerCheck(burnAmount, referrerWallet)
         console.log(`[Registration] Burn successful! Signature: ${burnSignature}`)
       } catch (burnError) {
         console.error('[Registration] Burn failed:', burnError)
@@ -268,7 +305,8 @@ export default function ScansPage() {
           username: usernameInput,
           walletAddress,
           signature: burnSignature,
-          transaction: burnSignature // Using signature as transaction ID
+          transaction: burnSignature, // Using signature as transaction ID
+          referralCode: referralCode // Include referral code if present
         })
       })
 
