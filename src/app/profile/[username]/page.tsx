@@ -20,6 +20,7 @@ import {
   Code
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ShareOnX } from '@/components/share-on-x'
 
 interface UserProfile {
   username: string
@@ -211,6 +212,15 @@ export default function ProfilePage() {
               <div className="text-sm text-muted-foreground">Rank</div>
             </div>
           </div>
+          <ShareOnX
+            text={`Check out my LYN profile! @${username} with ${reputation?.score || 0} reputation score and ${statistics?.totalScans || 0} security scans completed! 🛡️`}
+            hashtags={['LYN', 'Web3Security', 'Solana']}
+            url={`https://lyn.ai/profile/${username}`}
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            successMessage="Flexed your profile!"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -266,6 +276,17 @@ export default function ProfilePage() {
                     Complete scans and contribute to earn badges!
                   </p>
                 </div>
+              )}
+              {reputation?.badges && reputation.badges.length > 0 && (
+                <ShareOnX
+                  text={`Just earned ${reputation.badges.length} badge${reputation.badges.length > 1 ? 's' : ''} on LYN Security! Latest: ${reputation.badges[0]?.name} ${reputation.badges[0]?.icon} $LYN`}
+                  hashtags={['LYNBadges', 'Web3Achievements', 'Solana']}
+                  url={`https://lyn.ai/profile/${username}`}
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  successMessage="Flexed your badges!"
+                />
               )}
             </div>
           </div>

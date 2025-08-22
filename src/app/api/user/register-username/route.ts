@@ -4,13 +4,14 @@ import { getDatabase } from '@/lib/mongodb'
 import { getTokenBalance, connection } from '@/lib/solana'
 import { verifyBurnTransaction } from '@/lib/solana-burn'
 import { config } from '@/lib/config'
+import { ReferralService } from '@/lib/services/referral-service'
 
 const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required to hold
 const BURN_AMOUNT = 10000 // 10,000 LYN tokens to burn for registration
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, signature, transaction, walletAddress } = await request.json()
+    const { username, signature, transaction, walletAddress, referralCode } = await request.json()
     
     if (!walletAddress) {
       return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 })
@@ -132,6 +133,28 @@ export async function POST(request: NextRequest) {
       },
       { upsert: true }
     )
+    
+    // Track referral if code provided
+    if (referralCode) {
+      try {
+        console.log(`[Username Reg] Tracking referral with code: ${referralCode}`)
+        
+        // Get the user ID from the database
+        const registeredUser = await usersCollection.findOne({ walletAddress })
+        if (registeredUser?._id) {
+          await ReferralService.trackReferral(
+            referralCode,
+            registeredUser._id.toString(),
+            BURN_AMOUNT,
+            signature
+          )
+          console.log(`[Username Reg] Referral tracked successfully`)
+        }
+      } catch (referralError) {
+        console.error('[Username Reg] Failed to track referral:', referralError)
+        // Don't fail registration if referral tracking fails
+      }
+    }
 
     // Log the registration
     await db.collection('audit_logs').insertOne({
@@ -147,11 +170,20 @@ export async function POST(request: NextRequest) {
       timestamp: registrationDate
     })
 
+    // Generate referral code for the new user
+    const newUserReferralCode = await ReferralService.getOrCreateReferralCode(
+      walletAddress, // Using wallet as ID temporarily
+      walletAddress,
+      username
+    )
+    
     return NextResponse.json({
       success: true,
       username,
       profileUrl: `https://app.lynai.xyz/profile/${username}`,
-      reputationScore: 100
+      reputationScore: 100,
+      referralCode: newUserReferralCode.code,
+      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${newUserReferralCode.code}`
     })
 
   } catch (error) {

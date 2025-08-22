@@ -19,7 +19,8 @@ import {
   Map,
   FileSearch,
   Scan,
-  Sparkles
+  Sparkles,
+  Gift
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -83,6 +84,13 @@ export function Sidebar() {
       path: '/burn', 
       icon: <DollarSign className="w-5 h-5" />,
       badge: 'New',
+      badgeType: 'pink'
+    },
+    {
+      label: 'Referral Program',
+      path: '/referral',
+      icon: <Gift className="w-5 h-5" />,
+      badge: 'Earn 20%',
       badgeType: 'pink'
     },
     { 

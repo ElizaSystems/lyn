@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react'
 import { Coins, ExternalLink, Copy, ArrowRight, Shield, Zap, TrendingUp, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ShareOnX } from '@/components/share-on-x'
 
 export default function BuyLYNPage() {
   const [copiedAddress, setCopiedAddress] = useState(false)
+  const [hasSharedPurchase, setHasSharedPurchase] = useState(false)
   const [marketData, setMarketData] = useState({
     price: 0.0003,
     volume24h: 892000,
@@ -171,6 +173,18 @@ export default function BuyLYNPage() {
                 <p className="font-medium">You&apos;re Done!</p>
                 <p className="text-sm text-muted-foreground">LYN tokens will appear in your wallet</p>
               </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <ShareOnX
+                text={`Just joined the $LYN revolution! Secured my bag at $${marketData.price.toFixed(6)} 🚀 The future of DeFi security is here!`}
+                hashtags={['LYN', 'Solana', 'DeFi', 'Web3']}
+                url="https://lyn.ai"
+                variant="outline"
+                className="w-full"
+                successMessage="Flexed your purchase!"
+                onShare={() => setHasSharedPurchase(true)}
+              />
             </div>
           </div>
         </div>

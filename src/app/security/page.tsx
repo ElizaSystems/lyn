@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Shield, MessageCircle, Zap, AlertTriangle, CheckCircle, RefreshCw, FileText, Link, Wallet } from 'lucide-react'
 import { SecurityChat } from '@/components/security/security-chat'
+import { ShareOnX } from '@/components/share-on-x'
 
 interface Scan {
   id: string
@@ -272,6 +273,17 @@ export default function SecurityPage() {
                     <span className="font-semibold">{scanResult.safe ? 'Safe' : 'Warning'}</span>
                   </div>
                   <p className="text-sm">{scanResult.message || scanResult.details?.join(', ')}</p>
+                  {scanResult.safe && (
+                    <ShareOnX
+                      text={`Just verified a URL with LYN Security Scanner! 🔒 Site is SAFE ✅ Staying protected in Web3 with $LYN`}
+                      hashtags={['LYNSecurity', 'Web3Safety', 'Solana']}
+                      url="https://lyn.ai/security"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      successMessage="Flexed your security scan!"
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -351,6 +363,17 @@ export default function SecurityPage() {
                     <span className="font-semibold">{scanResult.safe ? 'Safe Document' : 'Warning'}</span>
                   </div>
                   <p className="text-sm">{scanResult.message || scanResult.details?.join(', ')}</p>
+                  {scanResult.safe && (
+                    <ShareOnX
+                      text={`Just analyzed a document with LYN Security! 📄 Document verified as SAFE ✅ $LYN keeps my data secure!`}
+                      hashtags={['LYNSecurity', 'DataSecurity', 'Web3']}
+                      url="https://lyn.ai/security"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      successMessage="Flexed your document scan!"
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -410,6 +433,17 @@ export default function SecurityPage() {
                   <p className="text-sm">{scanResult.message}</p>
                   {scanResult.balance !== undefined && (
                     <p className="text-sm mt-1">Balance: {scanResult.balance} SOL</p>
+                  )}
+                  {scanResult.safe && (
+                    <ShareOnX
+                      text={`Just verified a Solana wallet with LYN Security! 🔐 Wallet is VALID and ACTIVE ✅ $LYN keeping the blockchain safe!`}
+                      hashtags={['LYNSecurity', 'Solana', 'WalletSecurity']}
+                      url="https://lyn.ai/security"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      successMessage="Flexed your wallet verification!"
+                    />
                   )}
                 </div>
               )}

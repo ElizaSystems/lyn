@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, Flame, CheckCircle, Loader2, Info } from 'lucide-react'
+import { ShareOnX } from '@/components/share-on-x'
 
 interface UsernameRegistrationProps {
   tokenBalance: number
@@ -110,6 +111,14 @@ export function UsernameRegistration({ tokenBalance, onSuccess }: UsernameRegist
             </p>
           </div>
         </div>
+        <ShareOnX
+          text={`Just secured my @${username} handle on LYN! Burned ${BURN_AMOUNT.toLocaleString()} $LYN tokens to join the elite. 🔥`}
+          hashtags={['LYN', 'Solana', 'Web3', 'DeFi']}
+          url="https://lyn.ai"
+          variant="default"
+          className="w-full"
+          successMessage="Flexed on X!"
+        />
       </div>
     )
   }

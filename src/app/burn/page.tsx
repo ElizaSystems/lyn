@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Flame, TrendingDown, Calendar, Info, ArrowDown, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getTokenSupply } from '@/lib/solana'
-import { getRealTimeTokenData } from '@/lib/services/real-time-data'
+import { ShareOnX } from '@/components/share-on-x'
 
 interface BurnEvent {
   date: string
@@ -203,6 +203,15 @@ export default function BurnTrackerPage() {
                 </div>
                 <span className="text-sm font-medium">{(totalSupply / 1000000).toFixed(0)}M Total</span>
               </div>
+              
+              <ShareOnX
+                text={`🔥 ${totalBurned.toLocaleString()} $LYN tokens have been burned! That's ${burnPercentage.toFixed(2)}% of total supply! The deflationary revolution continues! 🚀`}
+                hashtags={['LYNBurn', 'Deflationary', 'Solana', 'DeFi']}
+                url="https://lyn.ai/burn"
+                variant="outline"
+                className="w-full"
+                successMessage="Flexed the burn stats!"
+              />
             </div>
           </div>
 
