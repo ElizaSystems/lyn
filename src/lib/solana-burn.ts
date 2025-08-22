@@ -1,192 +1,145 @@
-import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js'
-import { 
-  getAssociatedTokenAddress, 
-  createBurnInstruction,
-  TOKEN_PROGRAM_ID
-} from '@solana/spl-token'
-
-// Known burn address for LYN tokens (dead address)
-export const LYN_BURN_ADDRESS = '1111111111111111111111111111111111111111111'
-
-// Token mint address
-const TOKEN_MINT = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
+import { Connection, PublicKey, ParsedTransactionWithMeta } from '@solana/web3.js'
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 
 /**
- * Create a burn instruction for LYN tokens
- * @param walletPublicKey - The wallet burning tokens
- * @param amount - Amount to burn (in smallest units, with decimals)
- * @returns Transaction with burn instruction
- */
-export async function createBurnTransaction(
-  connection: Connection,
-  walletPublicKey: PublicKey,
-  amount: number
-): Promise<Transaction> {
-  const mintPublicKey = new PublicKey(TOKEN_MINT)
-  
-  // Get the associated token account for the wallet
-  const associatedTokenAccount = await getAssociatedTokenAddress(
-    mintPublicKey,
-    walletPublicKey
-  )
-  
-  // Create burn instruction
-  const burnInstruction = createBurnInstruction(
-    associatedTokenAccount, // token account to burn from
-    mintPublicKey, // mint
-    walletPublicKey, // owner of token account
-    amount * Math.pow(10, 9), // amount in smallest units (9 decimals for LYN)
-    [], // multi-signers (none)
-    TOKEN_PROGRAM_ID
-  )
-  
-  // Create and return transaction
-  const transaction = new Transaction()
-  transaction.add(burnInstruction)
-  
-  // Get recent blockhash
-  const { blockhash } = await connection.getLatestBlockhash()
-  transaction.recentBlockhash = blockhash
-  transaction.feePayer = walletPublicKey
-  
-  return transaction
-}
-
-/**
- * Verify a burn transaction
- * @param signature - Transaction signature to verify
- * @returns true if burn was successful
+ * Verify that a transaction burns the specified amount of tokens
  */
 export async function verifyBurnTransaction(
   connection: Connection,
   signature: string,
-  expectedAmount: number
+  expectedBurnAmount: number
 ): Promise<boolean> {
   try {
-    // Get transaction details
-    const transaction = await connection.getTransaction(signature, {
+    console.log(`[Burn Verification] Checking transaction: ${signature}`)
+    
+    // Get the transaction
+    const transaction = await connection.getParsedTransaction(signature, {
       maxSupportedTransactionVersion: 0
     })
     
-    if (!transaction || !transaction.meta) {
+    if (!transaction) {
+      console.log('[Burn Verification] Transaction not found')
       return false
     }
     
     // Check if transaction was successful
-    if (transaction.meta.err) {
+    if (transaction.meta?.err) {
+      console.log('[Burn Verification] Transaction failed:', transaction.meta.err)
       return false
     }
     
-    // Parse instructions to verify burn
-    const instructions = transaction.transaction.message.compiledInstructions || []
+    // Look for burn instructions
+    const burnInstructions = transaction.transaction.message.instructions.filter(
+      (instruction) => {
+        if ('programId' in instruction) {
+          return instruction.programId.equals(TOKEN_PROGRAM_ID)
+        }
+        return false
+      }
+    )
     
-    for (const instruction of instructions) {
-      // Check if this is a token program instruction
-      const programId = transaction.transaction.message.staticAccountKeys?.[instruction.programIdIndex]
-      
-      if (programId?.toString() === TOKEN_PROGRAM_ID.toString()) {
-        // Decode instruction data
-        if (typeof instruction.data === 'string') {
-          const decoded = Buffer.from(instruction.data, 'base64')
-          const instructionType = decoded[0]
-          
-          // Check if this is a burn instruction (type 8 or 15)
-          if (instructionType === 8 || instructionType === 15) {
-            // Extract burn amount
-            const burnAmount = decoded.readBigUInt64LE(1)
-            const expectedAmountWithDecimals = BigInt(expectedAmount * Math.pow(10, 9))
-            
-            // Verify amount matches
-            if (burnAmount === expectedAmountWithDecimals) {
-              return true
+    console.log(`[Burn Verification] Found ${burnInstructions.length} token instructions`)
+    
+    // Check parsed instructions for burn operations
+    let totalBurned = 0
+    
+    if (transaction.meta?.innerInstructions) {
+      for (const innerInstruction of transaction.meta.innerInstructions) {
+        for (const instruction of innerInstruction.instructions) {
+          if ('parsed' in instruction && instruction.program === 'spl-token') {
+            const parsed = instruction.parsed
+            if (parsed.type === 'burn') {
+              const burnAmount = parseFloat(parsed.info.amount)
+              totalBurned += burnAmount
+              console.log(`[Burn Verification] Found burn: ${burnAmount}`)
             }
           }
         }
       }
     }
     
-    return false
+    // Also check main instructions
+    for (const instruction of transaction.transaction.message.instructions) {
+      if ('parsed' in instruction && instruction.program === 'spl-token') {
+        const parsed = instruction.parsed
+        if (parsed.type === 'burn') {
+          const burnAmount = parseFloat(parsed.info.amount)
+          totalBurned += burnAmount
+          console.log(`[Burn Verification] Found main burn: ${burnAmount}`)
+        }
+      }
+    }
+    
+    // Convert from raw amount to UI amount (accounting for decimals)
+    const TOKEN_DECIMALS = 6
+    const burnedUIAmount = totalBurned / Math.pow(10, TOKEN_DECIMALS)
+    
+    console.log(`[Burn Verification] Total burned: ${burnedUIAmount} tokens`)
+    console.log(`[Burn Verification] Expected: ${expectedBurnAmount} tokens`)
+    
+    // Allow for small rounding differences
+    const difference = Math.abs(burnedUIAmount - expectedBurnAmount)
+    const isValid = difference < 0.01 // Allow 0.01 token difference for rounding
+    
+    console.log(`[Burn Verification] Difference: ${difference}, Valid: ${isValid}`)
+    
+    return isValid
+    
   } catch (error) {
-    console.error('Error verifying burn transaction:', error)
+    console.error('[Burn Verification] Error verifying burn transaction:', error)
     return false
   }
 }
 
 /**
- * Get burn statistics for a wallet
+ * Get burn transaction details for display
  */
-export async function getWalletBurnStats(
+export async function getBurnTransactionDetails(
   connection: Connection,
-  walletAddress: string
+  signature: string
 ): Promise<{
-  totalBurned: number
-  burnCount: number
-  lastBurnDate?: Date
-}> {
+  success: boolean
+  burnAmount?: number
+  timestamp?: Date
+  fee?: number
+} | null> {
   try {
-    const walletPublicKey = new PublicKey(walletAddress)
-    // Note: mintPublicKey not directly used but TOKEN_MINT is used in the loop below
-    
-    // Get transaction history
-    const signatures = await connection.getSignaturesForAddress(walletPublicKey, {
-      limit: 1000
+    const transaction = await connection.getParsedTransaction(signature, {
+      maxSupportedTransactionVersion: 0
     })
     
-    let totalBurned = 0
-    let burnCount = 0
-    let lastBurnDate: Date | undefined
+    if (!transaction) {
+      return null
+    }
     
-    // Check each transaction for burns
-    for (const sig of signatures) {
-      const tx = await connection.getTransaction(sig.signature, {
-        maxSupportedTransactionVersion: 0
-      })
-      
-      if (!tx || !tx.meta || tx.meta.err) continue
-      
-      // Parse instructions
-      const instructions = tx.transaction.message.compiledInstructions || []
-      
-      for (const instruction of instructions) {
-        const programId = tx.transaction.message.staticAccountKeys?.[instruction.programIdIndex]
-        
-        if (programId?.toString() === TOKEN_PROGRAM_ID.toString()) {
-          if (typeof instruction.data === 'string') {
-            const decoded = Buffer.from(instruction.data, 'base64')
-            const instructionType = decoded[0]
-            
-            if (instructionType === 8 || instructionType === 15) {
-              // Check if this burn is for our token
-              const accounts = instruction.accountKeyIndexes || []
-              if (accounts.length > 1) {
-                const mintAccount = tx.transaction.message.staticAccountKeys?.[accounts[1]]
-                
-                if (mintAccount?.toString() === TOKEN_MINT) {
-                  const burnAmount = Number(decoded.readBigUInt64LE(1)) / Math.pow(10, 9)
-                  totalBurned += burnAmount
-                  burnCount++
-                  
-                  if (!lastBurnDate && sig.blockTime) {
-                    lastBurnDate = new Date(sig.blockTime * 1000)
-                  }
-                }
-              }
+    let totalBurned = 0
+    
+    // Check for burn instructions
+    if (transaction.meta?.innerInstructions) {
+      for (const innerInstruction of transaction.meta.innerInstructions) {
+        for (const instruction of innerInstruction.instructions) {
+          if ('parsed' in instruction && instruction.program === 'spl-token') {
+            const parsed = instruction.parsed
+            if (parsed.type === 'burn') {
+              totalBurned += parseFloat(parsed.info.amount)
             }
           }
         }
       }
     }
     
+    const TOKEN_DECIMALS = 6
+    const burnedUIAmount = totalBurned / Math.pow(10, TOKEN_DECIMALS)
+    
     return {
-      totalBurned,
-      burnCount,
-      lastBurnDate
+      success: !transaction.meta?.err,
+      burnAmount: burnedUIAmount,
+      timestamp: transaction.blockTime ? new Date(transaction.blockTime * 1000) : undefined,
+      fee: transaction.meta?.fee ? transaction.meta.fee / 1e9 : undefined // Convert lamports to SOL
     }
+    
   } catch (error) {
-    console.error('Error getting wallet burn stats:', error)
-    return {
-      totalBurned: 0,
-      burnCount: 0
-    }
+    console.error('Error getting burn transaction details:', error)
+    return null
   }
 }
