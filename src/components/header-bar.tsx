@@ -70,6 +70,9 @@ export function HeaderBar() {
     try {
       await connect()
 
+      // Small delay to ensure wallet connection is established
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // After wallet connects, attempt server authentication (nonce + signature)
       if (typeof window !== 'undefined') {
         interface SolanaWallet {
@@ -77,8 +80,10 @@ export function HeaderBar() {
           signMessage?: (message: Uint8Array, encoding?: string) => Promise<Uint8Array>
         }
         const { solana } = window as Window & { solana?: SolanaWallet }
-        const walletAddress = solana?.publicKey?.toString()
-        if (solana && solana.signMessage && walletAddress) {
+        const walletAddress = publicKey?.toString() || solana?.publicKey?.toString()
+        
+        // Use the publicKey from context if available (for mobile wallets)
+        if (walletAddress && solana && solana.signMessage) {
           // 1) Request nonce
           const nonceRes = await fetch('/api/auth/nonce', {
             method: 'POST',
@@ -159,9 +164,10 @@ export function HeaderBar() {
             {connected ? `${tokenBalance.toLocaleString()}` : '0'}
           </span>
           <Button 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-2 sm:px-4 py-1 h-8 text-xs sm:text-sm"
+            className="bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground px-3 sm:px-4 py-2 min-h-[44px] sm:min-h-0 sm:h-9 text-sm font-medium touch-manipulation"
             onClick={handleLoginClick}
             disabled={isLoading}
+            type="button"
           >
             {isLoading ? '...' : connected && publicKey ? formatAddress(publicKey.toString()) : 'Login'}
           </Button>

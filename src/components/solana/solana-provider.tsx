@@ -71,19 +71,32 @@ function WalletProvider({ children }: { children: ReactNode }) {
       try {
         // Try to connect to Phantom wallet (most common)
         const { solana } = window as Window & { solana?: SolanaWallet }
+        
+        // Check if we're on mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        
         if (solana && solana.isPhantom) {
           const response = await solana.connect()
           setPublicKey(response.publicKey)
           setConnected(true)
+        } else if (isMobile) {
+          // On mobile, try to open Phantom app via deep link
+          const dappUrl = encodeURIComponent(window.location.href)
+          const deepLink = `https://phantom.app/ul/browse/${dappUrl}?ref=${dappUrl}`
+          window.location.href = deepLink
         } else {
-          // Fallback: open wallet selection modal
-          const walletButton = document.querySelector('[data-wallet-button]') as HTMLButtonElement
-          if (walletButton) {
-            walletButton.click()
-          }
+          // Desktop: Show connection instructions
+          alert('Please install Phantom wallet extension from phantom.app')
+          window.open('https://phantom.app', '_blank')
         }
       } catch (error) {
         console.error('Failed to connect wallet:', error)
+        // Try mobile fallback if connection fails
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          const dappUrl = encodeURIComponent(window.location.href)
+          const deepLink = `https://phantom.app/ul/browse/${dappUrl}?ref=${dappUrl}`
+          window.location.href = deepLink
+        }
       }
     }
   }

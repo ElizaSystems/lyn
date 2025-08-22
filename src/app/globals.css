@@ -185,6 +185,20 @@
   .glass-card {
     @apply bg-card/50 backdrop-blur-md border border-border/50;
   }
+
+  /* Improve touch interactions on mobile */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  
+  /* Ensure buttons are easily tappable on mobile */
+  @media (max-width: 640px) {
+    button {
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    }
+  }
 }
 
 .wallet-adapter-button-trigger {
