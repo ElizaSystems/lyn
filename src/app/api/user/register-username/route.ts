@@ -4,7 +4,7 @@ import { getDatabase } from '@/lib/mongodb'
 import { getTokenBalance, connection } from '@/lib/solana'
 import { verifyBurnTransaction } from '@/lib/solana-burn'
 import { config } from '@/lib/config'
-import { ReferralService } from '@/lib/services/referral-service'
+import { ReferralServiceV2 } from '@/lib/services/referral-service-v2'
 import { BurnService } from '@/lib/services/burn-service'
 
 const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required to hold
@@ -163,18 +163,12 @@ export async function POST(request: NextRequest) {
     if (referralCode) {
       try {
         console.log(`[Username Reg] Tracking referral with code: ${referralCode}`)
-        
-        // Get the user ID from the database
-        const registeredUser = await usersCollection.findOne({ walletAddress })
-        if (registeredUser?._id) {
-          await ReferralService.trackReferral(
-            referralCode,
-            registeredUser._id.toString(),
-            BURN_AMOUNT,
-            signature
-          )
-          console.log(`[Username Reg] Referral tracked successfully`)
-        }
+        await ReferralServiceV2.trackReferral(
+          referralCode,
+          walletAddress,
+          BURN_AMOUNT
+        )
+        console.log(`[Username Reg] Referral tracked successfully`)
       } catch (referralError) {
         console.error('[Username Reg] Failed to track referral:', referralError)
         // Don't fail registration if referral tracking fails
@@ -196,19 +190,23 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate referral code for the new user
-    const newUserReferralCode = await ReferralService.getOrCreateReferralCode(
-      walletAddress, // Using wallet as ID temporarily
+    const referralResult = await ReferralServiceV2.getOrCreateReferralCode(
       walletAddress,
       username
     )
+    const newUserReferralCode = referralResult.success && referralResult.code ? {
+      code: referralResult.code
+    } : null
     
     return NextResponse.json({
       success: true,
       username,
       profileUrl: `https://app.lynai.xyz/profile/${username}`,
       reputationScore: 100,
-      referralCode: newUserReferralCode.code,
-      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${newUserReferralCode.code}`
+      referralCode: newUserReferralCode?.code || 'PENDING',
+      referralLink: newUserReferralCode?.code 
+        ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${newUserReferralCode.code}`
+        : null
     })
 
   } catch (error) {

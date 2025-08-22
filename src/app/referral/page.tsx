@@ -66,8 +66,8 @@ export default function ReferralPage() {
         const userIdToUse = publicKey.toString()
         setUserId(userIdToUse)
 
-        // Get or create referral code
-        const codeResponse = await fetch(`/api/referral/code?userId=${userIdToUse}&walletAddress=${publicKey.toString()}`)
+        // Get or create referral code using V2 API
+        const codeResponse = await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}`)
         
         if (!codeResponse.ok) {
           console.error('Failed to get referral code')
@@ -77,12 +77,13 @@ export default function ReferralPage() {
 
         const codeData = await codeResponse.json()
         
-        // Get dashboard data
-        const dashboardResponse = await fetch(`/api/referral/dashboard?userId=${userIdToUse}`)
+        // Get dashboard data (skip for now, use code data)
+        // const dashboardResponse = await fetch(`/api/referral/dashboard?userId=${userIdToUse}`)
         
-        if (dashboardResponse.ok) {
-          const dashboardData = await dashboardResponse.json()
-          setDashboard(dashboardData)
+        // For now, skip dashboard API and use code data
+        if (false) {
+          // const dashboardData = await dashboardResponse.json()
+          // setDashboard(dashboardData)
         } else {
           // Create minimal dashboard from code data
           setDashboard({

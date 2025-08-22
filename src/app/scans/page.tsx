@@ -263,7 +263,7 @@ export default function ScansPage() {
       if (referralCode) {
         try {
           console.log(`[Registration] Fetching referrer info for code: ${referralCode}`)
-          const refResponse = await fetch(`/api/referral/info?code=${referralCode}`)
+          const refResponse = await fetch(`/api/referral/v2/info?code=${referralCode}`)
           if (refResponse.ok) {
             const refData = await refResponse.json()
             referrerWallet = refData.walletAddress
