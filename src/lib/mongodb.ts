@@ -72,6 +72,10 @@ export async function checkDatabaseHealth(): Promise<boolean> {
 export interface MongoUser {
   _id?: ObjectId
   walletAddress: string
+  username?: string
+  usernameRegisteredAt?: Date
+  registrationBurnAmount?: number
+  registrationBurnTx?: string
   nonce: string
   tokenBalance: number
   hasTokenAccess: boolean

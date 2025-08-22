@@ -199,13 +199,17 @@ export default function ScansPage() {
 
       if (response.ok) {
         const userData = await response.json()
-        setUserProfile(userData)
+        // The API returns { user: userData }, so extract the user object
+        const user = userData.user || userData
+        setUserProfile(user)
         
         // Fetch token balance
-        const balanceResponse = await fetch(`/api/wallet/balance?address=${userData.walletAddress}`)
-        if (balanceResponse.ok) {
-          const balanceData = await balanceResponse.json()
-          setTokenBalance(balanceData.balance || 0)
+        if (user.walletAddress) {
+          const balanceResponse = await fetch(`/api/wallet/balance?address=${user.walletAddress}`)
+          if (balanceResponse.ok) {
+            const balanceData = await balanceResponse.json()
+            setTokenBalance(balanceData.balance || 0)
+          }
         }
       }
     } catch (error) {

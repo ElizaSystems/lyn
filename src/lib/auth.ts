@@ -13,6 +13,7 @@ import bs58 from 'bs58'
 export interface AuthUser {
   id: string
   walletAddress: string
+  username?: string
   tokenBalance: number
   hasTokenAccess: boolean
   questionsAsked: number
@@ -120,6 +121,7 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthUser | n
   return {
     id: user._id!.toString(),
     walletAddress: user.walletAddress,
+    username: user.username,
     tokenBalance: user.tokenBalance,
     hasTokenAccess: user.hasTokenAccess,
     questionsAsked: 0, // This will be tracked separately in analytics
