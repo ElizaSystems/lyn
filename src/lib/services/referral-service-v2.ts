@@ -1,19 +1,6 @@
 import { getDatabase } from '@/lib/mongodb'
 import crypto from 'crypto'
 
-interface SimpleReferralCode {
-  _id?: unknown
-  walletAddress: string
-  code: string
-  username?: string
-  totalReferrals: number
-  totalBurned: number
-  totalRewards: number
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
 export class ReferralServiceV2 {
   /**
    * Generate a unique referral code
@@ -114,7 +101,7 @@ export class ReferralServiceV2 {
         updatedAt: new Date()
       }
       
-      await collection.insertOne(newCode as any)
+      await collection.insertOne(newCode as Record<string, unknown>)
       console.log(`[ReferralV2] Created new code: ${code}`)
       
       return {
