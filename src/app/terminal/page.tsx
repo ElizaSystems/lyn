@@ -138,13 +138,13 @@ Ready for commands...
   }
 
   return (
-    <div className="h-full p-6">
+    <div className="h-full p-3 sm:p-6">
       <div className="h-full flex flex-col bg-background/50 backdrop-blur-sm rounded-xl border border-border/50">
-        <div className="p-4 border-b border-border/50 flex items-center justify-between">
+        <div className="p-3 sm:p-4 border-b border-border/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TerminalIcon className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-semibold">Terminal</h1>
-            <span className="text-xs text-muted-foreground">LYN AI Command Line Interface</span>
+            <TerminalIcon className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
+            <h1 className="text-base sm:text-lg font-semibold">Terminal</h1>
+            <span className="text-xs text-muted-foreground hidden sm:inline">LYN AI Command Line Interface</span>
           </div>
           <Button
             variant="ghost"
@@ -159,7 +159,7 @@ Ready for commands...
 
         <div 
           ref={terminalRef}
-          className="flex-1 overflow-y-auto p-4 font-mono text-sm"
+          className="flex-1 overflow-y-auto p-3 sm:p-4 font-mono text-xs sm:text-sm"
           onClick={() => inputRef.current?.focus()}
         >
           {commands.map((cmd, index) => (

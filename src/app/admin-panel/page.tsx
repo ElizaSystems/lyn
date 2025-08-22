@@ -128,7 +128,8 @@ export default function AdminPanel() {
       // Sign message
       const encodedMessage = new TextEncoder().encode(message)
       const signature = await wallet.signMessage(encodedMessage, 'utf8')
-      const signatureBase58 = Buffer.from(signature).toString('base64')
+      // API expects base58 signature; convert from raw bytes
+      const signatureBase58 = (await import('bs58')).default.encode(signature)
       
       // Login
       const loginResponse = await fetch('/api/auth/login', {

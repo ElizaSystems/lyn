@@ -151,10 +151,11 @@ export function Sidebar() {
         />
       )}
       
-      {/* Mobile menu button */}
+      {/* Mobile menu button - improved for better touch target */}
       <button
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 bg-sidebar border border-border rounded-md shadow-lg"
+        className="fixed top-3 left-3 z-50 lg:hidden p-3 min-w-[44px] min-h-[44px] bg-sidebar border border-border rounded-lg shadow-lg active:scale-95 transition-transform"
         onClick={() => setMobileOpen(!mobileOpen)}
+        aria-label="Toggle menu"
       >
         <Menu className="w-5 h-5 text-foreground" />
       </button>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { useWallet } from '@/components/solana/solana-provider'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token'
+import bs58 from 'bs58'
 
 export function HeaderBar() {
   const { publicKey, connected, connect, disconnect } = useWallet()
@@ -55,16 +56,66 @@ export function HeaderBar() {
 
   const handleLoginClick = async () => {
     if (connected) {
-      await disconnect()
-    } else {
-      setIsLoading(true)
       try {
-        await connect()
-      } catch (error) {
-        console.error('Wallet connection error:', error)
-      } finally {
-        setIsLoading(false)
+        // Clear server session on logout
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+      } catch (e) {
+        // non-blocking
       }
+      await disconnect()
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      await connect()
+
+      // After wallet connects, attempt server authentication (nonce + signature)
+      if (typeof window !== 'undefined') {
+        interface SolanaWallet {
+          publicKey?: { toString: () => string }
+          signMessage?: (message: Uint8Array, encoding?: string) => Promise<Uint8Array>
+        }
+        const { solana } = window as Window & { solana?: SolanaWallet }
+        const walletAddress = solana?.publicKey?.toString()
+        if (solana && solana.signMessage && walletAddress) {
+          // 1) Request nonce
+          const nonceRes = await fetch('/api/auth/nonce', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ walletAddress })
+          })
+          if (nonceRes.ok) {
+            const { message } = await nonceRes.json()
+            const encoded = new TextEncoder().encode(message)
+            // 2) Sign message and encode to base58 (server expects base58)
+            let sigBytes = await solana.signMessage(encoded, 'utf8') as unknown
+            // Normalize to Uint8Array for bs58
+            if (Array.isArray(sigBytes)) {
+              sigBytes = new Uint8Array(sigBytes as number[])
+            } else if (typeof sigBytes === 'string') {
+              // Assume base64 string
+              const binary = atob(sigBytes as string)
+              const bytes = new Uint8Array(binary.length)
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+              sigBytes = bytes
+            }
+            const signature = bs58.encode(sigBytes as Uint8Array)
+
+            // 3) Login
+            await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ walletAddress, signature, message })
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Wallet connection/auth error:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -74,7 +125,7 @@ export function HeaderBar() {
 
   return (
     <header className="h-16 border-b border-border bg-background/50 backdrop-blur-sm fixed lg:relative top-0 left-0 right-0 z-30">
-      <div className="h-full px-4 sm:px-6 pl-16 lg:pl-6 flex items-center justify-between">
+      <div className="h-full px-4 sm:px-6 pl-[72px] lg:pl-6 flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-4">
           <Button variant="ghost" size="sm" className="text-muted-foreground hidden sm:flex">
             <span className="mr-2">📄</span> Edit

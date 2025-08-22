@@ -571,24 +571,24 @@ export default function ScansPage() {
       {activeTab === 'profile' && (
         <div className="space-y-6 mb-8">
           {/* Profile Header */}
-          <div className="glass-card p-6 rounded-xl border border-border/50">
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <User className="w-8 h-8 text-white" />
+          <div className="glass-card p-4 sm:p-6 rounded-xl border border-border/50">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <User className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold">
+                <div className="min-w-0">
+                  <h2 className="text-xl sm:text-2xl font-bold truncate">
                     {userProfile?.username || 'Anonymous User'}
                   </h2>
-                  <p className="text-muted-foreground">
+                  <p className="text-sm sm:text-base text-muted-foreground truncate">
                     {userProfile?.walletAddress ? 
-                      `${userProfile.walletAddress.substring(0, 8)}...${userProfile.walletAddress.slice(-8)}` : 
+                      `${userProfile.walletAddress.substring(0, 6)}...${userProfile.walletAddress.slice(-6)}` : 
                       'Not connected'
                     }
                   </p>
                   <div className="flex items-center mt-2 space-x-4">
-                    <div className="text-sm">
+                    <div className="text-xs sm:text-sm">
                       <span className="text-muted-foreground">LYN Balance:</span>
                       <span className="ml-1 font-semibold">{tokenBalance.toLocaleString()}</span>
                     </div>
