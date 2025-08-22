@@ -89,25 +89,48 @@ export function HeaderBar() {
             const { message } = await nonceRes.json()
             const encoded = new TextEncoder().encode(message)
             // 2) Sign message and encode to base58 (server expects base58)
-            let sigBytes = await solana.signMessage(encoded, 'utf8') as unknown
-            // Normalize to Uint8Array for bs58
-            if (Array.isArray(sigBytes)) {
-              sigBytes = new Uint8Array(sigBytes as number[])
-            } else if (typeof sigBytes === 'string') {
-              // Assume base64 string
-              const binary = atob(sigBytes as string)
-              const bytes = new Uint8Array(binary.length)
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-              sigBytes = bytes
+            const sig = await solana.signMessage(encoded) as unknown
+            // Normalize to send either signatureBytes or signature string
+            let payload: Record<string, unknown> = { walletAddress, message }
+            const coerceToBytes = (value: unknown): number[] | null => {
+              if (value instanceof Uint8Array) return Array.from(value)
+              if (Array.isArray(value)) return value as number[]
+              if (typeof value === 'string') {
+                // Assume base64 string; if not, we'll send as base58 string below
+                try {
+                  const binary = atob(value as string)
+                  const bytes = new Uint8Array(binary.length)
+                  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+                  return Array.from(bytes)
+                } catch {
+                  return null
+                }
+              }
+              return null
             }
-            const signature = bs58.encode(sigBytes as Uint8Array)
+
+            let bytes = coerceToBytes(sig)
+            if (!bytes && typeof sig === 'object' && sig !== null && 'signature' in (sig as Record<string, unknown>)) {
+              bytes = coerceToBytes((sig as Record<string, unknown>).signature)
+            }
+
+            if (bytes) {
+              payload = { ...payload, signatureBytes: bytes }
+            } else if (typeof sig === 'string') {
+              // Send as base58 (or other) string; server will handle
+              payload = { ...payload, signature: sig }
+            } else if (typeof sig === 'object' && sig !== null && 'signature' in (sig as Record<string, unknown>) && typeof (sig as Record<string, unknown>).signature === 'string') {
+              payload = { ...payload, signature: (sig as Record<string, string>).signature }
+            } else {
+              throw new Error('Unsupported signature return type')
+            }
 
             // 3) Login
             await fetch('/api/auth/login', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({ walletAddress, signature, message })
+              body: JSON.stringify(payload)
             })
           }
         }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { walletAuth, checkIPRateLimit, createRateLimitHeaders, getClientIP, getUserAgent } from '@/lib/auth'
 import { db } from '@/lib/mongodb'
+import bs58 from 'bs58'
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,16 +16,37 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { walletAddress, signature, message } = await req.json()
+    const { walletAddress, signature, signatureBytes, message } = await req.json()
 
-    if (!walletAddress || !signature || !message) {
+    if (!walletAddress || (!signature && !signatureBytes) || !message) {
       return NextResponse.json(
         { error: 'Wallet address, signature, and message are required' },
         { status: 400, headers }
       )
     }
 
-    const result = await walletAuth.verifyAndLogin(walletAddress, signature, message)
+    // Normalize signature to base58 string
+    let signatureBase58: string
+    if (typeof signature === 'string') {
+      signatureBase58 = signature
+    } else if (Array.isArray(signatureBytes)) {
+      try {
+        const bytes = new Uint8Array(signatureBytes as number[])
+        signatureBase58 = bs58.encode(bytes)
+      } catch {
+        return NextResponse.json(
+          { error: 'Invalid signature bytes' },
+          { status: 400, headers }
+        )
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Invalid signature format' },
+        { status: 400, headers }
+      )
+    }
+
+    const result = await walletAuth.verifyAndLogin(walletAddress, signatureBase58, message)
 
     // Log successful login
     await db.audit.log({
