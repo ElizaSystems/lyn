@@ -22,9 +22,10 @@ export async function GET(request: NextRequest) {
     const relV2 = await relationshipsV2.findOne({ referredWallet: wallet })
     if (relV2?.referrerWallet) {
       const refUser = await users.findOne({ walletAddress: relV2.referrerWallet })
+      const username = (refUser as any)?.username || (refUser as any)?.profile?.username || null
       return NextResponse.json({
         walletAddress: relV2.referrerWallet,
-        username: refUser?.username || null,
+        username,
         referralCode: relV2.referralCode || null,
         tier: relV2.tier || 1
       })
@@ -38,9 +39,10 @@ export async function GET(request: NextRequest) {
       if (relV1?.referrerId) {
         const refUser = await users.findOne({ _id: relV1.referrerId })
         if (refUser?.walletAddress) {
+          const username = (refUser as any)?.username || (refUser as any)?.profile?.username || null
           return NextResponse.json({
             walletAddress: refUser.walletAddress,
-            username: refUser.username || null,
+            username,
             referralCode: relV1.referralCode || null,
             tier: 1
           })

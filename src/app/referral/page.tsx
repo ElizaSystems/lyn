@@ -14,7 +14,9 @@ import {
   Activity,
   DollarSign,
   UserPlus,
-  Link2
+  Link2,
+  User,
+  Info
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -140,6 +142,7 @@ export default function ReferralPage() {
 
         // Fetch referrer info for the connected wallet (if any)
         try {
+          // Prefer server-side resolved relationship
           const refResponse = await fetch(`/api/referral/v2/my-referrer?wallet=${publicKey.toString()}`)
           if (refResponse.ok) {
             const refData = await refResponse.json()
@@ -150,10 +153,14 @@ export default function ReferralPage() {
                 referralCode: refData.referralCode || null
               })
             }
-          } else {
-            // If no stored relationship, fall back to URL/localStorage referral code
+          } 
+          
+          // If still no referrer, check cookie/url code and resolve
+          if (!referrer) {
             const urlParams = new URLSearchParams(window.location.search)
-            const refCode = urlParams.get('ref') || localStorage.getItem('referralCode') || ''
+            const cookieMatch = document.cookie.split('; ').find(c => c.startsWith('referral-code='))
+            const cookieRef = cookieMatch ? cookieMatch.split('=')[1] : ''
+            const refCode = urlParams.get('ref') || localStorage.getItem('referralCode') || cookieRef || ''
             if (refCode) {
               const codeInfoResp = await fetch(`/api/referral/v2/info?code=${encodeURIComponent(refCode)}`)
               if (codeInfoResp.ok) {
@@ -542,6 +549,3 @@ export default function ReferralPage() {
     </div>
   )
 }
-
-// Add missing import
-import { User, Info } from 'lucide-react'
