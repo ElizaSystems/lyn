@@ -1,7 +1,8 @@
 import { connectToDatabase } from '@/lib/mongodb'
 import { SecurityTip, ISecurityTip } from '@/lib/models/security-tips'
-import { User } from '@/lib/models/user'
-import { achievementService } from './achievement-service'
+import { User } from '@/lib/models/user-mongoose'
+// Commenting out for now - need refactoring
+// import { achievementService } from './achievement-service'
 
 class SecurityTipsService {
   async getDailyTip(userId?: string): Promise<ISecurityTip | null> {
@@ -89,7 +90,8 @@ class SecurityTipsService {
         await user.save()
         
         // Check for achievement
-        await achievementService.checkAndUnlockAchievements(userId, 'tip_engagement')
+        // Commenting out for now - need refactoring
+        // await achievementService.checkAndUnlockAchievements(userId, 'tip_engagement')
       }
       
       return true

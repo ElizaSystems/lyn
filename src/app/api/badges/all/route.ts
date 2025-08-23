@@ -3,7 +3,7 @@ import { BADGE_DEFINITIONS, TOTAL_BADGES } from '@/lib/services/badge-definition
 import { BadgeServiceV2 } from '@/lib/services/badge-service-v2'
 import { verifyAuth } from '@/lib/auth-helper'
 import { connectToDatabase } from '@/lib/mongodb'
-import { User } from '@/lib/models/user'
+import { User } from '@/lib/models/user-mongoose'
 
 export async function GET(req: NextRequest) {
   try {

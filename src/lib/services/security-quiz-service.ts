@@ -1,7 +1,6 @@
 import { connectToDatabase } from '@/lib/mongodb'
 import { QuizQuestion, QuizSession, UserQuizStats, IQuizQuestion, IQuizSession } from '@/lib/models/security-quiz'
-import { User } from '@/lib/models/user'
-import { achievementService } from './achievement-service'
+import { User } from '@/lib/models/user-mongoose'
 
 class SecurityQuizService {
   async getQuizQuestions(category?: string, difficulty?: string, count: number = 10): Promise<IQuizQuestion[]> {
@@ -149,8 +148,8 @@ class SecurityQuizService {
       // Award XP to user
       await this.awardXpToUser(session.userId, session.xpEarned)
       
-      // Check achievements
-      await achievementService.checkAndUnlockAchievements(session.userId, 'quiz_completed')
+      // Check achievements - commenting out for now as achievement service needs refactoring
+      // await achievementService.checkAndUnlockAchievements(session.userId, 'quiz_completed')
       
       return {
         totalScore: session.totalScore,

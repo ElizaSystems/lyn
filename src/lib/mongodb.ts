@@ -1,4 +1,5 @@
 import { MongoClient, Db, ObjectId } from 'mongodb'
+import mongoose from 'mongoose'
 
 if (!process.env.MONGODB_URI) {
   console.warn('MONGODB_URI not found, using fallback connection')
@@ -24,6 +25,7 @@ if (process.env.NODE_ENV === 'development') {
   // is preserved across module reloads caused by HMR (Hot Module Replacement).
   const globalWithMongo = global as typeof globalThis & {
     _mongoClientPromise?: Promise<MongoClient>
+    _mongooseConnection?: typeof mongoose
   }
 
   if (!globalWithMongo._mongoClientPromise) {
@@ -48,6 +50,31 @@ export async function getDatabase(): Promise<Db> {
   } catch (error) {
     console.error('Database connection failed:', error)
     throw new Error('Database connection failed')
+  }
+}
+
+// Mongoose connection for models that use Mongoose schemas
+let isConnected = false
+
+export async function connectToDatabase() {
+  if (isConnected) {
+    return
+  }
+
+  try {
+    const mongoUri = `${uri}/${dbName}`
+    
+    if (mongoose.connection.readyState === 1) {
+      isConnected = true
+      return
+    }
+
+    await mongoose.connect(mongoUri)
+    isConnected = true
+    console.log('Mongoose connected to MongoDB')
+  } catch (error) {
+    console.error('Error connecting to MongoDB with Mongoose:', error)
+    throw error
   }
 }
 
@@ -895,9 +922,9 @@ export const db = {
         return acc
       }, {})
       
-      const majorityFeedbackType = Object.keys(typeCount).reduce((a, b) => 
-        typeCount[a] > typeCount[b] ? a : b, null
-      )
+      const majorityFeedbackType = Object.keys(typeCount).length > 0 
+        ? Object.keys(typeCount).reduce((a, b) => typeCount[a] > typeCount[b] ? a : b)
+        : null
       
       return {
         totalFeedback: data.totalFeedback,
@@ -983,7 +1010,12 @@ export const db = {
         return { upvotes: 0, downvotes: 0, totalVotes: 0, weightedScore: 0 }
       }
       
-      return result[0]
+      return result[0] as {
+        upvotes: number
+        downvotes: number
+        totalVotes: number
+        weightedScore: number
+      }
     }
   },
 

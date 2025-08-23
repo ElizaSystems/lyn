@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Trophy, Flame, Calendar, TrendingUp, Award, Star, Shield } from 'lucide-react'
+import { Trophy, Flame, Calendar, TrendingUp, Award, Star, Shield, Twitter, Share2, Lock } from 'lucide-react'
 
 interface ScanBadge {
   id: string
@@ -12,6 +12,12 @@ interface ScanBadge {
   icon: string
   rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
   points: number
+  earned?: boolean
+  earnedAt?: string
+  requirement?: {
+    type: string
+    value: number
+  }
 }
 
 interface ScanStats {
@@ -36,6 +42,7 @@ export function ScanTracker({ walletAddress }: ScanTrackerProps) {
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [leaderboardType, setLeaderboardType] = useState<'streak' | 'total' | 'badges'>('streak')
   const [showBadges, setShowBadges] = useState(false)
+  const [allBadges, setAllBadges] = useState<ScanBadge[]>([])
 
   useEffect(() => {
     if (walletAddress) {
@@ -46,10 +53,19 @@ export function ScanTracker({ walletAddress }: ScanTrackerProps) {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/scans/tracker')
-      if (response.ok) {
-        const data = await response.json()
+      const [statsResponse, badgesResponse] = await Promise.all([
+        fetch('/api/scans/tracker'),
+        fetch('/api/scans/badges')
+      ])
+      
+      if (statsResponse.ok) {
+        const data = await statsResponse.json()
         setStats(data)
+      }
+      
+      if (badgesResponse.ok) {
+        const badgesData = await badgesResponse.json()
+        setAllBadges(badgesData.badges || [])
       }
     } catch (error) {
       console.error('Failed to fetch scan stats:', error)
@@ -74,14 +90,47 @@ export function ScanTracker({ walletAddress }: ScanTrackerProps) {
     fetchLeaderboard()
   }, [leaderboardType])
 
-  const getRarityColor = (rarity: string) => {
+  const getRarityColor = (rarity: string, earned: boolean = true) => {
+    if (!earned) {
+      return 'text-gray-500 bg-gray-500/5 border-gray-600/30'
+    }
     switch (rarity) {
-      case 'common': return 'text-gray-400 bg-gray-400/10'
-      case 'uncommon': return 'text-green-400 bg-green-400/10'
-      case 'rare': return 'text-blue-400 bg-blue-400/10'
-      case 'epic': return 'text-purple-400 bg-purple-400/10'
-      case 'legendary': return 'text-yellow-400 bg-yellow-400/10'
-      default: return 'text-gray-400 bg-gray-400/10'
+      case 'common': return 'text-gray-400 bg-gray-400/10 border-gray-400/30'
+      case 'uncommon': return 'text-green-400 bg-green-400/10 border-green-400/30'
+      case 'rare': return 'text-blue-400 bg-blue-400/10 border-blue-400/30'
+      case 'epic': return 'text-purple-400 bg-purple-400/10 border-purple-400/30'
+      case 'legendary': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30 animate-pulse'
+      default: return 'text-gray-400 bg-gray-400/10 border-gray-400/30'
+    }
+  }
+
+  const shareBadgeOnX = (badge: ScanBadge) => {
+    const rarityEmoji = badge.rarity === 'legendary' ? '✨' : 
+                        badge.rarity === 'epic' ? '💜' :
+                        badge.rarity === 'rare' ? '💙' :
+                        badge.rarity === 'uncommon' ? '💚' : '⚪'
+    const text = `${badge.icon} Just unlocked the "${badge.name}" badge on @LynAI_xyz!\n\n${rarityEmoji} ${badge.rarity.toUpperCase()} Achievement\n📊 ${badge.description}\n🎯 +${badge.points} reputation points\n\nSecure your Web3 journey:`
+    const url = `https://app.lynai.xyz`
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
+    window.open(twitterUrl, '_blank')
+  }
+
+  const getRequirementText = (badge: ScanBadge) => {
+    if (!badge.requirement) return ''
+    
+    switch (badge.requirement.type) {
+      case 'streak':
+        return `Maintain a ${badge.requirement.value}-day scan streak`
+      case 'total':
+        return `Complete ${badge.requirement.value} total scans`
+      case 'daily':
+        return `Complete ${badge.requirement.value} scans in a single day`
+      case 'threat_hunter':
+        return `Detect ${badge.requirement.value} threats`
+      case 'safe_scanner':
+        return `Verify ${badge.requirement.value} safe targets`
+      default:
+        return ''
     }
   }
 
@@ -187,7 +236,7 @@ export function ScanTracker({ walletAddress }: ScanTrackerProps) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold flex items-center gap-2">
             <Shield className="w-5 h-5" />
-            Scan Badges
+            Scan Badges ({stats.badges.filter(b => b.earned).length}/{allBadges.length || 22})
           </h3>
           <Button
             variant="outline"
@@ -200,34 +249,76 @@ export function ScanTracker({ walletAddress }: ScanTrackerProps) {
 
         {showBadges ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {stats.badges.map((badge) => (
-              <div
-                key={badge.id}
-                className={`p-3 rounded-lg border ${getRarityColor(badge.rarity)}`}
-              >
-                <div className="text-2xl mb-1">{badge.icon}</div>
-                <p className="text-sm font-medium">{badge.name}</p>
-                <p className="text-xs opacity-70">{badge.description}</p>
-                <p className="text-xs mt-1">+{badge.points} pts</p>
-              </div>
-            ))}
+            {(allBadges.length > 0 ? allBadges : stats.badges).map((badge) => {
+              const isEarned = badge.earned || stats.badges.some(b => b.id === badge.id)
+              return (
+                <div
+                  key={badge.id}
+                  className={`relative p-3 rounded-lg border transition-all ${
+                    isEarned ? 'cursor-pointer hover:scale-105' : ''
+                  } ${getRarityColor(badge.rarity, isEarned)}`}
+                  onClick={() => isEarned && shareBadgeOnX(badge)}
+                  title={isEarned ? 'Click to share on X' : getRequirementText(badge)}
+                >
+                  {!isEarned && (
+                    <div className="absolute inset-0 bg-background/80 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                      <Lock className="w-6 h-6 text-gray-500" />
+                    </div>
+                  )}
+                  <div className={`text-2xl mb-1 ${!isEarned ? 'grayscale opacity-40' : ''}`}>
+                    {badge.icon}
+                  </div>
+                  <p className={`text-sm font-medium ${!isEarned ? 'opacity-60' : ''}`}>
+                    {badge.name}
+                  </p>
+                  <p className={`text-xs ${!isEarned ? 'opacity-50' : 'opacity-70'}`}>
+                    {badge.description}
+                  </p>
+                  {!isEarned && badge.requirement ? (
+                    <p className="text-xs mt-1 text-yellow-500/80">
+                      {getRequirementText(badge)}
+                    </p>
+                  ) : (
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs">+{badge.points} pts</p>
+                      {isEarned && (
+                        <Twitter className="w-3 h-3 text-primary opacity-60" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="flex gap-2 flex-wrap">
-            {stats.badges.slice(0, 8).map((badge) => (
+            {stats.badges.filter(b => b.earned !== false).slice(0, 8).map((badge) => (
               <div
                 key={badge.id}
-                className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl ${getRarityColor(
-                  badge.rarity
+                className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl cursor-pointer hover:scale-110 transition-all ${getRarityColor(
+                  badge.rarity, true
                 )}`}
-                title={`${badge.name}: ${badge.description}`}
+                title={`${badge.name}: ${badge.description} - Click to share`}
+                onClick={() => shareBadgeOnX(badge)}
               >
                 {badge.icon}
               </div>
             ))}
-            {stats.badges.length > 8 && (
+            {allBadges.length > 0 && allBadges.filter(b => !stats.badges.some(sb => sb.id === b.id)).slice(0, Math.max(0, 8 - stats.badges.length)).map((badge) => (
+              <div
+                key={badge.id}
+                className="relative w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-gray-500/5 border border-gray-600/30"
+                title={getRequirementText(badge)}
+              >
+                <div className="absolute inset-0 bg-background/80 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                  <Lock className="w-4 h-4 text-gray-500" />
+                </div>
+                <span className="grayscale opacity-30">{badge.icon}</span>
+              </div>
+            ))}
+            {(allBadges.length || stats.badges.length) > 8 && (
               <div className="w-12 h-12 rounded-lg bg-sidebar/30 flex items-center justify-center text-sm">
-                +{stats.badges.length - 8}
+                +{Math.max(allBadges.length, stats.badges.length) - 8}
               </div>
             )}
           </div>

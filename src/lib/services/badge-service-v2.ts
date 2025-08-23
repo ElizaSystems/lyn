@@ -1,6 +1,6 @@
 import { BADGE_DEFINITIONS, Badge, BadgeRequirement, getBadgeById } from './badge-definitions'
 import { connectToDatabase } from '@/lib/mongodb'
-import { User } from '@/lib/models/user'
+import { User } from '@/lib/models/user-mongoose'
 
 export interface UserBadge {
   id: string

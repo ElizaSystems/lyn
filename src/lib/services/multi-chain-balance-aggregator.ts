@@ -10,6 +10,7 @@ import { MultiChainProviders } from './multi-chain-providers'
 import { MultiChainConfig } from './multi-chain-config'
 import { AddressValidationService } from './address-validation'
 import { ObjectId } from 'mongodb'
+import { fetchSolanaPrice } from './price-service'
 
 /**
  * Token price service (placeholder - would integrate with real price APIs)
@@ -25,14 +26,77 @@ interface TokenPrice {
  * Multi-chain balance aggregation service
  */
 export class MultiChainBalanceAggregator {
-  // Placeholder token prices (would integrate with CoinGecko, CoinMarketCap, etc.)
+  // Cache for token prices with timestamp
+  private static priceCache: Map<string, { price: number; timestamp: number }> = new Map()
+  private static readonly CACHE_DURATION = 60000 // 1 minute cache
+  
+  // Fallback token prices
   private static readonly TOKEN_PRICES: Record<string, number> = {
-    SOL: 100,
-    ETH: 2000,
+    SOL: 120,
+    ETH: 3000,
     BNB: 300,
     MATIC: 0.8,
     USDC: 1,
     USDT: 1
+  }
+  
+  /**
+   * Get real-time token price with caching
+   */
+  private static async getTokenPrice(symbol: string): Promise<number> {
+    // Check cache first
+    const cached = this.priceCache.get(symbol)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.price
+    }
+    
+    // Stablecoins always return 1
+    if (['USDC', 'USDT', 'BUSD', 'DAI'].includes(symbol)) {
+      return 1
+    }
+    
+    try {
+      let price = this.TOKEN_PRICES[symbol] || 0
+      
+      // Fetch real-time prices from CoinGecko
+      if (symbol === 'SOL') {
+        price = await fetchSolanaPrice()
+      } else {
+        // Map token symbols to CoinGecko IDs
+        const coinGeckoIds: Record<string, string> = {
+          ETH: 'ethereum',
+          BNB: 'binancecoin',
+          MATIC: 'matic-network',
+          AVAX: 'avalanche-2',
+          ARB: 'arbitrum',
+          OP: 'optimism',
+          BASE: 'ethereum', // Base uses ETH
+          WBTC: 'wrapped-bitcoin',
+          LINK: 'chainlink',
+          UNI: 'uniswap',
+          AAVE: 'aave'
+        }
+        
+        const geckoId = coinGeckoIds[symbol]
+        if (geckoId) {
+          const response = await fetch(
+            `https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd`
+          )
+          
+          if (response.ok) {
+            const data = await response.json()
+            price = data[geckoId]?.usd || price
+          }
+        }
+      }
+      
+      // Update cache
+      this.priceCache.set(symbol, { price, timestamp: Date.now() })
+      return price
+    } catch (error) {
+      console.error(`Failed to fetch price for ${symbol}:`, error)
+      return this.TOKEN_PRICES[symbol] || 0
+    }
   }
 
   /**

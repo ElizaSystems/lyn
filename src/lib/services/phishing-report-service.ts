@@ -1,7 +1,8 @@
 import { connectToDatabase } from '@/lib/mongodb'
 import { PhishingReport, IPhishingReport } from '@/lib/models/phishing-report'
-import { User } from '@/lib/models/user'
-import { achievementService } from './achievement-service'
+import { User } from '@/lib/models/user-mongoose'
+// Commenting out for now - need refactoring
+// import { achievementService } from './achievement-service'
 
 class PhishingReportService {
   async createReport(
@@ -244,7 +245,8 @@ class PhishingReportService {
       await this.awardReportingXp(reporterId, xpReward)
       
       // Check for achievements
-      await achievementService.checkAndUnlockAchievements(reporterId, 'phishing_reported')
+      // Commenting out for now - need refactoring
+      // await achievementService.checkAndUnlockAchievements(reporterId, 'phishing_reported')
     } catch (error) {
       console.error('Error rewarding verified report:', error)
     }
