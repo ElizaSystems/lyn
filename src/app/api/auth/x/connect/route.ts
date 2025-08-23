@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import crypto from 'crypto'
 
 const X_CLIENT_ID = process.env.X_CLIENT_ID
 const CALLBACK_URL = process.env.NEXT_PUBLIC_APP_URL 
   ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/x/callback`
   : 'http://localhost:3000/api/auth/x/callback'
+
+// Generate PKCE code verifier and challenge
+function generatePKCE() {
+  const verifier = crypto.randomBytes(32).toString('base64url')
+  const challenge = crypto
+    .createHash('sha256')
+    .update(verifier)
+    .digest('base64url')
+  return { verifier, challenge }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,10 +30,14 @@ export async function GET(request: NextRequest) {
 
     const walletAddress = authResult.user.walletAddress
 
-    // Create state parameter with user info
+    // Generate PKCE parameters
+    const { verifier, challenge } = generatePKCE()
+
+    // Create state parameter with user info and verifier
     const state = Buffer.from(JSON.stringify({
       walletAddress,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      verifier // Store verifier in state for callback
     })).toString('base64')
 
     // X OAuth 2.0 authorization URL
@@ -32,8 +47,8 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.set('redirect_uri', CALLBACK_URL)
     authUrl.searchParams.set('scope', 'tweet.read users.read offline.access')
     authUrl.searchParams.set('state', state)
-    authUrl.searchParams.set('code_challenge', 'challenge')
-    authUrl.searchParams.set('code_challenge_method', 'plain')
+    authUrl.searchParams.set('code_challenge', challenge)
+    authUrl.searchParams.set('code_challenge_method', 'S256')
 
     return NextResponse.redirect(authUrl.toString())
   } catch (error) {
@@ -58,10 +73,14 @@ export async function POST(request: NextRequest) {
 
     const walletAddress = authResult.user.walletAddress
 
-    // Create state parameter
+    // Generate PKCE parameters
+    const { verifier, challenge } = generatePKCE()
+
+    // Create state parameter with verifier
     const state = Buffer.from(JSON.stringify({
       walletAddress,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      verifier
     })).toString('base64')
 
     // Return auth URL for client-side redirect
@@ -71,8 +90,8 @@ export async function POST(request: NextRequest) {
     authUrl.searchParams.set('redirect_uri', CALLBACK_URL)
     authUrl.searchParams.set('scope', 'tweet.read users.read offline.access')
     authUrl.searchParams.set('state', state)
-    authUrl.searchParams.set('code_challenge', 'challenge')
-    authUrl.searchParams.set('code_challenge_method', 'plain')
+    authUrl.searchParams.set('code_challenge', challenge)
+    authUrl.searchParams.set('code_challenge_method', 'S256')
 
     return NextResponse.json({
       authUrl: authUrl.toString()

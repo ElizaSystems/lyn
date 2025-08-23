@@ -18,12 +18,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/scans?error=x_auth_failed', request.url))
     }
 
-    // Decode state to get user wallet address
+    // Decode state to get user wallet address and PKCE verifier
     let walletAddress: string | null = null
+    let codeVerifier: string = 'challenge' // fallback
     if (state) {
       try {
         const decodedState = JSON.parse(Buffer.from(state, 'base64').toString())
         walletAddress = decodedState.walletAddress
+        codeVerifier = decodedState.verifier || 'challenge'
       } catch (e) {
         console.error('Failed to decode state:', e)
       }
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
         grant_type: 'authorization_code',
         code,
         redirect_uri: CALLBACK_URL,
-        code_verifier: 'challenge' // For PKCE flow
+        code_verifier: codeVerifier // Use the verifier from state
       })
     })
 
