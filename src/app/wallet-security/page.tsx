@@ -14,11 +14,14 @@ import {
   Activity,
   Zap,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Globe
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import MultiChainScanner from '@/components/multi-chain-scanner'
 
 interface WalletAnalysis {
   walletAddress: string
@@ -176,16 +179,36 @@ export default function WalletSecurityPage() {
           <Shield className="w-6 h-6 text-red-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Wallet Security Analysis</h1>
+          <h1 className="text-2xl font-bold">Wallet Security Center</h1>
           <p className="text-sm text-muted-foreground">
-            Analyze Solana wallets for scams, suspicious activity, and security risks
+            Comprehensive security analysis across multiple blockchains
           </p>
         </div>
       </div>
 
-      {/* Search Section */}
-      <div className="glass-card p-6 rounded-xl border border-border/50">
-        <h2 className="text-lg font-semibold mb-4">Analyze Wallet Address</h2>
+      {/* Tabs for different analysis modes */}
+      <Tabs defaultValue="multi-chain" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="multi-chain" className="flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            Multi-Chain Scanner
+          </TabsTrigger>
+          <TabsTrigger value="solana" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Solana Analysis
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Multi-Chain Scanner Tab */}
+        <TabsContent value="multi-chain" className="mt-6">
+          <MultiChainScanner />
+        </TabsContent>
+
+        {/* Solana Analysis Tab */}
+        <TabsContent value="solana" className="mt-6 space-y-6">
+          {/* Search Section */}
+          <div className="glass-card p-6 rounded-xl border border-border/50">
+            <h2 className="text-lg font-semibold mb-4">Analyze Solana Wallet</h2>
         <div className="flex gap-3">
           <Input
             placeholder="Enter Solana wallet address..."
@@ -541,6 +564,8 @@ export default function WalletSecurityPage() {
           </div>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

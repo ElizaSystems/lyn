@@ -24,12 +24,12 @@ export class MultiChainConfig {
       }
     })
 
-    // Ethereum
+    // Ethereum - Using public RPC endpoints
     this.chainConfigs.set('ethereum', {
       id: 1,
       name: 'Ethereum',
       type: 'ethereum',
-      rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth-mainnet.alchemyapi.io/v2/demo',
+      rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
       explorerUrl: 'https://etherscan.io',
       nativeCurrency: {
         name: 'Ether',
