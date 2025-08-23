@@ -22,7 +22,8 @@ import {
   Sparkles,
   Gift,
   Crown,
-  Rocket
+  Rocket,
+  Brain
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -64,6 +65,13 @@ export function Sidebar() {
       icon: <Shield className="w-5 h-5" />,
       badge: 'New',
       badgeType: 'cyan'
+    },
+    { 
+      label: 'Security Hub', 
+      path: '/security-hub', 
+      icon: <Brain className="w-5 h-5" />,
+      badge: 'Learn',
+      badgeType: 'pink'
     },
     { 
       label: 'Terminal', 
