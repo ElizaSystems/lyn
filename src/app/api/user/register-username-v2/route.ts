@@ -173,14 +173,14 @@ export async function POST(request: NextRequest) {
       verified: true
     })
     
-    // Initialize reputation at 0
+    // Initialize reputation with 100 points for username registration
     await db.collection('user_reputation').replaceOne(
       { walletAddress },
       {
         walletAddress,
         username,
-        reputationScore: 0, // Start at 0
-        tier: 'novice',
+        reputationScore: 100, // 100 points for registering username
+        tier: 'bronze', // Start at bronze tier with 100 points
         feedbackCount: 0,
         votesReceived: 0,
         accuracyScore: 0,

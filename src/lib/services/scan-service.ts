@@ -157,6 +157,24 @@ export class ScanService {
           }
 
           // Track achievement progress
+          
+          // Track scan for streaks and badges
+          try {
+            const db = await import('@/lib/mongodb').then(m => m.getDatabase())
+            const usersCollection = db.collection('users')
+            const user = await usersCollection.findOne({ _id: new ObjectId(userId) })
+            
+            if (user?.walletAddress) {
+              const { ScanTrackerService } = await import('./scan-tracker-service')
+              await ScanTrackerService.trackScan(
+                user.walletAddress,
+                updateResult.type,
+                !result.isSafe
+              )
+            }
+          } catch (trackError) {
+            console.error(`[ScanService] Failed to track scan for streaks:`, trackError)
+          }
           try {
             await integrateScanTracking.onScanCompleted(userId, {
               id: scanId,

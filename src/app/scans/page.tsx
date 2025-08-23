@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useWallet } from '@/components/solana/solana-provider'
 import { burnTokensWithReferrerCheck, isPhantomAvailable } from '@/lib/burn-tokens'
+import { ScanTracker } from '@/components/scan-tracker'
+import { RepGuide } from '@/components/rep-guide'
 
 interface Scan {
   id: string
@@ -38,7 +40,7 @@ interface ScanStats {
 
 export default function ScansPage() {
   const { publicKey, connected } = useWallet()
-  const [activeTab, setActiveTab] = useState<'profile' | 'personal' | 'public'>('profile') // Default to profile
+  const [activeTab, setActiveTab] = useState<'profile' | 'personal' | 'public' | 'tracker' | 'repguide'>('profile') // Default to profile
   const [personalScans, setPersonalScans] = useState<Scan[]>([])
   const [publicScans, setPublicScans] = useState<Scan[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,6 +83,19 @@ export default function ScansPage() {
     totalScans: number
     badgesEarned: number
   } | null>(null)
+  const [xConnection, setXConnection] = useState<{
+    connected: boolean
+    xUsername: string | null
+    xFreeScans: number
+    xFreeScansUsed: number
+    xFreeScansRemaining: number
+  }>({
+    connected: false,
+    xUsername: null,
+    xFreeScans: 0,
+    xFreeScansUsed: 0,
+    xFreeScansRemaining: 0
+  })
 
   // Check for referral code in URL, cookie, or storage
   useEffect(() => {
@@ -245,6 +260,17 @@ export default function ScansPage() {
           }
         } catch (e) {
           console.error('Failed to fetch user stats:', e)
+        }
+        
+        // Fetch X connection status
+        try {
+          const xResponse = await fetch('/api/auth/x/status')
+          if (xResponse.ok) {
+            const xData = await xResponse.json()
+            setXConnection(xData)
+          }
+        } catch (e) {
+          console.error('Failed to fetch X connection status:', e)
         }
       }
     } catch (error) {
@@ -556,6 +582,32 @@ export default function ScansPage() {
             My Scans
           </div>
         </button>
+        <button
+          onClick={() => setActiveTab('tracker')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            activeTab === 'tracker' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-sidebar/30 hover:bg-sidebar/50 text-muted-foreground'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4" />
+            Tracker
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab('repguide')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            activeTab === 'repguide' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-sidebar/30 hover:bg-sidebar/50 text-muted-foreground'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4" />
+            Rep Guide
+          </div>
+        </button>
       </div>
 
       {/* Filters and Search */}
@@ -683,6 +735,78 @@ export default function ScansPage() {
                 </div>
               </div>
             )}
+            
+            {/* X (Twitter) Connection */}
+            <div className="border-t border-border/50 pt-6 mt-6" style={{ display: 'block' }}>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                    X Account Connection
+                  </h3>
+                  {xConnection.connected ? (
+                    <p className="text-sm text-muted-foreground">
+                      Connected as <span className="font-medium">@{xConnection.xUsername}</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Connect your X account to get 5 free scans per month
+                    </p>
+                  )}
+                </div>
+                {xConnection.connected ? (
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        {xConnection.xFreeScansRemaining}/{xConnection.xFreeScans} scans left
+                      </p>
+                      <p className="text-xs text-muted-foreground">This month</p>
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        if (confirm('Disconnect your X account?')) {
+                          const response = await fetch('/api/auth/x/status', { method: 'DELETE' })
+                          if (response.ok) {
+                            setXConnection({
+                              connected: false,
+                              xUsername: null,
+                              xFreeScans: 0,
+                              xFreeScansUsed: 0,
+                              xFreeScansRemaining: 0
+                            })
+                          }
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      window.location.href = '/api/auth/x/connect'
+                    }}
+                    className="bg-black hover:bg-gray-900 text-white"
+                  >
+                    <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                    Connect X Account
+                  </Button>
+                )}
+              </div>
+              {xConnection.connected && (
+                <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-sm text-blue-400">
+                    ✨ You're getting 5 free security scans per month with your connected X account!
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Username Registration Requirements */}
@@ -815,8 +939,22 @@ export default function ScansPage() {
         </div>
       )}
 
+      {/* Tracker Tab Content */}
+      {activeTab === 'tracker' && (
+        <div className="mb-8">
+          <ScanTracker walletAddress={publicKey?.toString()} />
+        </div>
+      )}
+
+      {/* Rep Guide Tab Content */}
+      {activeTab === 'repguide' && (
+        <div className="mb-8">
+          <RepGuide walletAddress={publicKey?.toString()} />
+        </div>
+      )}
+
       {/* Scans Grid */}
-      {activeTab !== 'profile' && (
+      {activeTab !== 'profile' && activeTab !== 'tracker' && activeTab !== 'repguide' && (
         <>
           {/* Username Filter Indicator */}
           {filteredUsername && activeTab === 'public' && (

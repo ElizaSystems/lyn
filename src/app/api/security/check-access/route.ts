@@ -190,10 +190,40 @@ export const POST = withMiddleware(
     // Get the identifier for tracking (userId if logged in, sessionId if anonymous)
     const trackingId = user?.id || sessionId
     
+    // Check for X (Twitter) connected free scans
+    let xFreeScansRemaining = 0
+    let xUsername: string | null = null
+    if (walletAddress) {
+      try {
+        const database = await db.checkDatabaseHealth() ? await import('@/lib/mongodb').then(m => m.getDatabase()) : null
+        if (database) {
+          const usersCollection = database.collection('users')
+          const scansCollection = database.collection('user_scan_quotas')
+          
+          const userDoc = await usersCollection.findOne({ walletAddress })
+          if (userDoc?.xUsername) {
+            xUsername = userDoc.xUsername
+            
+            const currentMonth = new Date().toISOString().slice(0, 7)
+            const scanQuota = await scansCollection.findOne({
+              walletAddress,
+              month: currentMonth
+            })
+            
+            const xFreeScans = scanQuota?.xFreeScans || 5
+            const xFreeScansUsed = scanQuota?.xFreeScansUsed || 0
+            xFreeScansRemaining = Math.max(0, xFreeScans - xFreeScansUsed)
+          }
+        }
+      } catch (error) {
+        console.log('Could not check X free scans:', error)
+      }
+    }
+    
     // Get daily usage
     const { scansToday, lastResetDate } = await getDailyUsage(trackingId)
     
-    // Calculate remaining scans based on tier
+    // Calculate remaining scans based on tier (including X free scans)
     let scansRemaining: number | null = null
     let canScan = false
     let upgradeMessage = ''
@@ -221,14 +251,23 @@ export const POST = withMiddleware(
         upgradeMessage = `Daily limit reached (2 scans). Upgrade for more:\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN = Unlimited`
       }
     } else {
-      // Free tier
-      scansRemaining = Math.max(0, FREE_QUESTIONS_LIMIT - scansToday)
-      canScan = scansToday < FREE_QUESTIONS_LIMIT
+      // Free tier - check X free scans first
+      if (xFreeScansRemaining > 0) {
+        scansRemaining = xFreeScansRemaining
+        canScan = true
+        // Will use X free scan
+      } else {
+        scansRemaining = Math.max(0, FREE_QUESTIONS_LIMIT - scansToday)
+        canScan = scansToday < FREE_QUESTIONS_LIMIT
+      }
+      
       if (!canScan) {
         if (!walletAddress) {
-          upgradeMessage = `Daily free scan used. Connect wallet with LYN tokens for more scans:\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN = 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN = Unlimited`
+          upgradeMessage = `Daily free scan used. Connect wallet with LYN tokens or connect X account for more scans:\n• Connect X = 5 free scans/month\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN = 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day`
+        } else if (!xUsername) {
+          upgradeMessage = `Daily free scan used. Connect your X account for 5 free scans/month or get LYN tokens:\n• Connect X = 5 free scans/month\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN = 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day`
         } else {
-          upgradeMessage = `Daily free scan used. Get more LYN tokens:\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN = 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN = Unlimited`
+          upgradeMessage = `All free scans used. Get LYN tokens for more:\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN = 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN = 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN = 250 scans/day`
         }
       }
     }
@@ -251,6 +290,10 @@ export const POST = withMiddleware(
       lastResetDate,
       upgradeMessage,
       requiresTokens: !hasTokenAccess && scansToday >= FREE_QUESTIONS_LIMIT,
+      xConnected: !!xUsername,
+      xUsername,
+      xFreeScansRemaining,
+      useXFreeScan: !hasTokenAccess && xFreeScansRemaining > 0 && canScan,
       tokenInfo: {
         tokenSymbol: config.token.symbol,
         tiers: {

@@ -253,15 +253,15 @@ export async function POST(request: NextRequest) {
       console.error('[Username Reg] Failed to create vanity referral code:', e)
     }
 
-    // Initialize reputation score at 0 - users must earn it
+    // Initialize reputation score with 100 points for username registration
     await db.collection('user_reputation').updateOne(
       { walletAddress },
       {
         $set: {
           username,
           walletAddress,
-          reputationScore: 0, // Start at 0 - earn through activities
-          tier: 'novice',
+          reputationScore: 100, // 100 points for registering username
+          tier: 'bronze', // Start at bronze tier
           metrics: {
             totalScans: 0,
             accurateReports: 0,
