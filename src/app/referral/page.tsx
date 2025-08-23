@@ -84,8 +84,18 @@ export default function ReferralPage() {
           console.log('Could not fetch user data')
         }
 
-        // Get or create referral code using V2 API
-        const codeResponse = await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}${username ? `&username=${username}` : ''}`)
+        // Get or create referral code using V2 API; include username if we have it or from /api/user/info fallback
+        let vanityName = username
+        if (!vanityName) {
+          try {
+            const info = await fetch(`/api/user/info?walletAddress=${publicKey.toString()}`)
+            if (info.ok) {
+              const data = await info.json()
+              vanityName = data?.username || ''
+            }
+          } catch {}
+        }
+        const codeResponse = await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}${vanityName ? `&username=${vanityName}` : ''}`)
         
         if (!codeResponse.ok) {
           console.error('Failed to get referral code, using fallback')
