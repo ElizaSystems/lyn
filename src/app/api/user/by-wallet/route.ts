@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
     const db = await getDatabase()
     const user = await db.collection('users').findOne({ walletAddress })
     
+    console.log(`[User By Wallet] Looking up ${walletAddress}`)
+    console.log(`[User By Wallet] Found user: ${!!user}, username: ${user?.username}`)
+    
     if (!user) {
       return NextResponse.json({ 
         exists: false,
@@ -22,6 +25,7 @@ export async function GET(request: NextRequest) {
 
     // Also get referral code
     const referralCode = await db.collection('referral_codes_v2').findOne({ walletAddress })
+    console.log(`[User By Wallet] Referral code: ${referralCode?.code}, isVanity: ${referralCode?.isVanity}`)
     
     return NextResponse.json({
       exists: true,

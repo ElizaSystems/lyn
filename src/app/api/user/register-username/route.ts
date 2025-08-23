@@ -106,48 +106,61 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Username Reg] Burn verified successfully for ${BURN_AMOUNT} LYN`)
 
-    // Register username
+    // Register username - FORCE INSERT/UPDATE
     const registrationDate = new Date()
-    const userResult = await usersCollection.updateOne(
-      { walletAddress },
-      {
-        $set: {
-          username,
-          'profile.username': username,
-          usernameRegisteredAt: registrationDate,
-          registrationBurnAmount: BURN_AMOUNT,
-          registrationBurnTx: signature,
-          updatedAt: registrationDate
-        },
-        $setOnInsert: {
-          walletAddress,
-          nonce: '',
-          tokenBalance: balance,
-          hasTokenAccess: balance >= REQUIRED_BALANCE,
-          lastLoginAt: registrationDate,
-          profile: { username },
-          createdAt: registrationDate
-        }
-      },
-      { upsert: true }
-    )
     
-    // Get the user document to get the user ID
-    const userDoc = await usersCollection.findOne({ walletAddress })
-    const userId = userDoc?._id
-
-    if (!userId) {
-      // Hard guard: if user upsert did not actually persist, persist a skeleton and continue
-      const insertRes = await usersCollection.updateOne(
+    // First, check if user exists
+    const existingUserDoc = await usersCollection.findOne({ walletAddress })
+    
+    if (existingUserDoc) {
+      // User exists, update with username
+      const updateResult = await usersCollection.updateOne(
         { walletAddress },
         {
-          $setOnInsert: {
-            walletAddress,
-            createdAt: registrationDate,
+          $set: {
+            username,
+            'profile.username': username,
+            usernameRegisteredAt: registrationDate,
+            registrationBurnAmount: BURN_AMOUNT,
+            registrationBurnTx: signature,
             updatedAt: registrationDate
           }
-        },
-        { upsert: true }
+        }
+      )
+      console.log(`[Username Reg] Updated existing user: matched=${updateResult.matchedCount}, modified=${updateResult.modifiedCount}`)
+      
+      if (updateResult.modifiedCount === 0) {
+        console.error(`[Username Reg] WARNING: User update failed for ${walletAddress}`)
+      }
+    } else {
+      // User doesn't exist, create new
+      const insertResult = await usersCollection.insertOne({
+        walletAddress,
+        username,
+        profile: { username },
+        nonce: '',
+        tokenBalance: balance,
+        hasTokenAccess: balance >= REQUIRED_BALANCE,
+        lastLoginAt: registrationDate,
+        usernameRegisteredAt: registrationDate,
+        registrationBurnAmount: BURN_AMOUNT,
+        registrationBurnTx: signature,
+        createdAt: registrationDate,
+        updatedAt: registrationDate
+      })
+      console.log(`[Username Reg] Created new user with ID: ${insertResult.insertedId}`)
+    }
+    
+    // Verify the username was actually saved
+    const userDoc = await usersCollection.findOne({ walletAddress })
+    const userId = userDoc?._id
+    
+    if (!userDoc?.username || userDoc.username !== username) {
+      console.error(`[Username Reg] CRITICAL: Username not saved properly! Doc username: ${userDoc?.username}, Expected: ${username}`)
+      // Try one more time with a direct, simple update
+      await usersCollection.updateOne(
+        { walletAddress },
+        { $set: { username } }
       )
     }
     
@@ -210,14 +223,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Ensure vanity referral code exists after user is saved
+    // Force create vanity referral code with the username
     try {
-      // Give the DB a moment to persist the username
-      await new Promise(resolve => setTimeout(resolve, 100))
-      const result = await ReferralServiceV2.getOrCreateReferralCode(walletAddress, username)
-      console.log('[Username Reg] Vanity referral code result:', result)
+      // Directly insert/update the referral code to use the username
+      const referralCodesCollection = db.collection('referral_codes_v2')
+      await referralCodesCollection.updateOne(
+        { walletAddress },
+        {
+          $set: {
+            code: username,
+            username,
+            isVanity: true,
+            updatedAt: new Date()
+          },
+          $setOnInsert: {
+            walletAddress,
+            createdAt: new Date(),
+            stats: {
+              totalReferrals: 0,
+              totalBurned: 0,
+              totalRewards: 0
+            }
+          }
+        },
+        { upsert: true }
+      )
+      console.log(`[Username Reg] Vanity referral code "${username}" created for ${walletAddress}`)
     } catch (e) {
-      console.warn('[Username Reg] Failed to ensure vanity referral code:', e)
+      console.error('[Username Reg] Failed to create vanity referral code:', e)
     }
 
     // Initialize reputation score
@@ -274,14 +307,8 @@ export async function POST(request: NextRequest) {
       timestamp: registrationDate
     })
 
-    // Generate referral code for the new user
-    const referralResult = await ReferralServiceV2.getOrCreateReferralCode(
-      walletAddress,
-      username
-    )
-    const newUserReferralCode = referralResult.success && referralResult.code ? {
-      code: referralResult.code
-    } : null
+    // The vanity code is the username itself
+    const vanityReferralCode = username
     
     // Generate auth token for the user
     const token = jwt.sign(
@@ -299,10 +326,8 @@ export async function POST(request: NextRequest) {
       username,
       profileUrl: `https://app.lynai.xyz/profile/${username}`,
       reputationScore: 100,
-      referralCode: newUserReferralCode?.code || 'PENDING',
-      referralLink: newUserReferralCode?.code 
-        ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${newUserReferralCode.code}`
-        : null
+      referralCode: vanityReferralCode,
+      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${vanityReferralCode}`
     })
     
     // Set auth cookie so user stays logged in after registration
