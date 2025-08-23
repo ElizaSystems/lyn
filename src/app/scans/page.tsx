@@ -74,20 +74,17 @@ export default function ScansPage() {
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const [referrerInfo, setReferrerInfo] = useState<{ walletAddress: string } | null>(null)
 
-  // Check for referral code in URL
+  // Check for referral code in URL, cookie, or storage
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
-    const ref = urlParams.get('ref')
+    const urlRef = urlParams.get('ref')
+    const cookieRef = document.cookie.split('; ').find(c => c.startsWith('referral-code='))?.split('=')[1]
+    const storedRef = localStorage.getItem('referralCode')
+
+    const ref = urlRef || cookieRef || storedRef
     if (ref) {
       setReferralCode(ref)
-      // Store in localStorage for persistence
       localStorage.setItem('referralCode', ref)
-    } else {
-      // Check localStorage for existing referral code
-      const storedRef = localStorage.getItem('referralCode')
-      if (storedRef) {
-        setReferralCode(storedRef)
-      }
     }
   }, [])
 
