@@ -6,6 +6,7 @@ import React from 'react'
 import { Sidebar } from '@/components/sidebar'
 import { HeaderBar } from '@/components/header-bar'
 import { AlphaDisclaimerModal } from '@/components/alpha-disclaimer-modal'
+import { ReferralAutoPrompt } from '@/components/referral-auto-prompt'
 
 export function AppLayout({
   children,
@@ -18,6 +19,7 @@ export function AppLayout({
         <Sidebar />
         <div className="flex-1 flex flex-col w-full lg:w-auto">
           <HeaderBar />
+          <ReferralAutoPrompt />
           <main className="flex-1 overflow-y-auto pt-16 lg:pt-0">
             {children}
           </main>

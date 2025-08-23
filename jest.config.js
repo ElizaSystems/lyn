@@ -11,7 +11,7 @@ const customJestConfig = {
     '**/__tests__/**/*.(test|spec).(js|jsx|ts|tsx)',
     '**/?(*.)+(spec|test).(js|jsx|ts|tsx)'
   ],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testTimeout: 30000,
