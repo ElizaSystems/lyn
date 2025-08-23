@@ -15,10 +15,16 @@ export async function verifyBurnTransaction(
   try {
     console.log(`[Burn Verification] Checking transaction: ${signature}`)
     
-    // Get the transaction
-    const transaction = await connection.getParsedTransaction(signature, {
-      maxSupportedTransactionVersion: 0
-    })
+    // Get the transaction (retry to avoid race between client confirmation and RPC availability)
+    let transaction: ParsedTransactionWithMeta | null = null
+    for (let attempt = 0; attempt < 6; attempt++) {
+      transaction = await connection.getParsedTransaction(signature, {
+        maxSupportedTransactionVersion: 0,
+        commitment: 'confirmed'
+      })
+      if (transaction) break
+      await new Promise(r => setTimeout(r, 1000))
+    }
     
     if (!transaction) {
       console.log('[Burn Verification] Transaction not found')

@@ -94,10 +94,13 @@ export async function POST(request: NextRequest) {
         reason: 'verification_failed',
         createdAt: new Date()
       })
+      // Return 202 to allow client to poll and auto-complete once RPC reflects the tx fully
       return NextResponse.json({ 
-        error: `Invalid burn transaction. Please burn exactly ${BURN_AMOUNT.toLocaleString()} LYN tokens.`,
-        requiredBurnAmount: BURN_AMOUNT
-      }, { status: 400 })
+        error: `Burn seen but not fully verifiable yet. We will auto-complete shortly.`,
+        requiredBurnAmount: BURN_AMOUNT,
+        status: 'pending_verification',
+        signature
+      }, { status: 202 })
     }
     
     console.log(`[Username Reg] Burn verified successfully for ${BURN_AMOUNT} LYN`)
