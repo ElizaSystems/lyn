@@ -150,6 +150,23 @@ export default function ReferralPage() {
                 referralCode: refData.referralCode || null
               })
             }
+          } else {
+            // If no stored relationship, fall back to URL/localStorage referral code
+            const urlParams = new URLSearchParams(window.location.search)
+            const refCode = urlParams.get('ref') || localStorage.getItem('referralCode') || ''
+            if (refCode) {
+              const codeInfoResp = await fetch(`/api/referral/v2/info?code=${encodeURIComponent(refCode)}`)
+              if (codeInfoResp.ok) {
+                const info = await codeInfoResp.json()
+                if (info?.walletAddress) {
+                  setReferrer({
+                    walletAddress: info.walletAddress,
+                    username: info.username || null,
+                    referralCode: refCode
+                  })
+                }
+              }
+            }
           }
         } catch (e) {
           console.log('Could not fetch referrer info')
