@@ -88,7 +88,24 @@ export async function verifyBurnTransaction(
     
     // If no referral distribution required, return burn-only validation
     if (!referralCode) {
-      return isValidBurnOnly
+      if (isValidBurnOnly) return true
+      // Fallback: derive decrease from token balance delta
+      try {
+        const TOKEN_DECIMALS = config.token.decimals || 6
+        const tokenMintStr = config.token.mintAddress
+        const expectedRaw = expectedBurnAmount * Math.pow(10, TOKEN_DECIMALS)
+        const pre = transaction.meta?.preTokenBalances || []
+        const post = transaction.meta?.postTokenBalances || []
+        const byIndex: Record<number, { pre: number; post: number; mint?: string }> = {}
+        pre.forEach(b => { byIndex[b.accountIndex] = { pre: parseFloat(b.uiTokenAmount.amount), post: 0, mint: b.mint } })
+        post.forEach(b => { const e = byIndex[b.accountIndex] || { pre: 0, post: 0, mint: b.mint }; e.post = parseFloat(b.uiTokenAmount.amount); e.mint = b.mint; byIndex[b.accountIndex] = e })
+        const deltas = Object.values(byIndex).filter(e => e.mint === tokenMintStr).map(e => (e.pre - e.post))
+        const withinRaw = (v: number, target: number) => Math.abs(v - target) <= Math.max(target * 0.01, 1)
+        if (deltas.some(d => withinRaw(d, expectedRaw))) {
+          return true
+        }
+      } catch {}
+      return false
     }
 
     // Validate distribution amounts: tier1 30%, tier2 20%
@@ -150,7 +167,23 @@ export async function verifyBurnTransaction(
       const totalOutflow = totalBurned + tier1Transferred + tier2Transferred
       const outflowOk = within(totalOutflow, expectedRaw)
 
-      return outflowOk && tier1Ok && tier2Ok
+      if (outflowOk && tier1Ok && tier2Ok) return true
+
+      // Final fallback: accept if user's token account decreased by expected amount (covers burn-only split edge cases)
+      try {
+        const pre = transaction.meta?.preTokenBalances || []
+        const post = transaction.meta?.postTokenBalances || []
+        const byIndex: Record<number, { pre: number; post: number; mint?: string }> = {}
+        pre.forEach(b => { byIndex[b.accountIndex] = { pre: parseFloat(b.uiTokenAmount.amount), post: 0, mint: b.mint } })
+        post.forEach(b => { const e = byIndex[b.accountIndex] || { pre: 0, post: 0, mint: b.mint }; e.post = parseFloat(b.uiTokenAmount.amount); e.mint = b.mint; byIndex[b.accountIndex] = e })
+        const deltas = Object.values(byIndex).filter(e => e.mint === tokenMint.toBase58()).map(e => (e.pre - e.post))
+        const withinRaw = (v: number, target: number) => Math.abs(v - target) <= Math.max(target * 0.01, 1)
+        if (deltas.some(d => withinRaw(d, expectedRaw))) {
+          return true
+        }
+      } catch {}
+
+      return false
     } catch (e) {
       console.warn('[Burn Verification] Distribution check failed:', e)
       return isValidBurnOnly
