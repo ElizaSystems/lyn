@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/mongodb'
 import { requireAuth } from '@/lib/auth'
+import { ReputationService } from '@/lib/services/reputation-service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,6 +10,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Use the new reputation service to get comprehensive data
+    const reputationSummary = await ReputationService.getReputationSummary(auth.user.walletAddress)
+    
     const db = await getDatabase()
     const reputationCollection = db.collection('user_reputation')
     const scansCollection = db.collection('scans')

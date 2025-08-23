@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ThreatIntelligenceService } from '@/lib/services/threat-intelligence'
 import { ScanService } from '@/lib/services/scan-service'
+import { ReputationService } from '@/lib/services/reputation-service'
+import { getCurrentUser } from '@/lib/auth'
 
 // Handle GET requests for testing
 export async function GET() {
@@ -15,8 +17,13 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Try to get authenticated user first
+    const user = await getCurrentUser(request)
+    const userId = user?._id?.toString() || user?.id
+    
     // Get session ID for tracking (no auth required)
-    const sessionId = request.headers.get('x-session-id') || 
+    const sessionId = userId || 
+                     request.headers.get('x-session-id') || 
                      request.cookies.get('sessionId')?.value ||
                      `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
     
@@ -157,6 +164,22 @@ export async function POST(request: NextRequest) {
       } catch (dbError) {
         console.log('Could not update scan in database')
       }
+    }
+    
+    // Award reputation points if user is authenticated
+    try {
+      const user = await getCurrentUser(request)
+      if (user && user.walletAddress) {
+        await ReputationService.awardScanPoints(
+          user.walletAddress,
+          'url',
+          !aggregated.overallSafe // threat detected
+        )
+        console.log(`[Reputation] Awarded scan points to ${user.walletAddress}`)
+      }
+    } catch (repError) {
+      // Don't fail the scan if reputation update fails
+      console.log('Could not award reputation points:', repError)
     }
 
     return NextResponse.json({
