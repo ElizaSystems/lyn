@@ -51,7 +51,7 @@ export async function verifyBurnTransaction(
         for (const instruction of innerInstruction.instructions) {
           if ('parsed' in instruction && instruction.program === 'spl-token') {
             const parsed = instruction.parsed
-            if (parsed.type === 'burn') {
+            if (parsed.type === 'burn' || parsed.type === 'burnChecked') {
               const burnAmount = parseFloat(parsed.info.amount)
               totalBurned += burnAmount
               console.log(`[Burn Verification] Found burn: ${burnAmount}`)
@@ -65,7 +65,7 @@ export async function verifyBurnTransaction(
     for (const instruction of transaction.transaction.message.instructions) {
       if ('parsed' in instruction && instruction.program === 'spl-token') {
         const parsed = instruction.parsed
-        if (parsed.type === 'burn') {
+        if (parsed.type === 'burn' || parsed.type === 'burnChecked') {
           const burnAmount = parseFloat(parsed.info.amount)
           totalBurned += burnAmount
           console.log(`[Burn Verification] Found main burn: ${burnAmount}`)
@@ -112,7 +112,7 @@ export async function verifyBurnTransaction(
       const tier2Ata = await toAtaOf(tier2 || undefined)
 
       const considerParsed = (parsed: any) => {
-        if (parsed.type === 'transfer') {
+        if (parsed.type === 'transfer' || parsed.type === 'transferChecked') {
           const amount = parseFloat(parsed.info.amount)
           const dest = parsed.info.destination as string
           if (tier1Ata && dest === tier1Ata.toBase58()) tier1Transferred += amount
