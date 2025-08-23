@@ -14,10 +14,24 @@ export interface BurnRecord {
     referralCode?: string
     referrerId?: string
     eventName?: string
+    // On-chain verification metadata
+    blockTime?: string
+    slot?: number
+    confirmations?: number
+    fee?: number
+    burnAddress?: string
+    tokenMint?: string
+    verifiedAt?: string
+    manual?: boolean
   }
   timestamp: Date
   blockHeight?: number
   verified: boolean
+  // On-chain verification fields
+  verificationStatus?: 'pending' | 'verified' | 'failed'
+  verificationAttempts?: number
+  lastVerificationAttempt?: Date
+  onChainAmount?: number  // Amount verified on-chain (may differ from reported amount)
 }
 
 export interface BurnStats {
@@ -51,4 +65,40 @@ export interface GlobalBurnStats {
   topBurners: BurnLeaderboardEntry[]
   recentBurns: BurnRecord[]
   burnsByType: Record<string, number>
+  verificationStats?: {
+    verified: number
+    pending: number
+    failed: number
+    totalOnChainBurned: number
+  }
+}
+
+export interface BurnVerificationRequest {
+  transactionSignature: string
+  walletAddress: string
+  expectedAmount?: number
+  type?: BurnRecord['type']
+  description?: string
+}
+
+export interface BurnVerificationResponse {
+  success: boolean
+  verified: boolean
+  burnRecord?: BurnRecord
+  onChainAmount?: number
+  confirmations?: number
+  error?: string
+  retryAfter?: number  // seconds to wait before retrying
+}
+
+export interface BurnMonitoringStats {
+  isActive: boolean
+  lastScanTime?: Date
+  nextScanTime?: Date
+  totalScanned: number
+  newBurnsFound: number
+  verifiedBurns: number
+  failedVerifications: number
+  pendingBurns: number
+  errors: string[]
 }

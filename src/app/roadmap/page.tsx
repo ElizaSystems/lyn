@@ -83,21 +83,22 @@ export default function RoadmapPage() {
     },
     {
       id: 'q2-2025',
-      title: 'Automated Tasks & Enhanced UX',
-      description: 'Task automation system and user experience improvements',
+      title: 'Voice Integration & Enhanced UX',
+      description: 'ElevenLabs voice features and user experience improvements',
       status: 'planned',
       quarter: 'Q2 2025',
       timeline: 'Mar - Apr 2025',
       features: [
+        '🎤 Voice-to-text input using Web Speech API',
+        '🔊 Text-to-voice responses with ElevenLabs',
+        '🎧 Real-time voice-to-voice conversation mode',
+        '⚙️ Voice preferences and settings (voice selection, speed, language)',
         'Automated task system implementation',
-        'Scheduled security scans and monitoring',
         'Enhanced AI chat with conversation history',
-        'Webhook and email notifications',
-        'User settings and preferences dashboard',
-        'Bulk scanning capabilities'
+        'Webhook and email notifications'
       ],
       priority: 'high',
-      effort: '6-8 weeks part-time'
+      effort: '8-10 weeks part-time'
     },
     {
       id: 'q3-2025',

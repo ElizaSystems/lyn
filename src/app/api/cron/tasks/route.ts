@@ -34,8 +34,16 @@ export async function GET(req: NextRequest) {
     
     console.log('[CRON] Starting task execution at', new Date().toISOString())
     
-    // Execute all due tasks
-    const result = await TaskExecutor.executeAllDueTasks()
+    // Execute all due tasks with enhanced parallel processing
+    const maxParallel = parseInt(req.nextUrl.searchParams.get('maxParallel') || '5')
+    const taskType = req.nextUrl.searchParams.get('taskType') as any
+    const priority = req.nextUrl.searchParams.get('priority') as any
+    
+    const result = await TaskExecutor.executeAllDueTasks({
+      maxParallel,
+      taskType,
+      priority
+    })
     
     console.log('[CRON] Task execution completed:', result)
     
@@ -46,7 +54,9 @@ export async function GET(req: NextRequest) {
       executed: result.executed,
       successful: result.successful,
       failed: result.failed,
-      message: `Executed ${result.executed} tasks: ${result.successful} successful, ${result.failed} failed`
+      batchId: result.batchId,
+      duration: result.duration,
+      message: `Executed ${result.executed} tasks: ${result.successful} successful, ${result.failed} failed in ${result.duration}ms`
     })
   } catch (error) {
     console.error('[CRON] Task execution error:', error)
@@ -82,11 +92,15 @@ export async function POST(req: NextRequest) {
     // Allow forcing execution of specific task types
     if (body.type) {
       console.log(`[CRON] Executing tasks of type: ${body.type}`)
-      // This would require extending TaskExecutor to filter by type
     }
     
-    // Execute all due tasks
-    const result = await TaskExecutor.executeAllDueTasks()
+    // Execute all due tasks with options from request body
+    const result = await TaskExecutor.executeAllDueTasks({
+      maxParallel: body.maxParallel || 5,
+      taskType: body.taskType || body.type,
+      priority: body.priority,
+      userId: body.userId
+    })
     
     return NextResponse.json({
       success: true,
@@ -94,6 +108,8 @@ export async function POST(req: NextRequest) {
       executed: result.executed,
       successful: result.successful,
       failed: result.failed,
+      batchId: result.batchId,
+      duration: result.duration,
       forced: body.force || false
     })
   } catch (error) {

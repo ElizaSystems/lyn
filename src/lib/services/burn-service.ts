@@ -6,6 +6,7 @@ import {
   BurnLeaderboardEntry, 
   GlobalBurnStats 
 } from '@/lib/models/burn'
+import { integrateBurnTracking } from './activity-tracker'
 
 export class BurnService {
   private static async getBurnsCollection() {
@@ -29,7 +30,20 @@ export class BurnService {
     
     // Update user stats if userId is provided
     if (burn.userId) {
-      await this.updateUserBurnStats(burn.userId.toString(), burn.amount)
+      const userId = burn.userId.toString()
+      await this.updateUserBurnStats(userId, burn.amount)
+      
+      // Track achievement progress
+      try {
+        await integrateBurnTracking.onTokensBurned(userId, {
+          amount: burn.amount,
+          transactionSignature: burn.transactionSignature,
+          type: burn.type,
+          burnAddress: burn.metadata?.burnAddress
+        })
+      } catch (achievementError) {
+        console.error(`[BurnService] Failed to track achievement progress for burn:`, achievementError)
+      }
     }
     
     console.log(`[BurnService] Recorded burn: ${burn.amount} LYN by ${burn.walletAddress}`)
@@ -259,10 +273,11 @@ export class BurnService {
       return acc
     }, {} as Record<string, number>)
     
-    // Get top burners and recent burns
-    const [topBurners, recentBurns] = await Promise.all([
+    // Get top burners, recent burns, and verification stats
+    const [topBurners, recentBurns, verificationStats] = await Promise.all([
       this.getLeaderboard(10),
-      this.getRecentBurns(10)
+      this.getRecentBurns(10),
+      this.getVerificationStats()
     ])
     
     return {
@@ -276,7 +291,8 @@ export class BurnService {
       },
       topBurners,
       recentBurns,
-      burnsByType: burnTypeMap
+      burnsByType: burnTypeMap,
+      verificationStats
     }
   }
 
@@ -286,13 +302,291 @@ export class BurnService {
   static async verifyBurn(transactionSignature: string): Promise<boolean> {
     const burns = await this.getBurnsCollection()
     
-    // TODO: Implement actual on-chain verification
-    // For now, just mark as verified
-    await burns.updateOne(
-      { transactionSignature },
-      { $set: { verified: true } }
-    )
+    try {
+      console.log(`[BurnService] Verifying transaction: ${transactionSignature}`)
+      
+      // Import verification service (dynamic to avoid circular imports)
+      const { SolanaVerificationService } = await import('./solana-verification')
+      const verificationService = new SolanaVerificationService()
+      
+      // Find existing burn record
+      const existingBurn = await burns.findOne({ transactionSignature })
+      
+      if (!existingBurn) {
+        console.log(`[BurnService] No burn record found for signature: ${transactionSignature}`)
+        return false
+      }
+      
+      // Skip if already verified
+      if (existingBurn.verified && existingBurn.verificationStatus === 'verified') {
+        console.log(`[BurnService] Burn already verified: ${transactionSignature}`)
+        return true
+      }
+      
+      // Update verification attempt
+      await burns.updateOne(
+        { transactionSignature },
+        {
+          $inc: { verificationAttempts: 1 },
+          $set: { 
+            lastVerificationAttempt: new Date(),
+            verificationStatus: 'pending'
+          }
+        }
+      )
+      
+      // Verify the burn transaction on-chain
+      const burnDetails = await verificationService.verifyBurnTransaction(transactionSignature)
+      
+      if (burnDetails && burnDetails.isValid) {
+        // Update burn record with verified data
+        await burns.updateOne(
+          { transactionSignature },
+          {
+            $set: {
+              verified: true,
+              verificationStatus: 'verified',
+              onChainAmount: burnDetails.amount,
+              blockHeight: burnDetails.slot,
+              metadata: {
+                ...existingBurn.metadata,
+                blockTime: burnDetails.blockTime.toISOString(),
+                slot: burnDetails.slot,
+                confirmations: burnDetails.confirmations,
+                fee: burnDetails.fee,
+                burnAddress: burnDetails.burnAddress,
+                tokenMint: burnDetails.tokenMint,
+                verifiedAt: new Date().toISOString()
+              }
+            }
+          }
+        )
+        
+        console.log(`[BurnService] Successfully verified burn: ${transactionSignature}`)
+        return true
+      } else {
+        // Mark as failed verification
+        await burns.updateOne(
+          { transactionSignature },
+          {
+            $set: {
+              verified: false,
+              verificationStatus: 'failed'
+            }
+          }
+        )
+        
+        console.log(`[BurnService] Failed to verify burn: ${transactionSignature}`)
+        return false
+      }
+      
+    } catch (error) {
+      console.error(`[BurnService] Error verifying burn ${transactionSignature}:`, error)
+      
+      // Update failure status
+      await burns.updateOne(
+        { transactionSignature },
+        {
+          $set: {
+            verified: false,
+            verificationStatus: 'failed'
+          }
+        }
+      )
+      
+      return false
+    }
+  }
+
+  /**
+   * Submit a transaction signature for verification
+   */
+  static async submitForVerification(
+    transactionSignature: string,
+    walletAddress: string,
+    expectedAmount?: number
+  ): Promise<{ success: boolean; message: string; burnRecord?: BurnRecord }> {
+    try {
+      // Import monitoring service (dynamic to avoid circular imports)
+      const { BurnMonitorService } = await import('./burn-monitor')
+      const monitorService = new BurnMonitorService()
+      
+      // Check if burn already exists
+      const burns = await this.getBurnsCollection()
+      const existingBurn = await burns.findOne({ transactionSignature })
+      
+      if (existingBurn) {
+        if (existingBurn.verified) {
+          return {
+            success: true,
+            message: 'Burn already verified',
+            burnRecord: existingBurn
+          }
+        }
+        
+        // Try to verify existing burn
+        const verified = await this.verifyBurn(transactionSignature)
+        const updatedBurn = await burns.findOne({ transactionSignature })
+        
+        return {
+          success: verified,
+          message: verified ? 'Burn verified successfully' : 'Burn verification failed',
+          burnRecord: updatedBurn || undefined
+        }
+      }
+      
+      // Add to pending verification queue
+      await monitorService.addPendingBurn(transactionSignature, walletAddress, expectedAmount)
+      
+      // Try immediate verification
+      const { SolanaVerificationService } = await import('./solana-verification')
+      const verificationService = new SolanaVerificationService()
+      const burnDetails = await verificationService.verifyBurnTransaction(transactionSignature)
+      
+      if (burnDetails && burnDetails.isValid) {
+        // Create burn record immediately
+        const burnRecord: Omit<BurnRecord, '_id' | 'timestamp' | 'verified'> = {
+          walletAddress,
+          amount: burnDetails.amount,
+          type: 'manual',
+          transactionSignature,
+          description: `Verified on-chain burn of ${burnDetails.amount} LYN`,
+          metadata: {
+            blockTime: burnDetails.blockTime.toISOString(),
+            slot: burnDetails.slot,
+            confirmations: burnDetails.confirmations,
+            fee: burnDetails.fee,
+            burnAddress: burnDetails.burnAddress,
+            tokenMint: burnDetails.tokenMint,
+            verifiedAt: new Date().toISOString()
+          },
+          blockHeight: burnDetails.slot,
+          verificationStatus: 'verified',
+          onChainAmount: burnDetails.amount
+        }
+        
+        const createdBurn = await this.recordBurn(burnRecord)
+        
+        return {
+          success: true,
+          message: 'Burn verified and recorded successfully',
+          burnRecord: createdBurn
+        }
+      }
+      
+      return {
+        success: false,
+        message: 'Transaction submitted for verification. Check back in a few minutes.'
+      }
+      
+    } catch (error) {
+      console.error('[BurnService] Error submitting burn for verification:', error)
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    }
+  }
+
+  /**
+   * Get verification statistics
+   */
+  static async getVerificationStats(): Promise<{
+    verified: number
+    pending: number
+    failed: number
+    totalOnChainBurned: number
+  }> {
+    const burns = await this.getBurnsCollection()
     
-    return true
+    const stats = await burns.aggregate([
+      {
+        $group: {
+          _id: '$verificationStatus',
+          count: { $sum: 1 },
+          totalAmount: { $sum: { $ifNull: ['$onChainAmount', '$amount'] } }
+        }
+      }
+    ]).toArray()
+    
+    const result = {
+      verified: 0,
+      pending: 0,
+      failed: 0,
+      totalOnChainBurned: 0
+    }
+    
+    for (const stat of stats) {
+      switch (stat._id) {
+        case 'verified':
+          result.verified = stat.count
+          result.totalOnChainBurned += stat.totalAmount
+          break
+        case 'pending':
+          result.pending = stat.count
+          break
+        case 'failed':
+          result.failed = stat.count
+          break
+        default:
+          // Handle burns without verification status (legacy)
+          if (stat._id === null || stat._id === undefined) {
+            result.verified += stat.count
+            result.totalOnChainBurned += stat.totalAmount
+          }
+      }
+    }
+    
+    return result
+  }
+
+  /**
+   * Get burns that need verification
+   */
+  static async getPendingVerificationBurns(limit = 50): Promise<BurnRecord[]> {
+    const burns = await this.getBurnsCollection()
+    
+    return await burns.find({
+      $or: [
+        { verified: false },
+        { verificationStatus: { $in: ['pending', 'failed'] } },
+        { verificationStatus: { $exists: false }, verified: { $ne: true } }
+      ],
+      verificationAttempts: { $lt: 3 }
+    })
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .toArray()
+  }
+
+  /**
+   * Batch verify multiple burns
+   */
+  static async batchVerify(transactionSignatures: string[]): Promise<{
+    verified: number
+    failed: number
+    errors: string[]
+  }> {
+    const results = {
+      verified: 0,
+      failed: 0,
+      errors: []
+    }
+    
+    for (const signature of transactionSignatures) {
+      try {
+        const success = await this.verifyBurn(signature)
+        if (success) {
+          results.verified++
+        } else {
+          results.failed++
+        }
+      } catch (error) {
+        results.failed++
+        results.errors.push(`${signature}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
+    }
+    
+    return results
   }
 }

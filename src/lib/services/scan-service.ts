@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { getDatabase } from '@/lib/mongodb'
 import { SecurityScan, ScanStatistics } from '@/lib/models/scan'
+import { integrateScanTracking } from './activity-tracker'
 import crypto from 'crypto'
 
 export class ScanService {
@@ -146,11 +147,25 @@ export class ScanService {
       if (updateResult) {
         console.log(`[ScanService] Successfully updated scan ${scanId}`)
         if (updateResult.userId) {
+          const userId = updateResult.userId.toString()
+          
           // Update user statistics
           try {
-            await this.updateUserStatistics(updateResult.userId.toString(), severity, result.isSafe)
+            await this.updateUserStatistics(userId, severity, result.isSafe)
           } catch (statsError) {
             console.error(`[ScanService] Failed to update user statistics for scan ${scanId}:`, statsError)
+          }
+
+          // Track achievement progress
+          try {
+            await integrateScanTracking.onScanCompleted(userId, {
+              id: scanId,
+              type: updateResult.type,
+              severity: severity,
+              threatsFound: result.threats.length
+            })
+          } catch (achievementError) {
+            console.error(`[ScanService] Failed to track achievement progress for scan ${scanId}:`, achievementError)
           }
         }
       } else {

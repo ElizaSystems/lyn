@@ -2,12 +2,26 @@ import { getDatabase } from '@/lib/mongodb'
 import { getWalletBalance, getTokenBalance, getRecentTransactions } from '@/lib/solana'
 import { ObjectId } from 'mongodb'
 import { BlockchainAnalysisService } from './blockchain-analysis'
+import { CommunityFeedbackService } from './community-feedback'
+import { WalletListService } from './wallet-list-service'
 
 export interface WalletSecurityResult {
   address: string
   riskLevel: 'very-low' | 'low' | 'medium' | 'high' | 'critical'
   riskScore: number // 0-100, where 100 is highest risk
   isBlacklisted: boolean
+  isWhitelisted: boolean
+  listStatus?: {
+    overallStatus: 'whitelisted' | 'blacklisted' | 'neutral' | 'conflicted'
+    confidence: number
+    sources: Array<{
+      type: 'user' | 'global' | 'community'
+      count: number
+      highestConfidence: number
+    }>
+    conflictingEntries: number
+    listRecommendations: string[]
+  }
   reputation: {
     score: number // 0-1000
     reports: number
@@ -69,7 +83,7 @@ export class WalletSecurityService {
   /**
    * Comprehensive wallet security analysis using real blockchain data
    */
-  static async analyzeWallet(walletAddress: string): Promise<WalletSecurityResult> {
+  static async analyzeWallet(walletAddress: string, userId?: ObjectId): Promise<WalletSecurityResult> {
     console.log(`[WalletSecurity] Analyzing wallet: ${walletAddress}`)
     
     const result: WalletSecurityResult = {
@@ -77,6 +91,7 @@ export class WalletSecurityService {
       riskLevel: 'low',
       riskScore: 0,
       isBlacklisted: false,
+      isWhitelisted: false,
       reputation: {
         score: 500, // Neutral starting score
         reports: 0,
@@ -98,26 +113,156 @@ export class WalletSecurityService {
     }
 
     try {
-      // Check blacklist first
+      // Check comprehensive wallet lists first (new enhanced system)
+      try {
+        const listAssessment = await WalletListService.getWalletAssessment(walletAddress, userId)
+        
+        result.listStatus = {
+          overallStatus: listAssessment.overallStatus,
+          confidence: listAssessment.confidence,
+          sources: listAssessment.sources,
+          conflictingEntries: listAssessment.entries.filter(e => 
+            listAssessment.entries.some(other => 
+              other.walletAddress === e.walletAddress && 
+              other.listType !== e.listType
+            )
+          ).length,
+          listRecommendations: listAssessment.recommendations
+        }
+
+        // Update result based on list assessment
+        result.isWhitelisted = listAssessment.overallStatus === 'whitelisted'
+        result.isBlacklisted = listAssessment.overallStatus === 'blacklisted'
+
+        // Apply list-based risk adjustments
+        switch (listAssessment.overallStatus) {
+          case 'blacklisted':
+            result.riskLevel = listAssessment.riskLevel
+            result.riskScore = Math.max(result.riskScore, 
+              listAssessment.confidence > 80 ? 95 : 
+              listAssessment.confidence > 60 ? 85 : 75
+            )
+            result.threats.push(`Found in blacklist with ${listAssessment.confidence}% confidence`)
+            
+            // Add specific entries as threats
+            for (const entry of listAssessment.entries.filter(e => e.listType === 'blacklist')) {
+              result.threats.push(`${entry.category}: ${entry.reason}`)
+              result.flags.push({
+                type: entry.category === 'scam' ? 'known_scammer' : 'suspicious_pattern',
+                severity: entry.severity,
+                description: `Listed: ${entry.reason}`,
+                confidence: entry.confidence
+              })
+            }
+            
+            // For high-confidence blacklist entries, return early with critical assessment
+            if (listAssessment.confidence > 90) {
+              result.recommendations = [...result.recommendations, ...listAssessment.recommendations]
+              return result
+            }
+            break
+
+          case 'whitelisted':
+            // Whitelisted wallets get risk reduction
+            result.riskScore = Math.max(0, result.riskScore - 30)
+            result.threats.push(`Found in whitelist - generally considered safe`)
+            
+            for (const entry of listAssessment.entries.filter(e => e.listType === 'whitelist')) {
+              result.analysis.knownAssociations.push(`Whitelisted: ${entry.category}`)
+            }
+            break
+
+          case 'conflicted':
+            result.riskLevel = 'medium'
+            result.riskScore = Math.max(result.riskScore, 50)
+            result.threats.push('Conflicting list entries found - manual review required')
+            result.flags.push({
+              type: 'suspicious_pattern',
+              severity: 'medium',
+              description: 'Wallet appears in both whitelist and blacklist',
+              confidence: 80
+            })
+            break
+        }
+
+        // Integrate list recommendations
+        result.recommendations.push(...listAssessment.recommendations)
+        
+      } catch (listError) {
+        console.error('[WalletSecurity] List assessment failed:', listError)
+        // Continue with legacy blacklist check
+      }
+
+      // Legacy blacklist check (fallback/additional check)
       const blacklistEntry = await this.checkBlacklist(walletAddress)
-      if (blacklistEntry) {
+      if (blacklistEntry && !result.isBlacklisted) {
         result.isBlacklisted = true
         result.riskLevel = 'critical'
-        result.riskScore = 95
-        result.threats.push(`Blacklisted: ${blacklistEntry.reason}`)
+        result.riskScore = Math.max(result.riskScore, 95)
+        result.threats.push(`Legacy blacklist: ${blacklistEntry.reason}`)
         result.flags.push({
           type: 'known_scammer',
           severity: 'critical',
           description: blacklistEntry.reason,
           confidence: 95
         })
-        return result
       }
 
-      // Get community reports
+      // Get community reports and enhanced community feedback
       const reports = await this.getCommunityReports(walletAddress)
       result.reputation.reports = reports.length
       result.reputation.verifiedReports = reports.filter(r => r.status === 'verified').length
+
+      // Get community consensus and integrate with analysis
+      let communityConsensus
+      try {
+        communityConsensus = await CommunityFeedbackService.getCommunityConsensus(walletAddress)
+        
+        // Enhance reputation with community data
+        if (communityConsensus.totalFeedback > 0) {
+          result.reputation.communityTrust = communityConsensus.trustScore
+          
+          // Adjust risk level based on community consensus
+          if (communityConsensus.riskLevel === 'critical' && result.riskLevel !== 'critical') {
+            result.riskLevel = 'critical'
+            result.riskScore = Math.max(result.riskScore, 85)
+            result.threats.push('Community consensus indicates critical risk')
+          } else if (communityConsensus.riskLevel === 'high' && !['critical', 'high'].includes(result.riskLevel)) {
+            result.riskLevel = 'high'
+            result.riskScore = Math.max(result.riskScore, 65)
+            result.threats.push('Community consensus indicates high risk')
+          }
+          
+          // Add community-based flags
+          if (communityConsensus.majorityFeedbackType) {
+            const majorityType = communityConsensus.majorityFeedbackType
+            if (['scam', 'phishing', 'rugpull'].includes(majorityType)) {
+              result.flags.push({
+                type: majorityType === 'scam' ? 'known_scammer' : 'suspicious_pattern',
+                severity: 'high',
+                description: `Community reports majority feedback as ${majorityType}`,
+                confidence: Math.round(communityConsensus.consensusScore)
+              })
+            }
+          }
+          
+          // Add threat information based on community feedback
+          if (communityConsensus.trustScore < 30) {
+            result.threats.push(`Low community trust score (${communityConsensus.trustScore}/100)`)
+          }
+          
+          // Enhance reputation scoring with community data
+          const communityWeight = Math.min(0.6, communityConsensus.totalFeedback / 15) // Up to 60% weight
+          const originalScore = result.reputation.score
+          result.reputation.score = Math.round(
+            (originalScore * (1 - communityWeight)) + 
+            (communityConsensus.trustScore * 10 * communityWeight)
+          )
+        }
+      } catch (error) {
+        console.error('[WalletSecurity] Failed to integrate community consensus:', error)
+        // Continue without community data
+      }
 
       // Use real blockchain data from Helius API
       const [
@@ -639,7 +784,16 @@ export class WalletSecurityService {
       const reportsCollection = await this.getReportsCollection()
       const reports = await reportsCollection.find({ walletAddress }).toArray()
       
-      // Calculate reputation score based on reports
+      // Get community consensus from the new feedback system
+      let communityConsensus
+      try {
+        communityConsensus = await CommunityFeedbackService.getCommunityConsensus(walletAddress)
+      } catch (error) {
+        console.error('[WalletSecurity] Failed to get community consensus:', error)
+        communityConsensus = null
+      }
+      
+      // Calculate reputation score based on reports and community feedback
       let score = 500 // Neutral starting score
       
       const verifiedReports = reports.filter(r => r.status === 'verified')
@@ -648,12 +802,52 @@ export class WalletSecurityService {
       const pendingReports = reports.filter(r => r.status === 'pending')
       score -= pendingReports.length * 25 // Pending reports have less impact
       
+      // Integrate community feedback into score
+      if (communityConsensus && communityConsensus.totalFeedback > 0) {
+        // Use community trust score as a major factor
+        const communityWeight = Math.min(0.7, communityConsensus.totalFeedback / 10) // Up to 70% weight with 10+ feedback
+        const traditionalWeight = 1 - communityWeight
+        
+        // Blend traditional score with community trust score
+        score = (score * traditionalWeight) + (communityConsensus.trustScore * 10 * communityWeight)
+        
+        // Apply risk level adjustments
+        switch (communityConsensus.riskLevel) {
+          case 'critical':
+            score = Math.min(score, 100) // Cap at very low score for critical risk
+            break
+          case 'high':
+            score = Math.min(score, 250) // Cap at low score for high risk
+            break
+          case 'medium':
+            // No additional cap for medium risk
+            break
+          case 'low':
+            score = Math.max(score, 600) // Boost score for low risk
+            break
+          case 'very-low':
+            score = Math.max(score, 750) // Boost score for very low risk
+            break
+        }
+      }
+      
       score = Math.max(0, Math.min(1000, score))
+
+      // Format community feedback for backward compatibility
+      const communityFeedback = communityConsensus ? 
+        communityConsensus.recentFeedback.slice(0, 10).map(feedback => ({
+          type: feedback.sentiment as 'positive' | 'negative' | 'neutral',
+          comment: `${feedback.type}: ${feedback.confidence}% confidence`,
+          reporterReputation: communityConsensus.topContributors.find(c => 
+            feedback.createdAt.getTime() // This is a simplified mapping
+          )?.reputationScore || 500,
+          timestamp: feedback.createdAt
+        })) : []
 
       return {
         score,
         reports,
-        communityFeedback: [] // TODO: Implement community feedback system
+        communityFeedback
       }
 
     } catch (error) {
@@ -774,5 +968,120 @@ export class WalletSecurityService {
     }
 
     return results
+  }
+
+  /**
+   * Get comprehensive wallet assessment including community feedback
+   */
+  static async getComprehensiveAssessment(walletAddress: string): Promise<{
+    security: WalletSecurityResult
+    community: {
+      consensus: any
+      recentFeedback: any[]
+      trustScore: number
+      riskLevel: string
+      totalFeedback: number
+      topContributors: any[]
+    }
+    combined: {
+      overallRiskLevel: string
+      overallScore: number
+      confidenceLevel: 'low' | 'medium' | 'high'
+      recommendations: string[]
+    }
+  }> {
+    try {
+      // Get security analysis
+      const security = await this.analyzeWallet(walletAddress)
+      
+      // Get community consensus
+      const consensus = await CommunityFeedbackService.getCommunityConsensus(walletAddress)
+      
+      // Combine assessments
+      let overallRiskLevel = security.riskLevel
+      let overallScore = security.riskScore
+      
+      // Community data takes precedence with sufficient feedback
+      if (consensus.totalFeedback >= 5) {
+        const communityRiskLevels = ['very-low', 'low', 'medium', 'high', 'critical']
+        const securityRiskIndex = communityRiskLevels.indexOf(security.riskLevel)
+        const communityRiskIndex = communityRiskLevels.indexOf(consensus.riskLevel)
+        
+        // Take the higher risk level
+        if (communityRiskIndex > securityRiskIndex) {
+          overallRiskLevel = consensus.riskLevel
+        }
+        
+        // Blend scores with community weight
+        const communityWeight = Math.min(0.7, consensus.totalFeedback / 10)
+        overallScore = Math.round(
+          (security.riskScore * (1 - communityWeight)) + 
+          ((100 - consensus.trustScore) * communityWeight)
+        )
+      }
+      
+      // Determine confidence level
+      const confidenceLevel = consensus.totalFeedback >= 10 ? 'high' :
+                             consensus.totalFeedback >= 3 ? 'medium' : 'low'
+      
+      // Generate combined recommendations
+      const recommendations = [...security.recommendations]
+      
+      if (consensus.totalFeedback > 0) {
+        if (consensus.trustScore < 50) {
+          recommendations.push('⚠️ Community feedback indicates potential risks - exercise caution')
+        } else if (consensus.trustScore > 70) {
+          recommendations.push('✅ Positive community feedback - generally considered trustworthy')
+        }
+        
+        if (consensus.totalFeedback < 3) {
+          recommendations.push('ℹ️ Limited community feedback available - consider multiple sources')
+        }
+      } else {
+        recommendations.push('ℹ️ No community feedback available - be extra cautious')
+      }
+      
+      return {
+        security,
+        community: {
+          consensus,
+          recentFeedback: consensus.recentFeedback.slice(0, 5),
+          trustScore: consensus.trustScore,
+          riskLevel: consensus.riskLevel,
+          totalFeedback: consensus.totalFeedback,
+          topContributors: consensus.topContributors
+        },
+        combined: {
+          overallRiskLevel: overallRiskLevel as any,
+          overallScore,
+          confidenceLevel,
+          recommendations: [...new Set(recommendations)] // Remove duplicates
+        }
+      }
+      
+    } catch (error) {
+      console.error('[WalletSecurity] Comprehensive assessment failed:', error)
+      
+      // Fallback to security-only assessment
+      const security = await this.analyzeWallet(walletAddress)
+      
+      return {
+        security,
+        community: {
+          consensus: null,
+          recentFeedback: [],
+          trustScore: 50,
+          riskLevel: 'medium',
+          totalFeedback: 0,
+          topContributors: []
+        },
+        combined: {
+          overallRiskLevel: security.riskLevel,
+          overallScore: security.riskScore,
+          confidenceLevel: 'low',
+          recommendations: [...security.recommendations, 'ℹ️ Community feedback unavailable']
+        }
+      }
+    }
   }
 }

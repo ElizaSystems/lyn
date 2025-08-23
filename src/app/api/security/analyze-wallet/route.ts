@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { WalletSecurityService } from '@/lib/services/wallet-security'
 import { requireAuth } from '@/lib/auth'
+import { ObjectId } from 'mongodb'
 
 export async function POST(request: NextRequest) {
   try {
     // Check authentication (handles anonymous users with sessionId)
     const authResult = await requireAuth(request)
-    const userId = authResult.user?.id || 'anonymous'
+    const userId = authResult.user?.id ? new ObjectId(authResult.user.id) : undefined
     
     const { walletAddress, includeTransactionAnalysis = true } = await request.json()
     
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Wallet Analysis] Analyzing wallet: ${walletAddress}`)
 
     // Perform comprehensive wallet security analysis
-    const securityResult = await WalletSecurityService.analyzeWallet(walletAddress)
+    const securityResult = await WalletSecurityService.analyzeWallet(walletAddress, userId)
 
     // Get wallet reputation
     const reputation = await WalletSecurityService.getWalletReputation(walletAddress)
@@ -34,8 +35,10 @@ export async function POST(request: NextRequest) {
         riskLevel: securityResult.riskLevel,
         riskScore: securityResult.riskScore,
         isBlacklisted: securityResult.isBlacklisted,
+        isWhitelisted: securityResult.isWhitelisted,
         overallSafety: securityResult.riskLevel === 'very-low' || securityResult.riskLevel === 'low'
       },
+      listStatus: securityResult.listStatus,
       reputation: {
         score: reputation.score,
         communityReports: reputation.reports.length,

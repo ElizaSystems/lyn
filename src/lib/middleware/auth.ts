@@ -44,3 +44,34 @@ export function requireAuth(handler: (req: AuthenticatedRequest, user: { userId:
     return handler(authReq, user)
   }
 }
+
+export async function authMiddleware(request: NextRequest): Promise<{
+  success: boolean;
+  user?: { id: string; walletAddress: string };
+  error?: string;
+}> {
+  try {
+    const user = await authenticateUser(request)
+    
+    if (!user) {
+      return {
+        success: false,
+        error: 'Authentication required'
+      }
+    }
+
+    return {
+      success: true,
+      user: {
+        id: user.userId,
+        walletAddress: user.walletAddress
+      }
+    }
+  } catch (error) {
+    console.error('Auth middleware error:', error)
+    return {
+      success: false,
+      error: 'Authentication failed'
+    }
+  }
+}

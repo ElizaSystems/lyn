@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { getDatabase } from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 import { TaskExecutor, Task } from '@/lib/services/task-executor'
+import { TaskTemplateLibrary } from '@/lib/services/task-templates'
 
 // Use the Task type from TaskExecutor service
 type MongoTask = Task
@@ -107,25 +108,36 @@ export async function POST(req: NextRequest) {
     const tasksCollection = db.collection<MongoTask>('tasks')
     
     if (body.action === 'create') {
-      // Calculate proper next run time based on frequency
-      const nextRun = calculateNextRun(body.frequency)
+      // Calculate proper next run time based on frequency or cron expression
+      const nextRun = calculateNextRun(body.frequency, body.cronExpression)
       
       const newTask: MongoTask = {
         userId: authResult.user.id,
         name: body.name,
         description: body.description,
-        status: 'active',
+        status: body.status || 'active',
         type: body.type,
         frequency: body.frequency,
+        cronExpression: body.cronExpression,
+        priority: body.priority || 'normal',
+        dependencies: body.dependencies,
+        retryConfig: body.retryConfig,
+        templateId: body.templateId,
         lastRun: undefined, // Will be set on first execution
         nextRun,
         successRate: 100,
         executionCount: 0,
         successCount: 0,
         failureCount: 0,
+        retryCount: 0,
         config: body.config || {},
         createdAt: new Date(),
         updatedAt: new Date()
+      }
+      
+      // If cron expression is provided, schedule the cron job
+      if (newTask.cronExpression) {
+        await TaskExecutor.scheduleCronJob(newTask)
       }
       
       const result = await tasksCollection.insertOne(newTask)
@@ -228,6 +240,106 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ history })
     }
     
+    // New action: get task analytics
+    if (body.action === 'analytics') {
+      const analytics = await TaskExecutor.getTaskAnalytics(authResult.user.id, {
+        taskId: body.id,
+        startDate: body.startDate ? new Date(body.startDate) : undefined,
+        endDate: body.endDate ? new Date(body.endDate) : undefined
+      })
+      return NextResponse.json({ analytics })
+    }
+    
+    // New action: batch execute
+    if (body.action === 'batch-execute') {
+      const result = await TaskExecutor.executeBatch(body.taskIds, {
+        maxParallel: body.maxParallel || 3,
+        userId: authResult.user.id
+      })
+      return NextResponse.json({ result })
+    }
+    
+    // New action: get templates
+    if (body.action === 'get-templates') {
+      const templates = await TaskExecutor.getTaskTemplates({
+        type: body.type,
+        category: body.category,
+        isPublic: true
+      })
+      return NextResponse.json({ templates })
+    }
+    
+    // New action: create from template
+    if (body.action === 'create-from-template') {
+      const result = await TaskTemplateLibrary.createTaskFromTemplateGuided(
+        body.templateId,
+        authResult.user.id,
+        {
+          name: body.name,
+          customConfig: body.config,
+          frequency: body.frequency,
+          cronExpression: body.cronExpression,
+          priority: body.priority,
+          dependencies: body.dependencies,
+          retryConfig: body.retryConfig
+        }
+      )
+      return NextResponse.json(result)
+    }
+    
+    // New action: schedule cron job
+    if (body.action === 'schedule-cron') {
+      const task = await tasksCollection.findOne({
+        _id: new ObjectId(body.id),
+        userId: authResult.user.id
+      })
+      
+      if (!task) {
+        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+      }
+      
+      if (body.cronExpression) {
+        await tasksCollection.updateOne(
+          { _id: new ObjectId(body.id) },
+          { $set: { cronExpression: body.cronExpression, updatedAt: new Date() } }
+        )
+        
+        const updatedTask = { ...task, cronExpression: body.cronExpression }
+        await TaskExecutor.scheduleCronJob(updatedTask)
+      }
+      
+      return NextResponse.json({ success: true })
+    }
+    
+    // New action: unschedule cron job
+    if (body.action === 'unschedule-cron') {
+      await TaskExecutor.unscheduleCronJob(body.id)
+      
+      await tasksCollection.updateOne(
+        { _id: new ObjectId(body.id), userId: authResult.user.id },
+        { $unset: { cronExpression: 1 }, $set: { updatedAt: new Date() } }
+      )
+      
+      return NextResponse.json({ success: true })
+    }
+    
+    // New action: get system health
+    if (body.action === 'system-health') {
+      const health = await TaskExecutor.getSystemHealth()
+      return NextResponse.json({ health })
+    }
+    
+    // New action: cleanup
+    if (body.action === 'cleanup') {
+      const promises = []
+      if (body.cleanupCache) promises.push(TaskExecutor.cleanupExpiredCache())
+      if (body.cleanupExecutions) promises.push(TaskExecutor.cleanupOldExecutions(body.daysToKeep || 90))
+      if (body.cleanupAnalytics) promises.push(TaskExecutor.cleanupOldAnalytics(body.daysToKeep || 365))
+      
+      await Promise.all(promises)
+      return NextResponse.json({ success: true, message: 'Cleanup completed' })
+    }
+    
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   } catch (error) {
     console.error('Tasks POST error:', error)
@@ -236,7 +348,13 @@ export async function POST(req: NextRequest) {
 }
 
 // Helper function to calculate next run time
-function calculateNextRun(frequency: string): Date | null {
+function calculateNextRun(frequency: string, cronExpression?: string): Date | null {
+  // If cron expression is provided, use that instead of frequency
+  if (cronExpression) {
+    // For cron expressions, return null as the cron scheduler handles timing
+    return null
+  }
+  
   const now = new Date()
   
   switch (frequency.toLowerCase()) {

@@ -15,6 +15,18 @@ export interface User {
     username?: string
     avatar?: string
     bio?: string
+    title?: string        // Achievement-earned title
+    level?: number        // User level from XP
+    reputation?: number   // Reputation score
+  }
+  achievements?: {
+    totalXP: number
+    totalReputation: number
+    level: number
+    achievementsUnlocked: number
+    badges: string[]      // Array of earned badge IDs
+    titles: string[]      // Array of earned titles
+    currentTitle?: string // Currently displayed title
   }
 }
 

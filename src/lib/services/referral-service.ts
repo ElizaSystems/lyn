@@ -7,6 +7,7 @@ import {
   ReferralAnalytics,
   ReferralDashboard 
 } from '@/lib/models/referral'
+import { integrateReferralTracking } from './activity-tracker'
 import crypto from 'crypto'
 
 export class ReferralService {
@@ -211,6 +212,17 @@ export class ReferralService {
         $set: { updatedAt: new Date() }
       }
     )
+    
+    // Track achievement progress for successful referral
+    try {
+      await integrateReferralTracking.onReferralCompleted(codeDoc.userId.toString(), {
+        code: referralCode,
+        newUserId: referredUserId,
+        value: registrationBurnAmount
+      })
+    } catch (achievementError) {
+      console.error(`[ReferralService] Failed to track achievement progress for referral:`, achievementError)
+    }
     
     // Create initial reward record if there was a burn
     if (registrationBurnAmount && registrationBurnTx) {

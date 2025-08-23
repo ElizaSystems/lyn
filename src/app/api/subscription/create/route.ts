@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { SubscriptionService } from '@/lib/services/subscription-service'
 import { connection } from '@/lib/solana'
 import { getCurrentUser } from '@/lib/auth'
+import { SubscriptionTier, PaymentToken } from '@/lib/models/subscription'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +15,10 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { transactionSignature, referralCode } = await request.json()
+    const { transactionSignature, referralCode, tier, billingCycle, token, paymentReference } = await request.json()
+
+    // Initialize enhanced service
+    SubscriptionService.initializeEnhancedService(connection)
     
     if (!transactionSignature) {
       return NextResponse.json(
@@ -23,7 +27,43 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Verify the SOL payment
+    // Check if using enhanced payment system
+    if (paymentReference && tier) {
+      // Use enhanced payment system
+      const result = await SubscriptionService.createEnhancedSubscription(
+        user.walletAddress,
+        tier as SubscriptionTier,
+        billingCycle || 'monthly',
+        token as PaymentToken || PaymentToken.SOL,
+        paymentReference,
+        transactionSignature,
+        referralCode
+      )
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error || 'Failed to create subscription' },
+          { status: 400 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        subscription: result.subscription,
+        message: 'Subscription created successfully using enhanced payment system!',
+        enhanced: true
+      })
+    }
+
+    // Legacy payment system fallback
+    if (!transactionSignature) {
+      return NextResponse.json(
+        { error: 'Transaction signature is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the SOL payment (legacy)
     const isValidPayment = await SubscriptionService.verifyPayment(
       connection,
       transactionSignature
@@ -37,16 +77,16 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if user already has an active subscription
-    const hasActive = await SubscriptionService.hasActiveSubscription(user.walletAddress)
+    const statusCheck = await SubscriptionService.getEnhancedSubscriptionStatus(user.walletAddress)
     
-    if (hasActive) {
+    if (statusCheck.hasActiveSubscription) {
       return NextResponse.json(
         { error: 'You already have an active subscription' },
         { status: 400 }
       )
     }
     
-    // Create the subscription
+    // Create the subscription (legacy)
     const subscription = await SubscriptionService.createSubscription(
       user.walletAddress,
       transactionSignature,
@@ -56,7 +96,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       subscription,
-      message: 'Subscription activated successfully!'
+      message: 'Subscription activated successfully! (Legacy System)',
+      enhanced: false,
+      migration: {
+        available: true,
+        message: 'Consider migrating to the enhanced payment system for better features'
+      }
     })
   } catch (error) {
     console.error('Subscription creation error:', error)

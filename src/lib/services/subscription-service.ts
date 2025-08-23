@@ -1,6 +1,9 @@
 import { getDatabase } from '@/lib/mongodb'
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { ReferralServiceV2 } from './referral-service-v2'
+import { EnhancedSubscriptionService } from './enhanced-subscription-service'
+import { CryptoPaymentService } from './crypto-payment-service'
+import { SubscriptionTier, PaymentToken } from '@/lib/models/subscription'
 
 export interface Subscription {
   walletAddress: string
@@ -31,6 +34,25 @@ export class SubscriptionService {
   static readonly AGENT_WALLET = process.env.NEXT_PUBLIC_AGENT_WALLET || 'LYNAIagent1111111111111111111111111111111111'
   // Treasury wallet for overflow/admin
   static readonly TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || 'LYNAItreasury11111111111111111111111111111'
+
+  // Enhanced service instance for new payment system
+  private static enhancedService: EnhancedSubscriptionService | null = null
+
+  /**
+   * Initialize enhanced service (call this once with connection)
+   */
+  static initializeEnhancedService(connection: Connection): void {
+    if (!this.enhancedService) {
+      this.enhancedService = new EnhancedSubscriptionService(connection)
+    }
+  }
+
+  /**
+   * Check if enhanced service is available
+   */
+  static isEnhancedServiceAvailable(): boolean {
+    return this.enhancedService !== null
+  }
 
   /**
    * Create a new subscription
@@ -353,6 +375,246 @@ export class SubscriptionService {
     } catch (error) {
       console.error('[Subscription] Error verifying payment:', error)
       return false
+    }
+  }
+
+  /**
+   * Create subscription using enhanced payment system (new method)
+   */
+  static async createEnhancedSubscription(
+    walletAddress: string,
+    tier: SubscriptionTier = SubscriptionTier.PRO, // Default to Pro for backward compatibility
+    billingCycle: 'monthly' | 'yearly' = 'monthly',
+    token: PaymentToken = PaymentToken.SOL,
+    paymentReference: string,
+    transactionSignature: string,
+    referralCode?: string
+  ): Promise<any> {
+    if (!this.enhancedService) {
+      throw new Error('Enhanced service not initialized. Call initializeEnhancedService() first.')
+    }
+
+    return this.enhancedService.confirmSubscriptionPayment(
+      paymentReference,
+      transactionSignature,
+      tier,
+      billingCycle,
+      referralCode
+    )
+  }
+
+  /**
+   * Get subscription status with enhanced system fallback
+   */
+  static async getEnhancedSubscriptionStatus(walletAddress: string): Promise<{
+    hasActiveSubscription: boolean
+    subscription: any | null
+    isLegacy: boolean
+  }> {
+    // Try enhanced system first
+    if (this.enhancedService) {
+      const enhancedSubscription = await this.enhancedService.getActiveSubscription(walletAddress)
+      if (enhancedSubscription) {
+        return {
+          hasActiveSubscription: true,
+          subscription: enhancedSubscription,
+          isLegacy: false
+        }
+      }
+    }
+
+    // Fall back to legacy system
+    const hasActive = await this.hasActiveSubscription(walletAddress)
+    const legacySubscription = await this.getSubscription(walletAddress)
+
+    return {
+      hasActiveSubscription: hasActive,
+      subscription: legacySubscription,
+      isLegacy: true
+    }
+  }
+
+  /**
+   * Migrate legacy subscription to enhanced system
+   */
+  static async migrateLegacySubscription(
+    walletAddress: string,
+    connection: Connection
+  ): Promise<{
+    success: boolean
+    newSubscription?: any
+    error?: string
+  }> {
+    try {
+      if (!this.enhancedService) {
+        this.initializeEnhancedService(connection)
+      }
+
+      // Get legacy subscription
+      const legacySubscription = await this.getSubscription(walletAddress)
+      if (!legacySubscription) {
+        return { success: false, error: 'No legacy subscription found' }
+      }
+
+      if (legacySubscription.status !== 'active') {
+        return { success: false, error: 'Legacy subscription is not active' }
+      }
+
+      // Create equivalent enhanced subscription
+      const db = await getDatabase()
+      const enhancedSubscriptionsCollection = db.collection('subscriptions')
+
+      // Map legacy tier to new tier system
+      const tier = legacySubscription.tier === 'premium' ? SubscriptionTier.PRO : SubscriptionTier.BASIC
+
+      const enhancedSubscription = {
+        walletAddress: legacySubscription.walletAddress,
+        userId: legacySubscription.userId,
+        username: legacySubscription.username,
+        tier,
+        status: 'active',
+        paymentToken: PaymentToken.SOL,
+        startDate: legacySubscription.startDate,
+        endDate: legacySubscription.endDate,
+        billingCycle: 'monthly',
+        amount: legacySubscription.amount,
+        paymentReference: `LEGACY-${legacySubscription.transactionSignature}`,
+        transactionSignature: legacySubscription.transactionSignature,
+        paymentMethod: 'crypto_transfer',
+        autoRenewal: false, // Disable auto-renewal for migrated subscriptions
+        gracePeriodEnd: new Date(legacySubscription.endDate.getTime() + (3 * 24 * 60 * 60 * 1000)), // 3-day grace period
+        referralCode: legacySubscription.referralCode,
+        referrerWallet: legacySubscription.referrerWallet,
+        tier1RewardAmount: legacySubscription.tier1RewardAmount,
+        tier2RewardAmount: legacySubscription.tier2RewardAmount,
+        createdAt: legacySubscription.createdAt,
+        updatedAt: new Date(),
+        lastPaymentAt: legacySubscription.createdAt,
+        migrated: true,
+        originalLegacyId: legacySubscription._id,
+        usageStats: {
+          scansUsed: 0,
+          apiCallsUsed: 0,
+          lastResetDate: new Date()
+        }
+      }
+
+      // Insert enhanced subscription
+      const result = await enhancedSubscriptionsCollection.insertOne(enhancedSubscription)
+
+      // Mark legacy subscription as migrated (don't delete for audit trail)
+      const legacyCollection = db.collection('legacy_subscriptions')
+      await legacyCollection.updateOne(
+        { walletAddress },
+        { 
+          $set: { 
+            migrated: true, 
+            migratedAt: new Date(),
+            newSubscriptionId: result.insertedId
+          } 
+        }
+      )
+
+      console.log(`[Subscription] Successfully migrated legacy subscription for ${walletAddress}`)
+
+      return {
+        success: true,
+        newSubscription: { ...enhancedSubscription, _id: result.insertedId }
+      }
+
+    } catch (error) {
+      console.error('[Subscription] Error migrating legacy subscription:', error)
+      return { 
+        success: false, 
+        error: `Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      }
+    }
+  }
+
+  /**
+   * Get subscription tiers for backward compatibility
+   */
+  static getSubscriptionTiers(): any[] {
+    if (this.enhancedService) {
+      return this.enhancedService.getAvailableTiers()
+    }
+
+    // Fallback to legacy tier information
+    return [
+      {
+        tier: 'basic',
+        name: 'Basic',
+        description: 'Basic subscription features',
+        features: ['Basic wallet scanning', 'Community support'],
+        pricing: {
+          monthly: { SOL: this.SUBSCRIPTION_PRICE_SOL, USDC: 30 },
+          yearly: { SOL: this.SUBSCRIPTION_PRICE_SOL * 10, USDC: 300, discountPercent: 17 }
+        },
+        limits: {
+          maxScans: 50,
+          maxWallets: 5,
+          maxTasks: 10,
+          apiCallsPerMonth: 1000
+        }
+      }
+    ]
+  }
+
+  /**
+   * Enhanced subscription statistics that combines legacy and new data
+   */
+  static async getEnhancedSubscriptionStats(): Promise<{
+    totalSubscriptions: number
+    activeSubscriptions: number
+    expiredSubscriptions: number
+    totalRevenue: { SOL: number; USDC: number }
+    totalReferralRewards: { SOL: number; USDC: number }
+    averageSubscriptionLength: number
+    legacySubscriptions: number
+    migratedSubscriptions: number
+  }> {
+    const db = await getDatabase()
+    
+    // Get legacy stats
+    const legacyStats = await this.getSubscriptionStats()
+
+    // Get enhanced stats if available
+    let enhancedStats = {
+      totalSubscriptions: 0,
+      activeSubscriptions: 0,
+      expiredSubscriptions: 0,
+      totalRevenue: { SOL: 0, USDC: 0, usd: 0 },
+      averageSubscriptionLength: 30,
+      tierDistribution: {},
+      churnRate: 0,
+      renewalRate: 0,
+      totalReferralRewards: { SOL: 0, USDC: 0, usd: 0 }
+    }
+
+    if (this.enhancedService) {
+      enhancedStats = await this.enhancedService.getSubscriptionAnalytics()
+    }
+
+    // Count migrated subscriptions
+    const migratedCount = await db.collection('subscriptions').countDocuments({ migrated: true })
+
+    return {
+      totalSubscriptions: legacyStats.totalSubscriptions + enhancedStats.totalSubscriptions,
+      activeSubscriptions: legacyStats.activeSubscriptions + enhancedStats.activeSubscriptions,
+      expiredSubscriptions: legacyStats.expiredSubscriptions + enhancedStats.expiredSubscriptions,
+      totalRevenue: {
+        SOL: legacyStats.totalRevenue + enhancedStats.totalRevenue.SOL,
+        USDC: enhancedStats.totalRevenue.USDC
+      },
+      totalReferralRewards: {
+        SOL: legacyStats.totalReferralRewards + enhancedStats.totalReferralRewards.SOL,
+        USDC: enhancedStats.totalReferralRewards.USDC
+      },
+      averageSubscriptionLength: Math.round(
+        (legacyStats.averageSubscriptionLength + enhancedStats.averageSubscriptionLength) / 2
+      ),
+      legacySubscriptions: legacyStats.totalSubscriptions - migratedCount,
+      migratedSubscriptions: migratedCount
     }
   }
 }

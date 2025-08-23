@@ -1,6 +1,8 @@
 import { ObjectId } from 'mongodb'
 import { getDatabase } from '@/lib/mongodb'
 import { User, UserTask, UserWallet, UserSession } from '@/lib/models/user'
+import { AchievementService } from './achievement-service'
+import { ActivityTracker } from './activity-tracker'
 import jwt from 'jsonwebtoken'
 import { PublicKey } from '@solana/web3.js'
 import bs58 from 'bs58'
@@ -222,5 +224,159 @@ export class UserService {
   static async logout(userId: string): Promise<void> {
     const sessions = await this.getSessionsCollection()
     await sessions.deleteMany({ userId: new ObjectId(userId) })
+  }
+
+  // Achievement Integration Methods
+  static async updateUserWithAchievementData(userId: string): Promise<User | null> {
+    try {
+      const users = await this.getUsersCollection()
+      const userStats = await AchievementService.getUserStats(userId)
+      const userAchievements = await AchievementService.getUserAchievements(userId, { isCompleted: true })
+
+      // Extract earned badges and titles
+      const badges = userAchievements
+        .map(achievement => achievement.metadata?.badge)
+        .filter(Boolean) as string[]
+      
+      const titles = userAchievements
+        .map(achievement => achievement.metadata?.title)
+        .filter(Boolean) as string[]
+
+      const achievementData = {
+        totalXP: userStats.totalXP,
+        totalReputation: userStats.totalReputation,
+        level: userStats.level,
+        achievementsUnlocked: userStats.achievementsUnlocked,
+        badges,
+        titles,
+        currentTitle: titles.length > 0 ? titles[titles.length - 1] : undefined
+      }
+
+      const result = await users.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        { 
+          $set: { 
+            achievements: achievementData,
+            'profile.level': userStats.level,
+            'profile.reputation': userStats.totalReputation,
+            updatedAt: new Date() 
+          } 
+        },
+        { returnDocument: 'after' }
+      )
+
+      return result || null
+    } catch (error) {
+      console.error('Error updating user with achievement data:', error)
+      return null
+    }
+  }
+
+  static async getUserWithAchievements(userId: string): Promise<User & {
+    achievementStats?: any
+    recentAchievements?: any[]
+    leaderboardRanks?: any
+  } | null> {
+    try {
+      const user = await this.getUserById(userId)
+      if (!user) return null
+
+      // Get achievement data
+      const [userStats, recentAchievements] = await Promise.all([
+        AchievementService.getUserStats(userId),
+        AchievementService.getUserAchievements(userId, { isCompleted: true })
+      ])
+
+      // Update user profile with latest achievement data
+      await this.updateUserWithAchievementData(userId)
+
+      return {
+        ...user,
+        achievementStats: userStats,
+        recentAchievements: recentAchievements.slice(0, 5) // Last 5 achievements
+      }
+    } catch (error) {
+      console.error('Error getting user with achievements:', error)
+      return null
+    }
+  }
+
+  static async updateUserProfile(
+    userId: string, 
+    updates: {
+      username?: string
+      avatar?: string
+      bio?: string
+      currentTitle?: string
+    }
+  ): Promise<User | null> {
+    try {
+      const users = await this.getUsersCollection()
+      
+      // Track profile update activity
+      if (updates.username) {
+        await ActivityTracker.trackProfileUpdate(userId, 'username', { newUsername: updates.username })
+      }
+      if (updates.avatar) {
+        await ActivityTracker.trackProfileUpdate(userId, 'avatar')
+      }
+      if (updates.bio) {
+        await ActivityTracker.trackProfileUpdate(userId, 'bio')
+      }
+
+      // Validate title if provided (user can only use titles they've earned)
+      if (updates.currentTitle) {
+        const userAchievements = await AchievementService.getUserAchievements(userId, { isCompleted: true })
+        const earnedTitles = userAchievements
+          .map(achievement => achievement.metadata?.title)
+          .filter(Boolean) as string[]
+        
+        if (!earnedTitles.includes(updates.currentTitle)) {
+          throw new Error('User has not earned the specified title')
+        }
+      }
+
+      const profileUpdates: any = {}
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined) {
+          if (key === 'currentTitle') {
+            profileUpdates['achievements.currentTitle'] = value
+          } else {
+            profileUpdates[`profile.${key}`] = value
+          }
+        }
+      })
+
+      const result = await users.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        { 
+          $set: { 
+            ...profileUpdates,
+            updatedAt: new Date() 
+          } 
+        },
+        { returnDocument: 'after' }
+      )
+
+      return result || null
+    } catch (error) {
+      console.error('Error updating user profile:', error)
+      throw error
+    }
+  }
+
+  // Enhanced authentication with activity tracking
+  static async authenticateWithWalletTracked(walletAddress: string, signature: string, nonce: string): Promise<{ user: User; token: string } | null> {
+    const result = await this.authenticateWithWallet(walletAddress, signature, nonce)
+    
+    if (result?.user?._id) {
+      // Track daily login activity
+      await ActivityTracker.trackDailyLogin(result.user._id.toString())
+      
+      // Update user with latest achievement data
+      await this.updateUserWithAchievementData(result.user._id.toString())
+    }
+    
+    return result
   }
 }
