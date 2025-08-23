@@ -74,6 +74,13 @@ export default function ScansPage() {
   const [tokenBalance, setTokenBalance] = useState<number>(0)
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const [referrerInfo, setReferrerInfo] = useState<{ walletAddress: string } | null>(null)
+  const [userStats, setUserStats] = useState<{
+    reputationScore: number
+    reputationTier: string
+    reputationTierColor: string
+    totalScans: number
+    badgesEarned: number
+  } | null>(null)
 
   // Check for referral code in URL, cookie, or storage
   useEffect(() => {
@@ -225,6 +232,19 @@ export default function ScansPage() {
           }
         } catch (e) {
           console.error('Failed to fetch user by wallet:', e)
+        }
+      }
+      
+      // Fetch user stats (reputation, badges, etc)
+      if (publicKey) {
+        try {
+          const statsResponse = await fetch(`/api/user/stats?walletAddress=${publicKey.toString()}`)
+          if (statsResponse.ok) {
+            const stats = await statsResponse.json()
+            setUserStats(stats)
+          }
+        } catch (e) {
+          console.error('Failed to fetch user stats:', e)
         }
       }
     } catch (error) {
@@ -647,16 +667,18 @@ export default function ScansPage() {
             {userProfile?.username && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border/50 pt-6">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-500 mb-1">750</div>
+                  <div className="text-3xl font-bold text-blue-500 mb-1">{userStats?.reputationScore || 0}</div>
                   <div className="text-sm text-muted-foreground">Reputation Score</div>
-                  <div className="text-xs text-blue-400">Security Expert</div>
+                  <div className={`text-xs ${userStats?.reputationTierColor || 'text-gray-400'}`}>
+                    {userStats?.reputationTier || 'Novice'}
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-green-500 mb-1">{personalStats?.totalScans || 0}</div>
+                  <div className="text-3xl font-bold text-green-500 mb-1">{userStats?.totalScans || 0}</div>
                   <div className="text-sm text-muted-foreground">Total Scans</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-purple-500 mb-1">3</div>
+                  <div className="text-3xl font-bold text-purple-500 mb-1">{userStats?.badgesEarned || 0}</div>
                   <div className="text-sm text-muted-foreground">Badges Earned</div>
                 </div>
               </div>
@@ -796,6 +818,27 @@ export default function ScansPage() {
       {/* Scans Grid */}
       {activeTab !== 'profile' && (
         <>
+          {/* Username Filter Indicator */}
+          {filteredUsername && activeTab === 'public' && (
+            <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                <span className="text-sm">
+                  Showing scans by <span className="font-semibold">{filteredUsername}</span>
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setSearchQuery('')
+                  setFilteredUsername(null)
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (

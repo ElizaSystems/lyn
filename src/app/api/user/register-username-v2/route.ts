@@ -173,6 +173,36 @@ export async function POST(request: NextRequest) {
       verified: true
     })
     
+    // Initialize reputation at 0
+    await db.collection('user_reputation').replaceOne(
+      { walletAddress },
+      {
+        walletAddress,
+        username,
+        reputationScore: 0, // Start at 0
+        tier: 'novice',
+        feedbackCount: 0,
+        votesReceived: 0,
+        accuracyScore: 0,
+        consistencyScore: 0,
+        participationScore: 0,
+        moderatorBonus: 0,
+        penaltyPoints: 0,
+        badges: [],
+        statistics: {
+          totalFeedbackSubmitted: 0,
+          totalVotesCast: 0,
+          accurateReports: 0,
+          inaccurateReports: 0,
+          spamReports: 0,
+          lastActivityAt: registrationDate
+        },
+        createdAt: registrationDate,
+        updatedAt: registrationDate
+      },
+      { upsert: true }
+    )
+    
     // Track referral if present
     if (referralCode) {
       try {
@@ -218,7 +248,7 @@ export async function POST(request: NextRequest) {
       success: true,
       username,
       profileUrl: `https://app.lynai.xyz/profile/${username}`,
-      reputationScore: 100,
+      reputationScore: 0, // Start at 0
       referralCode: username,
       referralLink: `https://app.lynai.xyz?ref=${username}`
     })
