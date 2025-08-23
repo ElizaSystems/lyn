@@ -3,6 +3,8 @@ import { getDatabase } from '@/lib/mongodb'
 import { User, UserTask, UserWallet, UserSession } from '@/lib/models/user'
 import { AchievementService } from './achievement-service'
 import { ActivityTracker } from './activity-tracker'
+import { EnhancedBadgeService } from './enhanced-badge-service'
+import { ReputationDecayService } from './reputation-decay-service'
 import jwt from 'jsonwebtoken'
 import { PublicKey } from '@solana/web3.js'
 import bs58 from 'bs58'
@@ -370,13 +372,197 @@ export class UserService {
     const result = await this.authenticateWithWallet(walletAddress, signature, nonce)
     
     if (result?.user?._id) {
-      // Track daily login activity
-      await ActivityTracker.trackDailyLogin(result.user._id.toString())
+      const userId = result.user._id.toString()
+      
+      // Track daily login activity using enhanced system
+      await AchievementService.trackActivityEnhanced(userId, 'daily_login', 1)
+      
+      // Update reputation decay tracking
+      await ReputationDecayService.updateLastActivity(userId)
+      
+      // Initialize decay tracking if not exists
+      await ReputationDecayService.initializeDecayTracking(userId)
       
       // Update user with latest achievement data
-      await this.updateUserWithAchievementData(result.user._id.toString())
+      await this.updateUserWithAchievementData(userId)
     }
     
     return result
+  }
+
+  // Get user with comprehensive achievement and badge data
+  static async getUserWithComprehensiveData(userId: string): Promise<User & {
+    achievementStats?: any
+    recentAchievements?: any[]
+    earnedBadges?: any[]
+    badgeProgress?: any[]
+    nextBadges?: any[]
+    reputationTier?: any
+    decayStatus?: any
+    leaderboardRanks?: any
+  } | null> {
+    try {
+      const user = await this.getUserById(userId)
+      if (!user) return null
+
+      // Get comprehensive achievement and badge data
+      const [completeSummary, decayStatus] = await Promise.all([
+        AchievementService.getUserCompleteSummary(userId),
+        ReputationDecayService.getUserDecayStatus(userId)
+      ])
+
+      // Update user profile with latest achievement data
+      await this.updateUserWithAchievementData(userId)
+
+      return {
+        ...user,
+        achievementStats: completeSummary.stats,
+        recentAchievements: completeSummary.achievements.slice(0, 5),
+        earnedBadges: completeSummary.earnedBadges,
+        badgeProgress: completeSummary.badgeProgress,
+        nextBadges: completeSummary.nextBadges,
+        reputationTier: completeSummary.reputationTier,
+        decayStatus
+      }
+    } catch (error) {
+      console.error('Error getting user with comprehensive data:', error)
+      return null
+    }
+  }
+
+  // Create user with enhanced system initialization
+  static async createUserEnhanced(walletAddress: string): Promise<User> {
+    const user = await this.createUser(walletAddress)
+    
+    if (user._id) {
+      const userId = user._id.toString()
+      
+      // Initialize reputation decay tracking
+      await ReputationDecayService.initializeDecayTracking(userId)
+      
+      // Initialize user stats with new reputation system (starting at 0)
+      await AchievementService.getUserStats(userId) // This creates initial stats with 0 reputation
+      
+      console.log(`Enhanced user created: ${walletAddress} with ID ${userId}`)
+    }
+    
+    return user
+  }
+
+  // Track user activity with comprehensive system
+  static async trackUserActivity(
+    userId: string, 
+    activityType: string, 
+    value: number = 1, 
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    try {
+      // Update last activity for decay tracking
+      await ReputationDecayService.updateLastActivity(userId)
+      
+      // Track activity in enhanced system
+      await AchievementService.trackActivityEnhanced(userId, activityType as any, value, metadata)
+      
+      // Update user profile with latest data
+      await this.updateUserWithAchievementData(userId)
+      
+    } catch (error) {
+      console.error('Error tracking user activity:', error)
+    }
+  }
+
+  // Get user's reputation tier benefits
+  static async getUserReputationBenefits(userId: string): Promise<{
+    tier: any
+    multiplier: number
+    benefits: string[]
+    nextTier?: any
+    progressToNext?: number
+  } | null> {
+    try {
+      const userStats = await AchievementService.getUserStats(userId)
+      const currentTier = EnhancedBadgeService.getReputationTierInfo(userStats.totalReputation)
+      
+      if (!currentTier) return null
+      
+      // Find next tier
+      const allTiers = [
+        { tier: 'novice', minReputation: 0, maxReputation: 99, title: 'Novice' },
+        { tier: 'contributor', minReputation: 100, maxReputation: 299, title: 'Contributor' },
+        { tier: 'guardian', minReputation: 300, maxReputation: 599, title: 'Guardian' },
+        { tier: 'expert', minReputation: 600, maxReputation: 999, title: 'Expert' },
+        { tier: 'elite', minReputation: 1000, maxReputation: 1499, title: 'Elite' },
+        { tier: 'legend', minReputation: 1500, maxReputation: Infinity, title: 'Legend' }
+      ]
+      
+      const currentTierIndex = allTiers.findIndex(t => t.tier === currentTier.tier)
+      const nextTier = currentTierIndex < allTiers.length - 1 ? allTiers[currentTierIndex + 1] : null
+      
+      let progressToNext = 0
+      if (nextTier) {
+        const reputationInCurrentTier = userStats.totalReputation - currentTier.minReputation
+        const reputationNeededForNext = nextTier.minReputation - currentTier.minReputation
+        progressToNext = Math.min(100, (reputationInCurrentTier / reputationNeededForNext) * 100)
+      }
+      
+      return {
+        tier: currentTier,
+        multiplier: EnhancedBadgeService.getReputationMultiplier(userStats.totalReputation),
+        benefits: currentTier.benefits,
+        nextTier,
+        progressToNext
+      }
+    } catch (error) {
+      console.error('Error getting user reputation benefits:', error)
+      return null
+    }
+  }
+
+  // Admin function to manually adjust user reputation
+  static async adjustUserReputation(
+    userId: string, 
+    reputationChange: number, 
+    reason: string,
+    adminId: string
+  ): Promise<{ success: boolean; newReputation: number; error?: string }> {
+    try {
+      const userStats = await AchievementService.getUserStats(userId)
+      const newReputation = Math.max(0, userStats.totalReputation + reputationChange)
+      
+      // Update reputation directly
+      const statsCollection = await getDatabase().then(db => db.collection('user_stats'))
+      await statsCollection.updateOne(
+        { userId: new ObjectId(userId) },
+        {
+          $set: {
+            totalReputation: newReputation,
+            updatedAt: new Date()
+          }
+        }
+      )
+      
+      // Log the adjustment
+      const auditCollection = await getDatabase().then(db => db.collection('audit_logs'))
+      await auditCollection.insertOne({
+        userId: new ObjectId(adminId),
+        action: 'reputation_adjustment',
+        resource: `user:${userId}`,
+        details: {
+          targetUserId: userId,
+          reputationChange,
+          oldReputation: userStats.totalReputation,
+          newReputation,
+          reason
+        },
+        timestamp: new Date()
+      })
+      
+      console.log(`Reputation adjusted for user ${userId}: ${userStats.totalReputation} -> ${newReputation} (${reputationChange > 0 ? '+' : ''}${reputationChange}) by admin ${adminId}`)
+      
+      return { success: true, newReputation }
+    } catch (error) {
+      console.error('Error adjusting user reputation:', error)
+      return { success: false, newReputation: 0, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
   }
 }

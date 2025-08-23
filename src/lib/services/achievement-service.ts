@@ -15,9 +15,11 @@ import {
   AchievementType,
   DEFAULT_LEVEL_CONFIG,
   LevelConfig,
-  GlobalAchievementStats
+  GlobalAchievementStats,
+  REPUTATION_TIERS
 } from '@/lib/models/achievement'
 import { NotificationService } from '@/lib/services/notification-service'
+import { EnhancedBadgeService } from '@/lib/services/enhanced-badge-service'
 
 export class AchievementService {
   // Collection getters
@@ -257,25 +259,35 @@ export class AchievementService {
     console.log(`Achievement awarded: ${definition.name} to user ${userId}`)
   }
 
-  // Award XP and reputation
+  // Award XP and reputation with multipliers
   private static async awardXPAndReputation(userId: string, xp: number, reputation: number): Promise<void> {
     const statsCollection = await this.getUserStatsCollection()
     const userObjectId = new ObjectId(userId)
 
     const currentStats = await this.getUserStats(userId)
+    
+    // Apply reputation multiplier based on current reputation tier
+    const reputationMultiplier = EnhancedBadgeService.getReputationMultiplier(currentStats.totalReputation)
+    const adjustedReputation = Math.floor(reputation * reputationMultiplier)
+    
     const newXP = currentStats.totalXP + xp
-    const newReputation = currentStats.totalReputation + reputation
+    const newReputation = currentStats.totalReputation + adjustedReputation
 
     // Calculate new level
     const newLevel = this.calculateLevel(newXP)
     const levelUp = newLevel > currentStats.level
+
+    // Update reputation tier if changed
+    const oldTier = EnhancedBadgeService.getReputationTierInfo(currentStats.totalReputation)
+    const newTier = EnhancedBadgeService.getReputationTierInfo(newReputation)
+    const tierUp = newTier && oldTier && newTier.tier !== oldTier.tier
 
     await statsCollection.updateOne(
       { userId: userObjectId },
       {
         $inc: {
           totalXP: xp,
-          totalReputation: reputation,
+          totalReputation: adjustedReputation,
           achievementsUnlocked: 1
         },
         $set: {
@@ -287,9 +299,22 @@ export class AchievementService {
       { upsert: true }
     )
 
+    // Update enhanced badge progress
+    try {
+      const userMetrics = await this.buildUserMetrics(userId)
+      await EnhancedBadgeService.calculateUserBadgeProgress(userId, userMetrics)
+    } catch (error) {
+      console.error('Error updating badge progress:', error)
+    }
+
     // Send level up notification if applicable
     if (levelUp) {
       await this.sendLevelUpNotification(userId, currentStats.level, newLevel, xp)
+    }
+
+    // Send reputation tier up notification
+    if (tierUp && newTier) {
+      await this.sendTierUpNotification(userId, oldTier!.title, newTier.title, adjustedReputation)
     }
   }
 
@@ -1029,6 +1054,135 @@ export class AchievementService {
     }
 
     console.log(`Initialized ${defaultDefinitions.length} default achievement definitions`)
+  }
+
+  // Build user metrics for badge progress calculation
+  private static async buildUserMetrics(userId: string): Promise<Record<string, number>> {
+    const activitiesCollection = await this.getUserActivitiesCollection()
+    const userObjectId = new ObjectId(userId)
+    
+    // Aggregate user activities to build metrics
+    const activityCounts = await activitiesCollection.aggregate([
+      { $match: { userId: userObjectId } },
+      { $group: { _id: '$activityType', total: { $sum: '$value' } } }
+    ]).toArray()
+
+    const metrics: Record<string, number> = {}
+    for (const activity of activityCounts) {
+      metrics[activity._id] = activity.total
+    }
+
+    // Add account age
+    const userStats = await this.getUserStats(userId)
+    const accountCreatedAt = await this.getAccountCreationDate(userId)
+    if (accountCreatedAt) {
+      const daysSinceCreation = Math.floor((Date.now() - accountCreatedAt.getTime()) / (1000 * 60 * 60 * 24))
+      metrics['account_age_days'] = daysSinceCreation
+    }
+
+    return metrics
+  }
+
+  // Get account creation date
+  private static async getAccountCreationDate(userId: string): Promise<Date | null> {
+    try {
+      const db = await getDatabase()
+      const usersCollection = db.collection('users')
+      const user = await usersCollection.findOne({ _id: new ObjectId(userId) })
+      return user?.createdAt || null
+    } catch (error) {
+      console.error('Error getting account creation date:', error)
+      return null
+    }
+  }
+
+  // Send tier up notification
+  private static async sendTierUpNotification(
+    userId: string,
+    oldTier: string,
+    newTier: string,
+    reputationGained: number
+  ): Promise<void> {
+    try {
+      await NotificationService.sendNotification(
+        userId,
+        'account-activity',
+        {
+          title: 'Reputation Tier Up!',
+          message: `Congratulations! You've advanced from ${oldTier} to ${newTier} tier!`,
+          oldTier,
+          newTier,
+          reputationGained
+        },
+        {
+          priority: 'high',
+          channels: ['in-app']
+        }
+      )
+    } catch (error) {
+      console.error('Failed to send tier up notification:', error)
+    }
+  }
+
+  // Enhanced initialization that includes both achievement definitions and enhanced badges
+  static async initializeComprehensiveSystem(): Promise<void> {
+    console.log('Initializing comprehensive achievement and badge system...')
+    
+    // Initialize traditional achievement definitions
+    await this.initializeDefaultAchievements()
+    
+    // Initialize enhanced badge system
+    await EnhancedBadgeService.initializeComprehensiveBadges()
+    
+    console.log('Comprehensive achievement and badge system initialized successfully')
+  }
+
+  // Get user's complete achievement summary including enhanced badges
+  static async getUserCompleteSummary(userId: string): Promise<{
+    stats: UserStats
+    achievements: UserAchievement[]
+    earnedBadges: any[]
+    badgeProgress: any[]
+    nextBadges: any[]
+    reputationTier: any
+  }> {
+    const [stats, achievements, earnedBadges, badgeProgress, nextBadges] = await Promise.all([
+      this.getUserStats(userId),
+      this.getUserAchievements(userId, { isCompleted: true }),
+      EnhancedBadgeService.getUserEarnedBadges(userId),
+      EnhancedBadgeService.getUserBadgeProgress(userId),
+      EnhancedBadgeService.getNextAchievableBadges(userId)
+    ])
+
+    const reputationTier = EnhancedBadgeService.getReputationTierInfo(stats.totalReputation)
+
+    return {
+      stats,
+      achievements,
+      earnedBadges,
+      badgeProgress,
+      nextBadges,
+      reputationTier
+    }
+  }
+
+  // Track activity with enhanced badge integration
+  static async trackActivityEnhanced(
+    userId: string,
+    activityType: ActivityType,
+    value: number = 1,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    // Track the activity in the traditional system
+    await this.trackActivity(userId, activityType, value, metadata)
+    
+    // Update enhanced badge progress
+    try {
+      const userMetrics = await this.buildUserMetrics(userId)
+      await EnhancedBadgeService.calculateUserBadgeProgress(userId, userMetrics)
+    } catch (error) {
+      console.error('Error updating enhanced badge progress:', error)
+    }
   }
 }
 
