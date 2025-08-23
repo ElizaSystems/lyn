@@ -5,9 +5,10 @@ import bs58 from 'bs58'
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limiting
-    const rateLimit = await checkIPRateLimit(req, 'login', 60000, 5) // 5 per minute
-    const headers = createRateLimitHeaders(rateLimit, 5)
+    // Rate limiting (increase to 12/min)
+    const MAX_PER_MINUTE = 12
+    const rateLimit = await checkIPRateLimit(req, 'login', 60000, MAX_PER_MINUTE)
+    const headers = createRateLimitHeaders(rateLimit, MAX_PER_MINUTE)
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -17,6 +18,27 @@ export async function POST(req: NextRequest) {
     }
 
     const { walletAddress, signature, signatureBytes, message } = await req.json()
+
+    // If already authenticated via cookie token and same wallet, short-circuit
+    try {
+      const existing = await db.sessions.findByToken(req.cookies.get('auth-token')?.value || '')
+      if (existing) {
+        const user = await db.users.findById(existing.userId)
+        if (user && user.walletAddress === walletAddress) {
+          return NextResponse.json({
+            user: {
+              id: user._id!.toString(),
+              walletAddress: user.walletAddress,
+              tokenBalance: user.tokenBalance,
+              hasTokenAccess: user.hasTokenAccess,
+              questionsAsked: 0,
+            },
+            message: 'Already logged in',
+            token: existing.token,
+          }, { headers })
+        }
+      }
+    } catch {}
 
     if (!walletAddress || (!signature && !signatureBytes) || !message) {
       return NextResponse.json(

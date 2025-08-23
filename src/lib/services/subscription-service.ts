@@ -24,11 +24,11 @@ export interface Subscription {
 }
 
 export class SubscriptionService {
-  static readonly SUBSCRIPTION_PRICE_SOL = 0.5
+  static readonly SUBSCRIPTION_PRICE_SOL = 20
   static readonly SUBSCRIPTION_DURATION_DAYS = 30
   static readonly TIER1_REFERRAL_RATE = 0.1 // 10% to direct referrer
-  static readonly TIER2_REFERRAL_RATE = 0.05 // 5% to referrer's referrer
-  // Agent gets remaining 85%
+  static readonly TIER2_REFERRAL_RATE = 0.1 // 10% to referrer's referrer
+  // Agent gets remaining 80%
   
   // Agent wallet for receiving SOL payments (85% of subscription)
   static readonly AGENT_WALLET = process.env.NEXT_PUBLIC_AGENT_WALLET || 'LYNAIagent1111111111111111111111111111111111'
@@ -95,9 +95,9 @@ export class SubscriptionService {
         )
         
         // Note: The actual SOL distribution:
-        // - 10% (0.05 SOL) to direct referrer
-        // - 5% (0.025 SOL) to referrer's referrer
-        // - 85% (0.425 SOL) to Agent wallet
+        // - 10% (2 SOL) to direct referrer
+        // - 10% (2 SOL) to referrer's referrer
+        // - 80% (16 SOL) to Agent wallet
         // This tracking is for display/analytics
       }
     }

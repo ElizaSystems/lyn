@@ -80,12 +80,12 @@ export class CryptoPaymentService {
           ],
           pricing: {
             monthly: {
-              [PaymentToken.SOL]: 0.5,
-              [PaymentToken.USDC]: 30
+              [PaymentToken.SOL]: 20,
+              [PaymentToken.USDC]: 2400
             },
             yearly: {
-              [PaymentToken.SOL]: 5,
-              [PaymentToken.USDC]: 300,
+              [PaymentToken.SOL]: 200,
+              [PaymentToken.USDC]: 24000,
               discountPercent: 17
             }
           },

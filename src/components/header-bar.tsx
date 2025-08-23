@@ -10,6 +10,7 @@ export function HeaderBar() {
   const { publicKey, connected, connect, disconnect } = useWallet()
   const [tokenBalance, setTokenBalance] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
+  const [loginInFlight, setLoginInFlight] = useState(false)
 
   // Token configuration from environment
   const TOKEN_MINT = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
@@ -68,6 +69,8 @@ export function HeaderBar() {
 
     setIsLoading(true)
     try {
+      if (loginInFlight) return
+      setLoginInFlight(true)
       await connect()
 
       // Small delay to ensure wallet connection is established
@@ -130,13 +133,28 @@ export function HeaderBar() {
               throw new Error('Unsupported signature return type')
             }
 
-            // 3) Login
-            await fetch('/api/auth/login', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify(payload)
-            })
+            // 3) Login with simple 429 backoff and dedupe
+            const loginOnce = async () => {
+              const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+              })
+              if (res.status === 429) {
+                // Backoff and retry once
+                await new Promise(r => setTimeout(r, 1500))
+                return fetch('/api/auth/login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify(payload)
+                })
+              }
+              return res
+            }
+
+            await loginOnce()
           }
         }
       }
@@ -144,6 +162,7 @@ export function HeaderBar() {
       console.error('Wallet connection/auth error:', error)
     } finally {
       setIsLoading(false)
+      setLoginInFlight(false)
     }
   }
 
