@@ -153,8 +153,8 @@ export class CryptoPaymentService {
       },
       fees: {
         platformFeePercent: 5,
-        referralTier1Percent: 10,
-        referralTier2Percent: 5
+        referralTier1Percent: 20,
+        referralTier2Percent: 10
       },
       limits: {
         maxRetries: 3,

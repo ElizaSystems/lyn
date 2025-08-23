@@ -112,7 +112,7 @@ function SubscriptionContent() {
       } catch {}
 
       const feeAmount = Math.floor(0.05 * total)
-      const refAmount = referrerPubkey ? Math.floor(0.10 * total) : 0
+      const refAmount = referrerPubkey ? Math.floor(0.20 * total) : 0
       const agentAmount = total - feeAmount - refAmount
 
       // Agent transfer
@@ -246,7 +246,7 @@ function SubscriptionContent() {
             />
             {customReferralCode && (
               <p className="text-xs text-muted-foreground">
-                Your referrer will receive 10% (0.05 SOL) reward
+                Your referrer will receive 20% (0.10 SOL) reward
               </p>
             )}
           </div>
@@ -298,14 +298,14 @@ function SubscriptionContent() {
             <div className="space-y-4">
               <div className="p-4 bg-background/80 rounded-lg">
                 <p className="font-semibold text-primary mb-1">Tier 1: Direct Referrals</p>
-                <p className="text-2xl font-bold mb-1">10% (0.05 SOL)</p>
+                <p className="text-2xl font-bold mb-1">20% (0.10 SOL)</p>
                 <p className="text-sm text-muted-foreground">
                   Earn when someone uses your referral code
                 </p>
               </div>
               <div className="p-4 bg-background/80 rounded-lg">
                 <p className="font-semibold text-secondary mb-1">Tier 2: Network Rewards</p>
-                <p className="text-2xl font-bold mb-1">5% (0.025 SOL)</p>
+                <p className="text-2xl font-bold mb-1">10% (0.05 SOL)</p>
                 <p className="text-sm text-muted-foreground">
                   Earn when your referrals bring in new subscribers
                 </p>
@@ -347,15 +347,15 @@ function SubscriptionContent() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Agent Wallet (Platform)</span>
-                <span className="font-medium">85% (0.425 SOL)</span>
+                <span className="font-medium">75% (0.375 SOL)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Direct Referrer</span>
-                <span className="font-medium text-primary">10% (0.05 SOL)</span>
+                <span className="font-medium text-primary">20% (0.10 SOL)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Referrer&apos;s Referrer</span>
-                <span className="font-medium text-secondary">5% (0.025 SOL)</span>
+                <span className="font-medium text-secondary">10% (0.05 SOL)</span>
               </div>
               <div className="h-px bg-border my-2" />
               <div className="flex justify-between font-bold">

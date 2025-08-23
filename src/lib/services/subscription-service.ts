@@ -28,8 +28,8 @@ export interface Subscription {
 export class SubscriptionService {
   static readonly SUBSCRIPTION_PRICE_SOL = 0.5
   static readonly SUBSCRIPTION_DURATION_DAYS = 30
-  static readonly TIER1_REFERRAL_RATE = 0.10 // 10% to direct referrer
-  static readonly TIER2_REFERRAL_RATE = 0.05 // 5% to referrer's referrer
+  static readonly TIER1_REFERRAL_RATE = 0.20 // 20% to direct referrer
+  static readonly TIER2_REFERRAL_RATE = 0.10 // 10% to referrer's referrer
   // Agent gets remaining 80%
   
   // Agent wallet for receiving SOL payments (85% of subscription)
@@ -435,7 +435,7 @@ export class SubscriptionService {
 
       const hasReferral = !!referrerWallet
       const expectedFee = expectedAmount * 0.05
-      const expectedRef = hasReferral ? expectedAmount * 0.10 : 0
+      const expectedRef = hasReferral ? expectedAmount * 0.20 : 0
       const expectedAgent = expectedAmount - expectedFee - expectedRef
 
       const within = (value: number, target: number) => Math.abs(value - target) <= Math.max(0.0005, target * 0.02) // ~2% tolerance or 0.0005 SOL
