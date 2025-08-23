@@ -315,4 +315,41 @@ export class ReferralServiceV2 {
       return null
     }
   }
+
+  /**
+   * Resolve referral chain (tier1 and optional tier2) from a referral code
+   */
+  static async getReferralChainByCode(code: string): Promise<{
+    tier1Wallet?: string
+    tier2Wallet?: string
+  }> {
+    const db = await getDatabase()
+    const codes = db.collection('referral_codes_v2')
+    const relationships = db.collection('referral_relationships_v2')
+
+    // Case-insensitive code match
+    const codeDoc = await codes.findOne({ code: { $regex: new RegExp(`^${code}$`, 'i') }, isActive: true })
+    if (!codeDoc) return {}
+
+    // Find tier2 by looking for who referred the tier1 wallet
+    const tier1Wallet = codeDoc.walletAddress as string | undefined
+    if (!tier1Wallet) return { tier1Wallet }
+
+    const tier1Rel = await relationships.findOne({ referredWallet: tier1Wallet })
+    const tier2Wallet = tier1Rel?.referrerWallet as string | undefined
+    return { tier1Wallet, tier2Wallet }
+  }
+
+  /**
+   * Resolve referral chain given a tier1 referrer wallet
+   */
+  static async getReferralChainByTier1Wallet(wallet: string): Promise<{
+    tier1Wallet?: string
+    tier2Wallet?: string
+  }> {
+    const db = await getDatabase()
+    const relationships = db.collection('referral_relationships_v2')
+    const tier1Rel = await relationships.findOne({ referredWallet: wallet })
+    return { tier1Wallet: wallet, tier2Wallet: tier1Rel?.referrerWallet }
+  }
 }

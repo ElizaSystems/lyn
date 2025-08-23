@@ -1,12 +1,16 @@
 import { Connection, PublicKey, Transaction } from '@solana/web3.js'
 import { 
   getAssociatedTokenAddress, 
+  createAssociatedTokenAccountInstruction,
+  createTransferInstruction,
   createBurnInstruction,
   TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
   getMint,
   getAccount
 } from '@solana/spl-token'
 import { validateReferrerTokenAccount } from './solana-token-account'
+// Note: referral chain is resolved via public API to stay client-safe
 
 // Token configuration
 const TOKEN_MINT = process.env.NEXT_PUBLIC_TOKEN_MINT_ADDRESS || '3hFEAFfPBgquhPcuQYJWufENYg9pjMDvgEEsv4jxpump'
@@ -34,7 +38,7 @@ declare global {
  * @param amount Amount of tokens to burn (without decimals)
  * @returns Transaction signature
  */
-export async function burnTokensWithWallet(amount: number): Promise<string> {
+export async function burnTokensWithWallet(amount: number, referralCode?: string | null): Promise<string> {
   if (!window.solana) {
     throw new Error('Phantom wallet not found. Please install Phantom wallet.')
   }
@@ -113,9 +117,80 @@ export async function burnTokensWithWallet(amount: number): Promise<string> {
       TOKEN_PROGRAM_ID
     )
 
-    // Create transaction
+    // Build a multi-instruction transaction if a referral chain exists: transfer portions to referrers, then burn the rest
     const transaction = new Transaction()
-    transaction.add(burnInstruction)
+
+    let remainingToBurn = amountToBurn
+
+    if (referralCode) {
+      try {
+        const chainResp = await fetch(`/api/referral/v2/chain?code=${encodeURIComponent(referralCode)}`)
+        if (chainResp.ok) {
+          const chain = await chainResp.json() as { tier1Wallet?: string; tier2Wallet?: string }
+          const tier1 = chain.tier1Wallet
+          const tier2 = chain.tier2Wallet
+
+          const tier1Amount = Math.floor(amountToBurn * 0.30)
+          const tier2Amount = tier2 ? Math.floor(amountToBurn * 0.20) : 0
+          const burnPortion = amountToBurn - tier1Amount - tier2Amount
+          remainingToBurn = burnPortion
+
+          const ensureAtaAndTransfer = async (toWallet: string, lamportsRaw: number) => {
+            const toPub = new PublicKey(toWallet)
+            const toAta = await getAssociatedTokenAddress(mintPublicKey, toPub)
+            let needsCreate = false
+            try {
+              await getAccount(connection, toAta)
+            } catch {
+              needsCreate = true
+            }
+            if (needsCreate) {
+              transaction.add(
+                createAssociatedTokenAccountInstruction(
+                  walletPublicKey,
+                  toAta,
+                  toPub,
+                  mintPublicKey,
+                  TOKEN_PROGRAM_ID,
+                  ASSOCIATED_TOKEN_PROGRAM_ID
+                )
+              )
+            }
+            transaction.add(
+              createTransferInstruction(
+                associatedTokenAccount,
+                toAta,
+                walletPublicKey,
+                lamportsRaw,
+                [],
+                TOKEN_PROGRAM_ID
+              )
+            )
+          }
+
+          if (tier1 && tier1Amount > 0) {
+            await ensureAtaAndTransfer(tier1, tier1Amount)
+          }
+          if (tier2 && tier2Amount > 0) {
+            await ensureAtaAndTransfer(tier2, tier2Amount)
+          }
+        }
+      } catch (e) {
+        console.warn('[Burn] Failed to resolve referral chain; proceeding with full burn.', e)
+      }
+    }
+
+    // Add burn for the remaining portion
+    transaction.add(
+      createBurnInstruction(
+        associatedTokenAccount,
+        mintPublicKey,
+        walletPublicKey,
+        remainingToBurn,
+        [],
+        TOKEN_PROGRAM_ID
+      )
+    )
 
     // Get recent blockhash
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
@@ -178,7 +253,8 @@ export function getConnectedWallet(): string | null {
  */
 export async function burnTokensWithReferrerCheck(
   amount: number, 
-  referrerWallet?: string | null
+  referrerWallet?: string | null,
+  referralCode?: string | null
 ): Promise<string> {
   const connection = new Connection(RPC_ENDPOINT, 'confirmed')
   
@@ -201,6 +277,7 @@ export async function burnTokensWithReferrerCheck(
     console.log(`[Burn] Referrer validation successful`)
   }
   
-  // Proceed with regular burn
-  return burnTokensWithWallet(amount)
+  // If we only burned (no token distribution needed), perform burn
+  // Keep referralCode to allow future analytics if needed
+  return burnTokensWithWallet(amount, referralCode)
 }

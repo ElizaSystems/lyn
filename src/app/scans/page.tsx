@@ -278,7 +278,7 @@ export default function ScansPage() {
       let burnSignature: string
       
       try {
-        burnSignature = await burnTokensWithReferrerCheck(burnAmount, referrerWallet)
+        burnSignature = await burnTokensWithReferrerCheck(burnAmount, referrerWallet, referralCode || undefined)
         console.log(`[Registration] Burn successful! Signature: ${burnSignature}`)
       } catch (burnError) {
         console.error('[Registration] Burn failed:', burnError)
