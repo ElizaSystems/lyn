@@ -73,13 +73,17 @@ export function UsernameRegistration({ tokenBalance, onSuccess }: UsernameRegist
         })
       })
 
-      if (response.ok) {
+      if (response.ok || response.status === 202) {
         const data = await response.json()
         setStep('complete')
         if (onSuccess) {
           onSuccess(username)
         }
         console.log('Username registered successfully!', data)
+        try {
+          // Refresh referral code to vanity immediately
+          await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}&username=${username}`)
+        } catch {}
       } else {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Registration failed')

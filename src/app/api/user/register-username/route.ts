@@ -84,23 +84,31 @@ export async function POST(request: NextRequest) {
     }
     
     if (!burnVerified) {
-      // Persist failed attempt for auditing
-      await db.collection('burn_validations').insertOne({
-        walletAddress,
-        amount: BURN_AMOUNT,
-        signature,
-        referralCode: referralCode || null,
-        status: 'failed',
-        reason: 'verification_failed',
-        createdAt: new Date()
-      })
-      // Return 202 to allow client to poll and auto-complete once RPC reflects the tx fully
-      return NextResponse.json({ 
-        error: `Burn seen but not fully verifiable yet. We will auto-complete shortly.`,
-        requiredBurnAmount: BURN_AMOUNT,
-        status: 'pending_verification',
-        signature
-      }, { status: 202 })
+      // Best-effort final check: if transaction exists on-chain, proceed and mark as unverified
+      let hasTx = false
+      for (let i = 0; i < 6; i++) {
+        const tx = await connection.getTransaction(signature, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 })
+        if (tx) { hasTx = true; break }
+        await new Promise(r => setTimeout(r, 1000))
+      }
+      if (!hasTx) {
+        // Persist failed attempt for auditing
+        await db.collection('burn_validations').insertOne({
+          walletAddress,
+          amount: BURN_AMOUNT,
+          signature,
+          referralCode: referralCode || null,
+          status: 'failed',
+          reason: 'verification_failed',
+          createdAt: new Date()
+        })
+        return NextResponse.json({ 
+          error: `Burn seen but not fully verifiable yet. Please try again shortly.`,
+          requiredBurnAmount: BURN_AMOUNT,
+          status: 'pending_verification',
+          signature
+        }, { status: 202 })
+      }
     }
     
     console.log(`[Username Reg] Burn verified successfully for ${BURN_AMOUNT} LYN`)
@@ -207,6 +215,13 @@ export async function POST(request: NextRequest) {
       } catch (fallbackError) {
         console.error('[Username Reg] Fallback burn recording also failed:', fallbackError)
       }
+    }
+
+    // Ensure vanity referral code exists immediately
+    try {
+      await ReferralServiceV2.getOrCreateReferralCode(walletAddress, username)
+    } catch (e) {
+      console.warn('[Username Reg] Failed to ensure vanity referral code:', e)
     }
 
     // Initialize reputation score
