@@ -8,8 +8,8 @@ import { ReferralServiceV2 } from '@/lib/services/referral-service-v2'
 import { BurnService } from '@/lib/services/burn-service'
 import jwt from 'jsonwebtoken'
 
-const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required to hold
-const BURN_AMOUNT = 10 // TEMP: 10 LYN tokens to burn for registration (reduced in prod for testing)
+const REQUIRED_BALANCE = 10000 // 10,000 LYN tokens required to hold
+const BURN_AMOUNT = 1000 // 1,000 LYN tokens to burn for registration
 
 export async function POST(request: NextRequest) {
   try {

@@ -531,7 +531,7 @@ export default function ReferralPage() {
           </div>
         </div>
         <div className="p-4 bg-background/60 rounded-lg">
-          <p className="text-sm font-medium mb-2">Example: Username Registration (10,000 LYN)</p>
+          <p className="text-sm font-medium mb-2">Example: Username Registration (1,000 LYN)</p>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Burned:</span>

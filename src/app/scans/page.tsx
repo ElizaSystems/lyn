@@ -641,7 +641,7 @@ export default function ScansPage() {
               {!userProfile?.username && (
                 <Button
                   onClick={() => setShowUsernameRegistration(true)}
-                  disabled={tokenBalance < 100000}
+                  disabled={tokenBalance < 10000}
                   className="bg-primary hover:bg-primary/80"
                 >
                   <Star className="w-4 h-4 mr-2" />
@@ -696,22 +696,22 @@ export default function ScansPage() {
                     Secure your unique username and create a shareable profile. Requirements:
                   </p>
                   <ul className="text-sm space-y-1 mb-4">
-                    <li className={`flex items-center space-x-2 ${tokenBalance >= 100000 ? 'text-green-400' : 'text-red-400'}`}>
-                      <span>{tokenBalance >= 100000 ? '✓' : '✗'}</span>
-                      <span>Hold 100,000+ LYN tokens (Current: {tokenBalance.toLocaleString()})</span>
+                    <li className={`flex items-center space-x-2 ${tokenBalance >= 10000 ? 'text-green-400' : 'text-red-400'}`}>
+                      <span>{tokenBalance >= 10000 ? '✓' : '✗'}</span>
+                      <span>Hold 10,000+ LYN tokens (Current: {tokenBalance.toLocaleString()})</span>
                     </li>
                     <li className="flex items-center space-x-2 text-muted-foreground">
                       <span>•</span>
-                      <span>Pay 10 LYN registration fee (temporary)</span>
+                      <span>Pay 1,000 LYN registration fee (burned)</span>
                     </li>
                     <li className="flex items-center space-x-2 text-muted-foreground">
                       <span>•</span>
                       <span>Get shareable profile URL</span>
                     </li>
                   </ul>
-                  {tokenBalance < 100000 && (
+                  {tokenBalance < 10000 && (
                     <p className="text-sm text-red-400">
-                      You need {(100000 - tokenBalance).toLocaleString()} more LYN tokens to register.
+                      You need {(10000 - tokenBalance).toLocaleString()} more LYN tokens to register.
                     </p>
                   )}
                 </div>
@@ -779,7 +779,7 @@ export default function ScansPage() {
               <div className="text-sm text-muted-foreground">
                 <p>• 3-20 characters</p>
                 <p>• Letters, numbers, underscores, hyphens only</p>
-                <p>• Fee: 10,000 LYN tokens (burned permanently)</p>
+                <p>• Fee: 1,000 LYN tokens (burned permanently)</p>
               </div>
               <div className="flex space-x-3">
                 <Button
@@ -795,7 +795,7 @@ export default function ScansPage() {
                   ) : (
                     <span className="flex items-center gap-2">
                       <Flame className="h-4 w-4" />
-                      Register (Burn 10,000 LYN)
+                      Register (Burn 1,000 LYN)
                     </span>
                   )}
                 </Button>

@@ -4,8 +4,8 @@ import { Connection } from '@solana/web3.js'
 import { verifyBurnTransaction } from '@/lib/solana-burn'
 import jwt from 'jsonwebtoken'
 
-const BURN_AMOUNT = 10 // Temporarily reduced for testing
-const REQUIRED_BALANCE = 100000
+const BURN_AMOUNT = 1000 // 1,000 LYN tokens to burn for registration
+const REQUIRED_BALANCE = 10000 // 10,000 LYN tokens required to hold
 
 export async function POST(request: NextRequest) {
   let client: MongoClient | null = null

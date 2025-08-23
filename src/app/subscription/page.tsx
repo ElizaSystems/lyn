@@ -80,13 +80,26 @@ function SubscriptionContent() {
 
     setLoading(true)
     setError('')
+    setSuccess(false)
     
     try {
       // Get the agent wallet address from environment or use default
       const agentWallet = process.env.NEXT_PUBLIC_AGENT_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
       const feeWallet = process.env.NEXT_PUBLIC_FEE_WALLET || 'H5fEsZs6QzZQfEEFeeWallet1111111111111111111'
-      const agentPubkey = new PublicKey(agentWallet)
-      const feePubkey = new PublicKey(feeWallet)
+      
+      // Validate wallet addresses
+      let agentPubkey: PublicKey
+      let feePubkey: PublicKey
+      
+      try {
+        agentPubkey = new PublicKey(agentWallet)
+        feePubkey = new PublicKey(feeWallet)
+      } catch (e) {
+        console.error('Invalid agent or fee wallet configuration')
+        setError('Service configuration error. Please contact support.')
+        setLoading(false)
+        return
+      }
       
       // Create SOL transfer transaction with recent blockhash
       const connection = new Connection(
@@ -95,7 +108,27 @@ function SubscriptionContent() {
 
       // Prepare transaction and set fee payer + recent blockhash
       const transaction = new Transaction()
-      const from = new PublicKey(publicKey.toString())
+      
+      // Safely handle publicKey - it should already be a PublicKey object
+      let from: PublicKey
+      try {
+        if (publicKey instanceof PublicKey) {
+          from = publicKey
+        } else if (typeof publicKey === 'string') {
+          from = new PublicKey(publicKey)
+        } else if (publicKey && typeof publicKey.toBase58 === 'function') {
+          // It's likely a PublicKey-like object
+          from = new PublicKey(publicKey.toBase58())
+        } else {
+          throw new Error('Invalid wallet public key format')
+        }
+      } catch (e) {
+        console.error('Error processing wallet public key:', e)
+        setError('Invalid wallet address format')
+        setLoading(false)
+        return
+      }
+      
       const total = 0.5 * LAMPORTS_PER_SOL
       const refCode = (customReferralCode || '').trim()
       let referrerPubkey: PublicKey | null = null
@@ -126,7 +159,7 @@ function SubscriptionContent() {
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
       transaction.recentBlockhash = blockhash
       transaction.lastValidBlockHeight = lastValidBlockHeight
-      transaction.feePayer = new PublicKey(publicKey.toString())
+      transaction.feePayer = from
       
       // Get wallet adapter to sign and send
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -163,9 +196,16 @@ function SubscriptionContent() {
       } else {
         setError(result.error || 'Failed to activate subscription')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Subscription error:', error)
-      setError((error as Error).message || 'Failed to process subscription')
+      // Handle specific error types
+      if (error?.message?.includes('Non-base58')) {
+        setError('Wallet connection issue. Please reconnect your wallet and try again.')
+      } else if (error?.message?.includes('insufficient')) {
+        setError('Insufficient SOL balance for subscription')
+      } else {
+        setError(error?.message || 'Failed to process subscription. Please try again.')
+      }
     } finally {
       setLoading(false)
       setProcessing(false)

@@ -151,8 +151,8 @@ export async function GET(request: NextRequest) {
                         let burnType: BurnEvent['type'] = 'manual'
                         let description = 'Token burn'
                         
-                        // Check if this is a username registration burn (10,000 LYN)
-                        if (uiAmount === 10000) {
+                        // Check if this is a username registration burn (1,000 LYN)
+                        if (uiAmount === 1000) {
                           burnType = 'username_registration'
                           description = 'Username registration'
                         }

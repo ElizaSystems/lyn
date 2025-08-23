@@ -459,7 +459,7 @@ export default function BurnTrackerPage() {
           <div className="space-y-1">
             <p className="text-sm font-medium">About Token Burns</p>
             <p className="text-xs text-muted-foreground">
-              Every burn permanently removes LYN from circulation. Username registrations burn 10,000 LYN, 
+              Every burn permanently removes LYN from circulation. Username registrations burn 1,000 LYN, 
               premium features have variable burns, and community events create scheduled burns. 
               All burns are recorded on-chain and tracked here in real-time.
             </p>
