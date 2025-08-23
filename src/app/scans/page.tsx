@@ -231,7 +231,7 @@ export default function ScansPage() {
     }
 
     try {
-      const response = await fetch(`/api/user/register-username?username=${encodeURIComponent(username)}`)
+      const response = await fetch(`/api/user/register-username-v2?username=${encodeURIComponent(username)}`)
       const data = await response.json()
       setUsernameAvailable(data.available)
     } catch (error) {

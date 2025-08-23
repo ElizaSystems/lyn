@@ -60,7 +60,7 @@ export function UsernameRegistration({ tokenBalance, onSuccess }: UsernameRegist
     try {
       // Register username with burn proof
       console.log('Registering username with burn proof...')
-      const response = await fetch('/api/user/register-username', {
+      const response = await fetch('/api/user/register-username-v2', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
