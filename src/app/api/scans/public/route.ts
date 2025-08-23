@@ -31,11 +31,25 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Handle username search
+    let userIdFromUsername: ObjectId | null = null
     if (search) {
-      query.$or = [
-        { hash: { $regex: search, $options: 'i' } },
-        { target: { $regex: search, $options: 'i' } }
-      ]
+      // First check if search is a username
+      const userByUsername = await usersCollection.findOne({ 
+        username: { $regex: `^${search}$`, $options: 'i' } 
+      })
+      
+      if (userByUsername) {
+        // If username found, filter scans by that user's ID
+        userIdFromUsername = userByUsername._id
+        query.userId = userIdFromUsername
+      } else {
+        // Otherwise search by hash or target
+        query.$or = [
+          { hash: { $regex: search, $options: 'i' } },
+          { target: { $regex: search, $options: 'i' } }
+        ]
+      }
     }
     
     // Get total count

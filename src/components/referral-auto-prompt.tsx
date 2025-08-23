@@ -5,7 +5,7 @@ import { useWallet } from '@/components/solana/solana-provider'
 
 /**
  * Automatically prompts wallet connect and locks referral if URL or cookie has ?ref.
- * Shows one-time flow per session.
+ * Only prompts ONCE - checks localStorage to see if already locked.
  */
 export function ReferralAutoPrompt() {
   const { connected, publicKey, connect } = useWallet()
@@ -24,6 +24,28 @@ export function ReferralAutoPrompt() {
           try { await connect() } catch { /* ignore */ }
         }
         if (!publicKey) return
+
+        // Check if we've already locked this referral for this wallet
+        const lockKey = `referral_locked_${publicKey.toString()}`
+        if (localStorage.getItem(lockKey)) {
+          console.log('[Referral] Already locked for this wallet, skipping prompt')
+          return
+        }
+
+        // Check with backend if already has a referrer
+        try {
+          const checkResponse = await fetch(`/api/referral/v2/my-referrer?wallet=${publicKey.toString()}`)
+          if (checkResponse.ok) {
+            const data = await checkResponse.json()
+            if (data?.walletAddress) {
+              console.log('[Referral] User already has a referrer, skipping prompt')
+              localStorage.setItem(lockKey, 'true')
+              return
+            }
+          }
+        } catch (e) {
+          console.log('[Referral] Could not check existing referrer')
+        }
 
         // Build message and sign
         const REQUIRED_PHRASE = 'Sign in to Lock in Your LYN Points with your Referrer'
@@ -54,12 +76,19 @@ export function ReferralAutoPrompt() {
         }
 
         // Call lock API
-        await fetch('/api/referral/v2/lock', {
+        const lockResponse = await fetch('/api/referral/v2/lock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify(payload)
         })
+        
+        if (lockResponse.ok) {
+          // Mark as locked in localStorage so we don't prompt again
+          const lockKey = `referral_locked_${publicKey.toString()}`
+          localStorage.setItem(lockKey, 'true')
+          console.log('[Referral] Successfully locked referral relationship')
+        }
       } finally {
         setAttempted(true)
       }

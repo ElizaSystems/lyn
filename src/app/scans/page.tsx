@@ -58,6 +58,7 @@ export default function ScansPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [refreshing, setRefreshing] = useState(false)
+  const [filteredUsername, setFilteredUsername] = useState<string | null>(null)
   
   // Profile/Username related state
   const [userProfile, setUserProfile] = useState<{
@@ -170,6 +171,14 @@ export default function ScansPage() {
         setStats(data.stats)
         setTotalPages(data.pagination?.totalPages || 1)
         if (resetPage) setPage(1)
+        
+        // Check if results are filtered by username
+        if (searchQuery && data.scans.length > 0 && 
+            data.scans.every((scan: Scan) => scan.user?.username === data.scans[0].user?.username)) {
+          setFilteredUsername(data.scans[0].user?.username || null)
+        } else {
+          setFilteredUsername(null)
+        }
       }
     } catch (error) {
       console.error('Failed to fetch public scans:', error)
@@ -536,7 +545,7 @@ export default function ScansPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search by hash or target..."
+              placeholder="Search by username, hash, or target..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-sidebar/30 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"

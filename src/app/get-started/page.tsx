@@ -108,7 +108,7 @@ export default function GetStartedPage() {
       icon: <User className="w-5 h-5 text-primary" />,
       action: connected && !localStorage.getItem('username') ? {
         label: 'Register Username',
-        onClick: () => router.push('/account')
+        onClick: () => router.push('/scans?tab=profile')
       } : undefined
     },
     {
