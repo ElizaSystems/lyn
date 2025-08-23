@@ -127,8 +127,8 @@ export default function GetStartedPage() {
       description: 'Earn reputation points and badges by performing scans, detecting threats, and contributing to the community.',
       icon: <Trophy className="w-5 h-5 text-primary" />,
       action: {
-        label: 'View Profile',
-        onClick: () => router.push('/profile')
+        label: 'View Account',
+        onClick: () => router.push('/account')
       }
     }
   ]
@@ -159,7 +159,7 @@ export default function GetStartedPage() {
       title: 'Achievement System',
       description: 'Badges & leaderboards',
       icon: <Award className="w-5 h-5" />,
-      href: '/profile',
+      href: '/account',
       badge: 'Gamified'
     },
     {

@@ -2,18 +2,24 @@ import { ObjectId } from 'mongodb'
 
 // Achievement Categories
 export type AchievementCategory = 
-  | 'security_scanner'      // Number of scans performed
-  | 'threat_hunter'         // Threats detected
-  | 'community_guardian'    // Community contributions
-  | 'token_burner'         // LYN tokens burned
-  | 'referral_master'      // Successful referrals
-  | 'streak'               // Daily activity streaks
-  | 'veteran'              // Account age milestones
-  | 'rare'                 // Rare/Secret achievements
-  | 'special'              // Special event achievements
+  | 'security_scanner'      // URL, wallet, contract, document scanning
+  | 'cross_chain_explorer'  // Multi-chain activity tracking
+  | 'threat_hunter'         // Threat detection and reporting
+  | 'community_guardian'    // Feedback, voting, whitelist/blacklist contributions
+  | 'burn_master'          // Token burning verification
+  | 'achievement_hunter'    // Collecting other badges
+  | 'task_automation'      // Creating and running automated tasks
+  | 'notification_expert'   // Webhook setup, alert management
+  | 'payment_pioneer'      // Crypto subscriptions
+  | 'referral_network'     // Successful referrals and network growth
+  | 'realtime_defender'    // Threat feed monitoring
+  | 'ai_assistant'         // Chat interactions
+  | 'streak_master'        // Daily/weekly/monthly activity
+  | 'veteran'              // Account age and longevity
+  | 'special_event'        // Platform milestones, seasonal events
 
 // Achievement Tiers
-export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'diamond'
+export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'diamond' | 'platinum'
 
 // Achievement Types
 export type AchievementType = 'cumulative' | 'milestone' | 'streak' | 'one_time' | 'secret'

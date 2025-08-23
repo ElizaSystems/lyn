@@ -80,18 +80,18 @@ export default function ThreatFeedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">LYN Threat Feed System</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold">LYN Threat Feed System</h1>
+          <p className="text-muted-foreground mt-2">
             Real-time threat intelligence aggregation and streaming platform
           </p>
         </div>
 
         {/* Initialization Card */}
-        <Card className="p-6 mb-6">
+        <Card className="glass-card p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">System Control</h2>
           <div className="flex flex-wrap gap-4">
             <Button 
@@ -105,7 +105,7 @@ export default function ThreatFeedPage() {
             <Button 
               onClick={generateTestAlert} 
               variant="outline"
-              className="text-orange-600 border-orange-600 hover:bg-orange-50"
+              className="text-destructive border-destructive hover:bg-destructive/10"
             >
               Send Test Alert
             </Button>
@@ -135,34 +135,34 @@ export default function ThreatFeedPage() {
 
         {/* Feature Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600 mb-2">Real-time</div>
-            <p className="text-sm text-gray-600">WebSocket-based threat streaming with millisecond latency</p>
+          <Card className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-primary mb-2">Real-time</div>
+            <p className="text-sm text-muted-foreground">WebSocket-based threat streaming with millisecond latency</p>
           </Card>
           
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600 mb-2">Multi-source</div>
-            <p className="text-sm text-gray-600">Aggregates threats from multiple external sources and community reports</p>
+          <Card className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-green-500 mb-2">Multi-source</div>
+            <p className="text-sm text-muted-foreground">Aggregates threats from multiple external sources and community reports</p>
           </Card>
           
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600 mb-2">AI-powered</div>
-            <p className="text-sm text-gray-600">Pattern detection, correlation analysis, and automated threat scoring</p>
+          <Card className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-accent mb-2">AI-powered</div>
+            <p className="text-sm text-muted-foreground">Pattern detection, correlation analysis, and automated threat scoring</p>
           </Card>
           
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600 mb-2">Scalable</div>
-            <p className="text-sm text-gray-600">Handles thousands of threats per minute with automatic aging and cleanup</p>
+          <Card className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-destructive mb-2">Scalable</div>
+            <p className="text-sm text-muted-foreground">Handles thousands of threats per minute with automatic aging and cleanup</p>
           </Card>
         </div>
 
         {/* System Features */}
-        <Card className="p-6 mb-6">
+        <Card className="glass-card p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">System Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-medium mb-2 text-green-600">✅ Implemented Features</h3>
-              <ul className="text-sm text-gray-600 space-y-1">
+              <h3 className="font-medium mb-2 text-green-500">✅ Implemented Features</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Real-time threat feed aggregation</li>
                 <li>• WebSocket-based streaming</li>
                 <li>• Threat correlation and deduplication</li>
@@ -177,8 +177,8 @@ export default function ThreatFeedPage() {
             </div>
             
             <div>
-              <h3 className="font-medium mb-2 text-blue-600">🔧 Technical Architecture</h3>
-              <ul className="text-sm text-gray-600 space-y-1">
+              <h3 className="font-medium mb-2 text-primary">🔧 Technical Architecture</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Node.js/Next.js backend with Socket.io</li>
                 <li>• MongoDB with aggregation pipelines</li>
                 <li>• React/TypeScript frontend</li>
@@ -198,9 +198,9 @@ export default function ThreatFeedPage() {
         <ThreatFeedDashboard />
 
         {/* Usage Instructions */}
-        <Card className="p-6 mt-8">
+        <Card className="glass-card p-6 mt-8">
           <h2 className="text-xl font-semibold mb-4">Usage Instructions</h2>
-          <div className="prose text-sm text-gray-600">
+          <div className="prose text-sm text-muted-foreground">
             <ol className="space-y-2">
               <li>1. <strong>Initialize the system</strong> by clicking "Initialize Threat Feed System" above</li>
               <li>2. <strong>Configure filters</strong> in the dashboard to specify what types of threats you want to monitor</li>

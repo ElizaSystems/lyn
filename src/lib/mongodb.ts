@@ -1046,7 +1046,7 @@ export const db = {
       const defaultReputation: MongoUserReputation = {
         userId,
         walletAddress,
-        reputationScore: 500, // Starting neutral score
+        reputationScore: 0, // Starting from zero - users earn reputation through activities
         feedbackCount: 0,
         votesReceived: 0,
         accuracyScore: 0,
@@ -1087,10 +1087,11 @@ export const db = {
       let newTier: MongoUserReputation['tier'] = 'novice'
       const score = reputation.reputationScore
       
-      if (score >= 900) newTier = 'guardian'
-      else if (score >= 750) newTier = 'expert'
-      else if (score >= 600) newTier = 'trusted'
-      else if (score >= 400) newTier = 'contributor'
+      if (score >= 1500) newTier = 'guardian' // Legend tier
+      else if (score >= 1000) newTier = 'expert'    // Elite tier
+      else if (score >= 600) newTier = 'trusted'    // Expert tier
+      else if (score >= 300) newTier = 'contributor' // Guardian tier
+      // else 'novice' (0-99 range)
       
       await collection.updateOne(
         { userId },
