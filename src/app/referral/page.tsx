@@ -54,6 +54,7 @@ export default function ReferralPage() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [referrer, setReferrer] = useState<{ walletAddress: string; username?: string | null; referralCode?: string | null } | null>(null)
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -135,6 +136,23 @@ export default function ReferralPage() {
             recentReferrals: [],
             recentRewards: []
           })
+        }
+
+        // Fetch referrer info for the connected wallet (if any)
+        try {
+          const refResponse = await fetch(`/api/referral/v2/my-referrer?wallet=${publicKey.toString()}`)
+          if (refResponse.ok) {
+            const refData = await refResponse.json()
+            if (refData?.walletAddress) {
+              setReferrer({
+                walletAddress: refData.walletAddress,
+                username: refData.username || null,
+                referralCode: refData.referralCode || null
+              })
+            }
+          }
+        } catch (e) {
+          console.log('Could not fetch referrer info')
         }
       } catch (error) {
         console.error('Failed to fetch referral dashboard:', error)
@@ -249,6 +267,24 @@ export default function ReferralPage() {
           </div>
         </div>
       </Card>
+
+      {/* Your Referrer */}
+      {referrer && (
+        <Card className="p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Your Referrer</h3>
+              <div className="text-sm text-muted-foreground mb-1">
+                {referrer.username ? `@${referrer.username}` : 'No username'}
+              </div>
+              <div className="font-mono text-sm break-all">{referrer.walletAddress}</div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => copyToClipboard(referrer.walletAddress)}>
+              <Copy className="h-4 w-4 mr-1" /> Copy
+            </Button>
+          </div>
+        </Card>
+      )}
       
       {/* Vanity URL Upgrade Card */}
       {!dashboard?.isVanity && (
