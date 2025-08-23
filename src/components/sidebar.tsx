@@ -12,9 +12,7 @@ import {
   Shield,
   Menu,
   X,
-  Settings,
   MessageCircle,
-  Github,
   FileText,
   Map,
   FileSearch,
@@ -24,7 +22,9 @@ import {
   Crown,
   Rocket,
   Brain,
-  Trophy
+  Trophy,
+  Twitter,
+  Send
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -328,19 +328,26 @@ export function Sidebar() {
           <p className="text-xs text-muted-foreground mb-3">Need help? Join our community</p>
         )}
         <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-sidebar-accent rounded-md transition-colors">
-            <MessageCircle className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-          </button>
-          <button className="p-2 hover:bg-sidebar-accent rounded-md transition-colors">
-            <Settings className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-          </button>
-          <button className="p-2 hover:bg-sidebar-accent rounded-md transition-colors">
-            <Github className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-          </button>
+          <a 
+            href="https://t.me/lyngalactic" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-2 hover:bg-sidebar-accent rounded-md transition-colors"
+          >
+            <Send className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+          </a>
+          <a 
+            href="https://x.com/ailynagent" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-2 hover:bg-sidebar-accent rounded-md transition-colors"
+          >
+            <Twitter className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+          </a>
         </div>
         {!collapsed && (
           <p className="text-xs text-muted-foreground mt-3">
-            2025 © LYN AI. v1.1.1.0xc4f88
+            2025 © LYN AI. v1.2.0.0xc4f89
           </p>
         )}
       </div>
