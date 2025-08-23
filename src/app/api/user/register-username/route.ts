@@ -6,6 +6,7 @@ import { verifyBurnTransaction } from '@/lib/solana-burn'
 import { config } from '@/lib/config'
 import { ReferralServiceV2 } from '@/lib/services/referral-service-v2'
 import { BurnService } from '@/lib/services/burn-service'
+import jwt from 'jsonwebtoken'
 
 const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required to hold
 const BURN_AMOUNT = 10 // TEMP: 10 LYN tokens to burn for registration (reduced in prod for testing)
@@ -84,31 +85,23 @@ export async function POST(request: NextRequest) {
     }
     
     if (!burnVerified) {
-      // Best-effort final check: if transaction exists on-chain, proceed and mark as unverified
-      let hasTx = false
-      for (let i = 0; i < 6; i++) {
-        const tx = await connection.getTransaction(signature, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 })
-        if (tx) { hasTx = true; break }
-        await new Promise(r => setTimeout(r, 1000))
-      }
-      if (!hasTx) {
-        // Persist failed attempt for auditing
-        await db.collection('burn_validations').insertOne({
-          walletAddress,
-          amount: BURN_AMOUNT,
-          signature,
-          referralCode: referralCode || null,
-          status: 'failed',
-          reason: 'verification_failed',
-          createdAt: new Date()
-        })
-        return NextResponse.json({ 
-          error: `Burn seen but not fully verifiable yet. Please try again shortly.`,
-          requiredBurnAmount: BURN_AMOUNT,
-          status: 'pending_verification',
-          signature
-        }, { status: 202 })
-      }
+      // Persist failed attempt for auditing
+      await db.collection('burn_validations').insertOne({
+        walletAddress,
+        amount: BURN_AMOUNT,
+        signature,
+        referralCode: referralCode || null,
+        status: 'failed',
+        reason: 'verification_failed',
+        createdAt: new Date()
+      })
+      // Return 202 to allow client to poll and auto-complete once RPC reflects the tx fully
+      return NextResponse.json({ 
+        error: `Burn seen but not fully verifiable yet. We will auto-complete shortly.`,
+        requiredBurnAmount: BURN_AMOUNT,
+        status: 'pending_verification',
+        signature
+      }, { status: 202 })
     }
     
     console.log(`[Username Reg] Burn verified successfully for ${BURN_AMOUNT} LYN`)
@@ -217,9 +210,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Ensure vanity referral code exists immediately
+    // Ensure vanity referral code exists after user is saved
     try {
-      await ReferralServiceV2.getOrCreateReferralCode(walletAddress, username)
+      // Give the DB a moment to persist the username
+      await new Promise(resolve => setTimeout(resolve, 100))
+      const result = await ReferralServiceV2.getOrCreateReferralCode(walletAddress, username)
+      console.log('[Username Reg] Vanity referral code result:', result)
     } catch (e) {
       console.warn('[Username Reg] Failed to ensure vanity referral code:', e)
     }
@@ -287,7 +283,18 @@ export async function POST(request: NextRequest) {
       code: referralResult.code
     } : null
     
-    return NextResponse.json({
+    // Generate auth token for the user
+    const token = jwt.sign(
+      { 
+        walletAddress,
+        username,
+        userId: userId?.toString()
+      },
+      process.env.JWT_SECRET || 'fallback-secret-change-in-production',
+      { expiresIn: '7d' }
+    )
+    
+    const response = NextResponse.json({
       success: true,
       username,
       profileUrl: `https://app.lynai.xyz/profile/${username}`,
@@ -297,6 +304,17 @@ export async function POST(request: NextRequest) {
         ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${newUserReferralCode.code}`
         : null
     })
+    
+    // Set auth cookie so user stays logged in after registration
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/',
+    })
+    
+    return response
 
   } catch (error) {
     console.error('Username registration error:', error)
