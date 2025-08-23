@@ -50,7 +50,21 @@ export async function POST(req: NextRequest) {
     // Normalize signature to base58 string
     let signatureBase58: string
     if (typeof signature === 'string') {
-      signatureBase58 = signature
+      // Accept base58 or base64 and normalize to base58
+      try {
+        bs58.decode(signature)
+        signatureBase58 = signature
+      } catch {
+        try {
+          const asBase64 = Buffer.from(signature, 'base64')
+          signatureBase58 = bs58.encode(asBase64)
+        } catch {
+          return NextResponse.json(
+            { error: 'Invalid signature string' },
+            { status: 400, headers }
+          )
+        }
+      }
     } else if (Array.isArray(signatureBytes)) {
       try {
         const bytes = new Uint8Array(signatureBytes as number[])

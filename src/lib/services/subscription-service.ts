@@ -1,4 +1,5 @@
 import { getDatabase } from '@/lib/mongodb'
+import { ObjectId } from 'mongodb'
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { ReferralServiceV2 } from './referral-service-v2'
 import { EnhancedSubscriptionService } from './enhanced-subscription-service'
@@ -6,6 +7,7 @@ import { CryptoPaymentService } from './crypto-payment-service'
 import { SubscriptionTier, PaymentToken } from '@/lib/models/subscription'
 
 export interface Subscription {
+  _id?: ObjectId
   walletAddress: string
   userId?: string
   username?: string
@@ -24,10 +26,10 @@ export interface Subscription {
 }
 
 export class SubscriptionService {
-  static readonly SUBSCRIPTION_PRICE_SOL = 20
+  static readonly SUBSCRIPTION_PRICE_SOL = 0.5
   static readonly SUBSCRIPTION_DURATION_DAYS = 30
-  static readonly TIER1_REFERRAL_RATE = 0.1 // 10% to direct referrer
-  static readonly TIER2_REFERRAL_RATE = 0.1 // 10% to referrer's referrer
+  static readonly TIER1_REFERRAL_RATE = 0.10 // 10% to direct referrer
+  static readonly TIER2_REFERRAL_RATE = 0.05 // 5% to referrer's referrer
   // Agent gets remaining 80%
   
   // Agent wallet for receiving SOL payments (85% of subscription)
