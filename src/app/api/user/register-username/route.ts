@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
       {
         $set: {
           username,
+          'profile.username': username,
           usernameRegisteredAt: registrationDate,
           registrationBurnAmount: BURN_AMOUNT,
           registrationBurnTx: signature,
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
           tokenBalance: balance,
           hasTokenAccess: balance >= REQUIRED_BALANCE,
           lastLoginAt: registrationDate,
+          profile: { username },
           createdAt: registrationDate
         }
       },
