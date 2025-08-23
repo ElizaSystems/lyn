@@ -21,7 +21,8 @@ import {
   Scan,
   Sparkles,
   Gift,
-  Crown
+  Crown,
+  Rocket
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -38,6 +39,13 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const agentItems: SidebarItem[] = [
+    { 
+      label: 'Get Started', 
+      path: '/get-started', 
+      icon: <Rocket className="w-5 h-5" />,
+      badge: 'Start Here',
+      badgeType: 'pink'
+    },
     { 
       label: 'Chat', 
       path: '/security', 
