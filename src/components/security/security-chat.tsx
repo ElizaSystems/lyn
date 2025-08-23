@@ -570,7 +570,11 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
                   {message.type === 'system' ? (
                     <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
                   ) : (
-                    <Bot className="h-4 w-4 text-primary" />
+                    <img 
+                      src="/logo.png" 
+                      alt="LYN AI" 
+                      className="h-6 w-6 object-contain"
+                    />
                   )}
                 </div>
               )}

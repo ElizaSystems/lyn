@@ -389,7 +389,11 @@ export function ChallengeChat({ challenge, onComplete }: ChallengeChatProps) {
               ) : message.type === 'system' ? (
                 <AlertTriangle className="w-4 h-4 text-yellow-500" />
               ) : (
-                <Bot className="w-4 h-4 text-primary" />
+                <img 
+                  src="/logo.png" 
+                  alt="LYN AI" 
+                  className="w-5 h-5 object-contain"
+                />
               )}
             </div>
             
