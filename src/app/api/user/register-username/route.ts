@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Verify the burn transaction on-chain
       console.log(`[Username Reg] Verifying burn transaction: ${signature}`)
-      burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT)
+      burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT, referralCode)
     }
     
     if (!burnVerified) {

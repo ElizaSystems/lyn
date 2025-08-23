@@ -378,20 +378,27 @@ export class AchievementService {
         achievementsUnlocked: 0,
         achievementsByCategory: {
           security_scanner: 0,
+          cross_chain_explorer: 0,
           threat_hunter: 0,
           community_guardian: 0,
-          token_burner: 0,
-          referral_master: 0,
-          streak: 0,
+          burn_master: 0,
+          achievement_hunter: 0,
+          task_automation: 0,
+          notification_expert: 0,
+          payment_pioneer: 0,
+          referral_network: 0,
+          realtime_defender: 0,
+          ai_assistant: 0,
+          streak_master: 0,
           veteran: 0,
-          rare: 0,
-          special: 0
+          special_event: 0
         },
         achievementsByTier: {
           bronze: 0,
           silver: 0,
           gold: 0,
-          diamond: 0
+          diamond: 0,
+          platinum: 0
         },
         stats: {
           totalScans: 0,
@@ -644,20 +651,27 @@ export class AchievementService {
       totalXPAwarded: totalXP[0]?.total || 0,
       achievementsByCategory: {
         security_scanner: 0,
+        cross_chain_explorer: 0,
         threat_hunter: 0,
         community_guardian: 0,
-        token_burner: 0,
-        referral_master: 0,
-        streak: 0,
+        burn_master: 0,
+        achievement_hunter: 0,
+        task_automation: 0,
+        notification_expert: 0,
+        payment_pioneer: 0,
+        referral_network: 0,
+        realtime_defender: 0,
+        ai_assistant: 0,
+        streak_master: 0,
         veteran: 0,
-        rare: 0,
-        special: 0
+        special_event: 0
       },
       achievementsByTier: {
         bronze: 0,
         silver: 0,
         gold: 0,
-        diamond: 0
+        diamond: 0,
+        platinum: 0
       },
       updatedAt: new Date()
     }

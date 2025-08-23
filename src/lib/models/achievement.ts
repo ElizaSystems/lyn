@@ -34,14 +34,32 @@ export type ActivityType =
   | 'wallet_analyzed'
   | 'document_scanned'
   | 'url_checked'
+  | 'contract_analyzed'
+  | 'cross_chain_activity'
+  | 'multi_chain_scan'
   | 'tokens_burned'
+  | 'burn_verified'
   | 'referral_completed'
+  | 'referral_network_growth'
   | 'community_vote'
   | 'feedback_submitted'
-  | 'daily_login'
-  | 'profile_updated'
+  | 'whitelist_contribution'
+  | 'blacklist_contribution'
+  | 'task_created'
+  | 'task_automated'
+  | 'webhook_configured'
+  | 'notification_setup'
   | 'subscription_purchased'
+  | 'crypto_payment_made'
+  | 'threat_feed_monitored'
+  | 'ai_chat_interaction'
+  | 'daily_login'
+  | 'weekly_activity'
+  | 'monthly_activity'
+  | 'profile_updated'
   | 'streak_maintained'
+  | 'badge_collected'
+  | 'achievement_unlocked'
 
 // Achievement Definition (template/definition stored in database)
 export interface AchievementDefinition {
@@ -279,15 +297,90 @@ export interface LevelConfig {
 
 export const DEFAULT_LEVEL_CONFIG: LevelConfig[] = [
   { level: 1, xpRequired: 0, xpTotal: 0, title: 'Novice', badge: 'novice' },
-  { level: 2, xpRequired: 100, xpTotal: 100, title: 'Explorer', badge: 'explorer' },
-  { level: 3, xpRequired: 200, xpTotal: 300, title: 'Guardian', badge: 'guardian' },
-  { level: 4, xpRequired: 400, xpTotal: 700, title: 'Protector', badge: 'protector' },
-  { level: 5, xpRequired: 600, xpTotal: 1300, title: 'Sentinel', badge: 'sentinel' },
-  { level: 6, xpRequired: 800, xpTotal: 2100, title: 'Defender', badge: 'defender' },
-  { level: 7, xpRequired: 1000, xpTotal: 3100, title: 'Champion', badge: 'champion' },
-  { level: 8, xpRequired: 1500, xpTotal: 4600, title: 'Elite', badge: 'elite' },
-  { level: 9, xpRequired: 2000, xpTotal: 6600, title: 'Master', badge: 'master' },
-  { level: 10, xpRequired: 3000, xpTotal: 9600, title: 'Legend', badge: 'legend' }
+  { level: 2, xpRequired: 50, xpTotal: 50, title: 'Apprentice', badge: 'apprentice' },
+  { level: 3, xpRequired: 100, xpTotal: 150, title: 'Explorer', badge: 'explorer' },
+  { level: 4, xpRequired: 200, xpTotal: 350, title: 'Contributor', badge: 'contributor' },
+  { level: 5, xpRequired: 300, xpTotal: 650, title: 'Guardian', badge: 'guardian' },
+  { level: 6, xpRequired: 400, xpTotal: 1050, title: 'Expert', badge: 'expert' },
+  { level: 7, xpRequired: 500, xpTotal: 1550, title: 'Elite', badge: 'elite' },
+  { level: 8, xpRequired: 750, xpTotal: 2300, title: 'Master', badge: 'master' },
+  { level: 9, xpRequired: 1000, xpTotal: 3300, title: 'Legend', badge: 'legend' },
+  { level: 10, xpRequired: 1500, xpTotal: 4800, title: 'Mythic', badge: 'mythic' }
+]
+
+// Reputation Tier Configuration
+export interface ReputationTier {
+  tier: string
+  minReputation: number
+  maxReputation: number
+  title: string
+  description: string
+  color: string
+  benefits: string[]
+  multiplier: number // Reputation earning multiplier
+}
+
+export const REPUTATION_TIERS: ReputationTier[] = [
+  {
+    tier: 'novice',
+    minReputation: 0,
+    maxReputation: 99,
+    title: 'Novice',
+    description: 'Just getting started on your security journey',
+    color: '#9CA3AF',
+    benefits: ['Basic platform access', 'Community participation'],
+    multiplier: 1.0
+  },
+  {
+    tier: 'contributor',
+    minReputation: 100,
+    maxReputation: 299,
+    title: 'Contributor',
+    description: 'Actively contributing to platform security',
+    color: '#10B981',
+    benefits: ['Enhanced scanning features', 'Priority support', '10% reputation bonus'],
+    multiplier: 1.1
+  },
+  {
+    tier: 'guardian',
+    minReputation: 300,
+    maxReputation: 599,
+    title: 'Guardian',
+    description: 'Trusted community member and security guardian',
+    color: '#3B82F6',
+    benefits: ['Advanced threat detection', 'Moderation privileges', '25% reputation bonus'],
+    multiplier: 1.25
+  },
+  {
+    tier: 'expert',
+    minReputation: 600,
+    maxReputation: 999,
+    title: 'Expert',
+    description: 'Security expert with proven track record',
+    color: '#8B5CF6',
+    benefits: ['Expert-level features', 'Beta access', '50% reputation bonus'],
+    multiplier: 1.5
+  },
+  {
+    tier: 'elite',
+    minReputation: 1000,
+    maxReputation: 1499,
+    title: 'Elite',
+    description: 'Elite security professional',
+    color: '#F59E0B',
+    benefits: ['Exclusive features', 'Direct developer access', '75% reputation bonus'],
+    multiplier: 1.75
+  },
+  {
+    tier: 'legend',
+    minReputation: 1500,
+    maxReputation: Infinity,
+    title: 'Legend',
+    description: 'Legendary status - the highest tier of security mastery',
+    color: '#EF4444',
+    benefits: ['All features unlocked', 'Legendary badge', '100% reputation bonus'],
+    multiplier: 2.0
+  }
 ]
 
 // Achievement Categories Configuration
@@ -296,59 +389,111 @@ export const ACHIEVEMENT_CATEGORIES: Record<AchievementCategory, {
   description: string
   color: string
   icon: string
+  emoji: string
 }> = {
   security_scanner: {
     name: 'Security Scanner',
-    description: 'Achievements for performing security scans',
+    description: 'URL, wallet, contract, and document scanning achievements',
     color: '#3B82F6',
-    icon: 'shield-check'
+    icon: 'shield-check',
+    emoji: '🛡️'
+  },
+  cross_chain_explorer: {
+    name: 'Cross-Chain Explorer',
+    description: 'Multi-chain activity tracking and analysis achievements',
+    color: '#7C3AED',
+    icon: 'link',
+    emoji: '⛓️'
   },
   threat_hunter: {
     name: 'Threat Hunter',
-    description: 'Achievements for detecting threats and vulnerabilities',
+    description: 'Threat detection and security reporting achievements',
     color: '#EF4444',
-    icon: 'bug'
+    icon: 'bug',
+    emoji: '🎯'
   },
   community_guardian: {
     name: 'Community Guardian',
-    description: 'Achievements for community contributions and engagement',
+    description: 'Community feedback, voting, and moderation achievements',
     color: '#10B981',
-    icon: 'users'
+    icon: 'users',
+    emoji: '🛡️'
   },
-  token_burner: {
-    name: 'Token Burner',
-    description: 'Achievements for burning LYN tokens',
+  burn_master: {
+    name: 'Burn Master',
+    description: 'Token burning verification and commitment achievements',
     color: '#F59E0B',
-    icon: 'fire'
+    icon: 'fire',
+    emoji: '🔥'
   },
-  referral_master: {
-    name: 'Referral Master',
-    description: 'Achievements for successful referrals',
-    color: '#8B5CF6',
-    icon: 'user-plus'
+  achievement_hunter: {
+    name: 'Achievement Hunter',
+    description: 'Meta-achievements for collecting badges and milestones',
+    color: '#EC4899',
+    icon: 'trophy',
+    emoji: '🏆'
   },
-  streak: {
-    name: 'Consistency',
-    description: 'Achievements for maintaining activity streaks',
+  task_automation: {
+    name: 'Task Automation',
+    description: 'Creating and managing automated security tasks',
     color: '#06B6D4',
-    icon: 'calendar'
+    icon: 'cog',
+    emoji: '⚙️'
+  },
+  notification_expert: {
+    name: 'Notification Expert',
+    description: 'Webhook setup and alert management mastery',
+    color: '#8B5CF6',
+    icon: 'bell',
+    emoji: '🔔'
+  },
+  payment_pioneer: {
+    name: 'Payment Pioneer',
+    description: 'Cryptocurrency subscription and payment achievements',
+    color: '#F97316',
+    icon: 'credit-card',
+    emoji: '💳'
+  },
+  referral_network: {
+    name: 'Referral Network',
+    description: 'Building and growing your referral network',
+    color: '#84CC16',
+    icon: 'network',
+    emoji: '🌐'
+  },
+  realtime_defender: {
+    name: 'Real-time Defender',
+    description: 'Threat feed monitoring and real-time security',
+    color: '#DC2626',
+    icon: 'radar',
+    emoji: '📡'
+  },
+  ai_assistant: {
+    name: 'AI Assistant',
+    description: 'AI chat interactions and assistance achievements',
+    color: '#6366F1',
+    icon: 'bot',
+    emoji: '🤖'
+  },
+  streak_master: {
+    name: 'Streak Master',
+    description: 'Daily, weekly, and monthly activity consistency',
+    color: '#059669',
+    icon: 'calendar-days',
+    emoji: '📅'
   },
   veteran: {
     name: 'Veteran',
-    description: 'Achievements for account longevity and dedication',
+    description: 'Account longevity and platform dedication',
     color: '#6B7280',
-    icon: 'star'
+    icon: 'star',
+    emoji: '⭐'
   },
-  rare: {
-    name: 'Rare Achievements',
-    description: 'Rare and secret achievements',
-    color: '#EC4899',
-    icon: 'sparkles'
-  },
-  special: {
+  special_event: {
     name: 'Special Events',
-    description: 'Limited-time event achievements',
-    color: '#F97316',
-    icon: 'trophy'
+    description: 'Limited-time events and platform milestone celebrations',
+    color: '#DB2777',
+    icon: 'party-popper',
+    emoji: '🎉'
   }
 }
