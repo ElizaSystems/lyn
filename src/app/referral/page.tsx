@@ -70,32 +70,39 @@ export default function ReferralPage() {
         const userIdToUse = publicKey.toString()
         setUserId(userIdToUse)
         
-        // Check if user has a username
+        // Check if user has a username - try auth first, then direct wallet lookup
         let username = ''
         try {
           const userResponse = await fetch('/api/auth/me', {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'x-wallet-address': publicKey.toString()
+            }
           })
           if (userResponse.ok) {
             const userData = await userResponse.json()
-            username = userData.username || ''
+            username = userData.user?.username || userData.username || ''
           }
         } catch (e) {
-          console.log('Could not fetch user data')
+          console.log('Could not fetch user data from auth')
         }
 
-        // Get or create referral code using V2 API; include username if we have it or from /api/user/info fallback
-        let vanityName = username
-        if (!vanityName) {
+        // If no username from auth, try direct wallet lookup
+        if (!username) {
           try {
-            const info = await fetch(`/api/user/info?walletAddress=${publicKey.toString()}`)
-            if (info.ok) {
-              const data = await info.json()
-              vanityName = data?.username || ''
+            const walletResponse = await fetch(`/api/user/by-wallet?walletAddress=${publicKey.toString()}`)
+            if (walletResponse.ok) {
+              const walletData = await walletResponse.json()
+              if (walletData.exists) {
+                username = walletData.username || ''
+              }
             }
-          } catch {}
+          } catch (e) {
+            console.log('Could not fetch user by wallet')
+          }
         }
-        const codeResponse = await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}${vanityName ? `&username=${vanityName}` : ''}`)
+        
+        const codeResponse = await fetch(`/api/referral/v2/code?walletAddress=${publicKey.toString()}${username ? `&username=${username}` : ''}`)
         
         if (!codeResponse.ok) {
           console.error('Failed to get referral code, using fallback')

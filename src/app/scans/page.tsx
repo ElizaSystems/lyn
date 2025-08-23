@@ -201,17 +201,22 @@ export default function ScansPage() {
             setTokenBalance(balanceData.balance || 0)
           }
         }
-      } else if (response.status === 401) {
-        // Attempt silent fetch of referrer code and prompt for vanity referral refresh
+      } else if (response.status === 401 && publicKey) {
+        // Fallback to direct wallet lookup
         try {
-          const me = await fetch(`/api/user/info?walletAddress=${publicKey?.toString()}`, { credentials: 'include' })
-          if (me.ok) {
-            const info = await me.json()
-            if (info?.username) {
-              setUserProfile({ walletAddress: info.walletAddress, username: info.username })
+          const walletResponse = await fetch(`/api/user/by-wallet?walletAddress=${publicKey.toString()}`)
+          if (walletResponse.ok) {
+            const walletData = await walletResponse.json()
+            if (walletData.exists && walletData.username) {
+              setUserProfile({ 
+                walletAddress: walletData.walletAddress, 
+                username: walletData.username 
+              })
             }
           }
-        } catch {}
+        } catch (e) {
+          console.error('Failed to fetch user by wallet:', e)
+        }
       }
     } catch (error) {
       console.error('Failed to fetch user profile:', error)
@@ -943,4 +948,5 @@ export default function ScansPage() {
       )}
     </div>
   )
+}
 }

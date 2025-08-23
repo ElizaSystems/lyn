@@ -80,6 +80,11 @@ export function UsernameRegistration({ tokenBalance, onSuccess }: UsernameRegist
           onSuccess(username)
         }
         console.log('Username registered successfully!', data)
+        
+        // Reload after a short delay to ensure auth state is refreshed
+        setTimeout(() => {
+          window.location.reload()
+        }, 2000)
       } else {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Registration failed')

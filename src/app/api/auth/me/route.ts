@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
+import { getDatabase } from '@/lib/mongodb'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser(req)
+    // Try to get user from auth token first
+    let user = await getCurrentUser(req)
+    
+    // If no user from token, check if we have wallet in header and get from DB
+    if (!user) {
+      const walletAddress = req.headers.get('x-wallet-address')
+      if (walletAddress) {
+        const db = await getDatabase()
+        const dbUser = await db.collection('users').findOne({ walletAddress })
+        if (dbUser) {
+          user = {
+            id: dbUser._id.toString(),
+            walletAddress: dbUser.walletAddress,
+            username: dbUser.username || dbUser.profile?.username,
+            tokenBalance: 0,
+            hasTokenAccess: true,
+            questionsAsked: 0
+          }
+        }
+      }
+    }
     
     if (!user) {
       return NextResponse.json(
