@@ -286,6 +286,93 @@ Remember: You have REAL security scanning capabilities through integrated APIs. 
   }
 
   /**
+   * Generate a response for security challenge interactions
+   */
+  static async generateChallengeResponse(
+    userMessage: string,
+    challengeContext: {
+      title: string
+      scenario: string
+      objectives: string[]
+      hintsUsed: number
+      timeSpent: number
+    },
+    conversationHistory: ChatMessage[] = []
+  ): Promise<string> {
+    const client = this.getClient()
+    
+    // If Venice AI is not configured, use intelligent fallback
+    if (!client) {
+      return this.generateChallengeFallback(userMessage, challengeContext)
+    }
+
+    try {
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: `You are Lyn, an expert cybersecurity instructor guiding a student through a security challenge. 
+
+Challenge: "${challengeContext.title}"
+Scenario: ${challengeContext.scenario}
+Learning Objectives: ${challengeContext.objectives.join(', ')}
+Progress: ${challengeContext.timeSpent} seconds elapsed, ${challengeContext.hintsUsed} hints used
+
+Your role:
+1. Guide the student through the challenge interactively
+2. Ask probing questions to test understanding
+3. Provide feedback on their security reasoning
+4. Help them learn from mistakes without giving away answers
+5. Encourage critical thinking about security implications
+6. Score their understanding based on responses
+
+Be encouraging but educational. Focus on helping them understand WHY certain security practices matter.`
+        },
+        ...conversationHistory.slice(-8),
+        { role: 'user', content: userMessage }
+      ]
+
+      const completion = await client.chat.completions.create({
+        model: 'llama-3.3-70b',
+        messages,
+        temperature: 0.7,
+        max_tokens: 400,
+      })
+
+      return completion.choices[0]?.message?.content || this.generateChallengeFallback(userMessage, challengeContext)
+    } catch (error) {
+      console.error('[Venice AI] Challenge response error:', error)
+      return this.generateChallengeFallback(userMessage, challengeContext)
+    }
+  }
+
+  /**
+   * Fallback for challenge responses
+   */
+  private static generateChallengeFallback(message: string, context: any): string {
+    const lowerMessage = message.toLowerCase()
+    
+    // Provide contextual fallback based on common security keywords
+    if (lowerMessage.includes('phishing') || lowerMessage.includes('email')) {
+      return "Good thinking about phishing! Key indicators include: urgent language, generic greetings, suspicious sender addresses, and requests for sensitive information. How would you verify if an email is legitimate?"
+    }
+    
+    if (lowerMessage.includes('password') || lowerMessage.includes('credential')) {
+      return "Excellent point about credentials! Never share passwords over phone or email. Legitimate IT support has ways to help without needing your password. What other red flags might indicate a social engineering attempt?"
+    }
+    
+    if (lowerMessage.includes('verify') || lowerMessage.includes('check')) {
+      return "Verification is crucial! Always verify through official channels - call back using a known number, not one provided in the suspicious communication. What official channels would you use in this scenario?"
+    }
+    
+    if (lowerMessage.includes('report') || lowerMessage.includes('incident')) {
+      return "Reporting is an important step! Document everything: time, date, what was said/asked, and any contact information. This helps protect others. Who else might need to know about this incident?"
+    }
+    
+    // Generic encouraging response
+    return `Interesting approach! Let's think about this scenario: ${context.scenario.substring(0, 100)}... What security principles apply here? Consider: verification, documentation, and protecting sensitive information.`
+  }
+
+  /**
    * Fallback response generation when Venice AI is not available
    */
   private static generateFallbackResponse(message: string): string {

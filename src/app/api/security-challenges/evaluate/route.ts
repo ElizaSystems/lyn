@@ -43,10 +43,10 @@ Evaluation Criteria:
 
 Provide a score from 0-100 and constructive feedback.`
 
-    const aiEvaluation = await VeniceAIService.generateResponse(
+    const aiEvaluation = await VeniceAIService.generateSecurityResponse(
       evaluationPrompt,
-      [],
-      { temperature: 0.3, max_tokens: 500 }
+      [{ role: 'system', content: 'You are an expert cybersecurity instructor evaluating a student\'s challenge response. Provide constructive feedback and a numerical score.' }],
+      { username: 'Instructor' }
     )
 
     // Parse AI evaluation to extract score

@@ -50,14 +50,17 @@ Be encouraging but also point out areas for improvement. Help them learn from th
     // Add user message to history
     history.push({ role: 'user', content: message })
     
-    // Generate AI response
-    const aiResponse = await VeniceAIService.generateResponse(
+    // Generate AI response using the challenge-specific method
+    const aiResponse = await VeniceAIService.generateChallengeResponse(
       message,
-      history,
       {
-        temperature: 0.7,
-        max_tokens: 500
-      }
+        title: 'Security Challenge',
+        scenario: context.scenario,
+        objectives: context.objectives,
+        hintsUsed: context.hintsUsed || 0,
+        timeSpent: context.timeSpent || 0
+      },
+      history
     )
     
     // Add AI response to history
