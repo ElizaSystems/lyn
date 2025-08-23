@@ -76,6 +76,11 @@ export async function POST(request: NextRequest) {
       // Verify the burn transaction on-chain
       console.log(`[Username Reg] Verifying burn transaction: ${signature}`)
       burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT, referralCode)
+      if (!burnVerified && referralCode) {
+        // Retry leniently without referral chain check in case wallets burned full amount without splits
+        console.log('[Username Reg] Initial verification with referral failed; retrying burn-only check')
+        burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT)
+      }
     }
     
     if (!burnVerified) {

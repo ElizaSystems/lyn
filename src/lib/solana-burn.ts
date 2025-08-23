@@ -82,13 +82,13 @@ export async function verifyBurnTransaction(
     
     // Allow for small rounding differences
     const difference = Math.abs(burnedUIAmount - expectedBurnAmount)
-    const isValid = difference < 0.01 // Allow 0.01 token difference for rounding
+    const isValidBurnOnly = difference < 0.01 // Allow 0.01 token difference for rounding
     
     console.log(`[Burn Verification] Difference: ${difference}, Valid: ${isValid}`)
     
     // If no referral distribution required, return burn-only validation
     if (!referralCode) {
-      return isValid
+      return isValidBurnOnly
     }
 
     // Validate distribution amounts: tier1 30%, tier2 20%
@@ -141,10 +141,16 @@ export async function verifyBurnTransaction(
       const tier1Ok = !tier1Ata || within(tier1Transferred, expectedTier1)
       const tier2Ok = !tier2Ata || within(tier2Transferred, expectedTier2)
 
-      return isValid && tier1Ok && tier2Ok
+      // Accept either of the following patterns:
+      // A) Full-burn pattern: burned == expected, distributions optional (legacy)
+      // B) Split pattern: (burned + tier1 + tier2) == expected with 30%/20% transfers
+      const totalOutflow = totalBurned + tier1Transferred + tier2Transferred
+      const outflowOk = within(totalOutflow, expectedRaw)
+
+      return (isValidBurnOnly || outflowOk) && tier1Ok && tier2Ok
     } catch (e) {
       console.warn('[Burn Verification] Distribution check failed:', e)
-      return isValid
+      return isValidBurnOnly
     }
     
   } catch (error) {
