@@ -8,7 +8,7 @@ import { ReferralServiceV2 } from '@/lib/services/referral-service-v2'
 import { BurnService } from '@/lib/services/burn-service'
 
 const REQUIRED_BALANCE = 100000 // 100,000 LYN tokens required to hold
-const BURN_AMOUNT = 10000 // 10,000 LYN tokens to burn for registration
+const BURN_AMOUNT = 10 // TEMP: 10 LYN tokens to burn for registration (reduced in prod for testing)
 
 export async function POST(request: NextRequest) {
   try {

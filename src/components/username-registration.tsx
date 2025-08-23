@@ -13,7 +13,7 @@ interface UsernameRegistrationProps {
 }
 
 const REQUIRED_BALANCE = 100000 // Need to hold 100k LYN
-const BURN_AMOUNT = 10000 // Burn 10k LYN for registration
+const BURN_AMOUNT = 10 // TEMP: Burn 10 LYN for registration during testing
 
 export function UsernameRegistration({ tokenBalance, onSuccess }: UsernameRegistrationProps) {
   const { publicKey } = useWallet()

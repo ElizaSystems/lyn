@@ -331,7 +331,7 @@ export default function ReferralPage() {
                   Register Username →
                 </a>
                 <span className="text-xs text-muted-foreground">
-                  Burns 10,000 LYN • One-time fee
+                  Burns 10 LYN • One-time fee (temporary)
                 </span>
               </div>
             </div>

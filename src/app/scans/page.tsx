@@ -238,7 +238,7 @@ export default function ScansPage() {
     setRegisterStep('burning')
     try {
       // Step 1: Burn tokens
-      const burnAmount = 10000 // 10,000 LYN tokens to burn
+      const burnAmount = 10 // TEMP: 10 LYN tokens to burn during testing
       const confirmBurn = window.confirm(
         `This will burn ${burnAmount.toLocaleString()} LYN tokens from your wallet.\n\n` +
         `This action is irreversible. The tokens will be permanently destroyed.\n\n` +
@@ -655,7 +655,7 @@ export default function ScansPage() {
                     </li>
                     <li className="flex items-center space-x-2 text-muted-foreground">
                       <span>•</span>
-                      <span>Pay 10,000 LYN registration fee</span>
+                      <span>Pay 10 LYN registration fee (temporary)</span>
                     </li>
                     <li className="flex items-center space-x-2 text-muted-foreground">
                       <span>•</span>
