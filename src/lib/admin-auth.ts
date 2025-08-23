@@ -16,6 +16,13 @@ export interface AdminUser {
 }
 
 /**
+ * Check if a wallet address is an admin
+ */
+export function isAdmin(walletAddress: string): boolean {
+  return isAdminWallet(walletAddress)
+}
+
+/**
  * Check if current user is an admin
  */
 export async function requireAdmin(request: NextRequest): Promise<{

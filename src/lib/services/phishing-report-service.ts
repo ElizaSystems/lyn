@@ -10,7 +10,8 @@ class PhishingReportService {
       reporterId: string
       reporterUsername: string
       url?: string
-      email?: string
+      domain?: string
+      reporterEmail?: string
       description: string
       category: string
       evidence?: any
@@ -49,22 +50,24 @@ class PhishingReportService {
       const indicators: string[] = []
       let aiScore = 0
       
-      if (report.url) {
+      const urlToCheck = report.url || (report.domain ? `https://${report.domain}` : null)
+      
+      if (urlToCheck) {
         // Check for suspicious URL patterns
-        if (report.url.includes('bit.ly') || report.url.includes('tinyurl')) {
+        if (urlToCheck.includes('bit.ly') || urlToCheck.includes('tinyurl')) {
           indicators.push('Shortened URL detected')
           aiScore += 20
         }
-        if (report.url.includes('@')) {
+        if (urlToCheck.includes('@')) {
           indicators.push('@ symbol in URL (possible deception)')
           aiScore += 30
         }
-        if (!/^https:\/\//.test(report.url)) {
+        if (!/^https:\/\//.test(urlToCheck)) {
           indicators.push('Non-HTTPS URL')
           aiScore += 15
         }
         // Check for homograph attacks
-        if (/[а-яА-Я]/.test(report.url)) {
+        if (/[а-яА-Я]/.test(urlToCheck)) {
           indicators.push('Cyrillic characters detected (possible homograph attack)')
           aiScore += 40
         }
