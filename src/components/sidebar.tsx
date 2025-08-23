@@ -23,7 +23,8 @@ import {
   Gift,
   Crown,
   Rocket,
-  Brain
+  Brain,
+  Trophy
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -72,6 +73,13 @@ export function Sidebar() {
       icon: <Brain className="w-5 h-5" />,
       badge: 'Learn',
       badgeType: 'pink'
+    },
+    { 
+      label: 'Badges', 
+      path: '/badges', 
+      icon: <Trophy className="w-5 h-5" />,
+      badge: '50',
+      badgeType: 'cyan'
     },
     { 
       label: 'Terminal', 
