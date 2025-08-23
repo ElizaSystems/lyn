@@ -2539,6 +2539,11 @@
     "@types/node" "*"
     base-x "^3.0.6"
 
+"@types/canvas-confetti@^1.9.0":
+  version "1.9.0"
+  resolved "https://registry.npmjs.org/@types/canvas-confetti/-/canvas-confetti-1.9.0.tgz"
+  integrity sha512-aBGj/dULrimR1XDZLtG9JwxX1b4HPRF6CX9Yfwh3NvstZEm1ZL7RBnel4keCPSqs1ANRu1u2Aoz9R+VmtjYuTg==
+
 "@types/connect@^3.4.33", "@types/connect@3.4.38":
   version "3.4.38"
   resolved "https://registry.npmjs.org/@types/connect/-/connect-3.4.38.tgz"
@@ -3817,6 +3822,11 @@ caniuse-lite@^1.0.30001579, caniuse-lite@^1.0.30001733:
   resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001735.tgz"
   integrity sha512-EV/laoX7Wq2J9TQlyIXRxTJqIw4sxfXS4OYgudGxBYRuTv0q7AM6yMEpU/Vo1I94thg9U6EZ2NfZx9GJq83u7w==
 
+canvas-confetti@^1.9.3:
+  version "1.9.3"
+  resolved "https://registry.npmjs.org/canvas-confetti/-/canvas-confetti-1.9.3.tgz"
+  integrity sha512-rFfTURMvmVEX1gyXFgn5QMn81bYk70qa0HLzcIOSVEyl57n6o9ItHeBtUSWdvKAPY0xlvBHno4/v3QPrT83q9g==
+
 chalk@^4.0.0:
   version "4.1.2"
   resolved "https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz"
@@ -5055,6 +5065,15 @@ forwarded-parse@2.1.2:
   version "2.1.2"
   resolved "https://registry.npmjs.org/forwarded-parse/-/forwarded-parse-2.1.2.tgz"
   integrity sha512-alTFZZQDKMporBH77856pXgzhEzaUVmLCDk+egLgIgHst3Tpndzz8MnKe+GzRJRfvVdn69HhpW7cmXzvtLvJAw==
+
+framer-motion@^12.23.12:
+  version "12.23.12"
+  resolved "https://registry.npmjs.org/framer-motion/-/framer-motion-12.23.12.tgz"
+  integrity sha512-6e78rdVtnBvlEVgu6eFEAgG9v3wLnYEboM8I5O5EXvfKC8gxGQB8wXJdhkMy10iVcn05jl6CNw7/HTsTCfwcWg==
+  dependencies:
+    motion-dom "^12.23.12"
+    motion-utils "^12.23.6"
+    tslib "^2.4.0"
 
 fs.realpath@^1.0.0:
   version "1.0.0"
@@ -6662,6 +6681,18 @@ mongoose@^8.18.0:
     mquery "5.0.0"
     ms "2.1.3"
     sift "17.1.3"
+
+motion-dom@^12.23.12:
+  version "12.23.12"
+  resolved "https://registry.npmjs.org/motion-dom/-/motion-dom-12.23.12.tgz"
+  integrity sha512-RcR4fvMCTESQBD/uKQe49D5RUeDOokkGRmz4ceaJKDBgHYtZtntC/s2vLvY38gqGaytinij/yi3hMcWVcEF5Kw==
+  dependencies:
+    motion-utils "^12.23.6"
+
+motion-utils@^12.23.6:
+  version "12.23.6"
+  resolved "https://registry.npmjs.org/motion-utils/-/motion-utils-12.23.6.tgz"
+  integrity sha512-eAWoPgr4eFEOFfg2WjIsMoqJTW6Z8MTUCgn/GZ3VRpClWBdnbjryiA3ZSNLyxCTmCQx4RmYX6jX1iWHbenUPNQ==
 
 mpath@0.9.0:
   version "0.9.0"

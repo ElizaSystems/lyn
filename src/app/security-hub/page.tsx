@@ -6,9 +6,10 @@ import {
   Shield, Brain, AlertTriangle, Trophy, BookOpen, Target,
   TrendingUp, Award, Users, Zap, Clock, ChevronRight,
   Info, Heart, Flag, Play, HelpCircle, CheckCircle,
-  XCircle, Timer, Star, Flame, MessageSquare
+  XCircle, Timer, Star, Flame, MessageSquare, Swords
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ChallengeArena } from '@/components/challenge-arena'
 
 export default function SecurityHubPage() {
   const { connected, publicKey } = useWallet()
@@ -316,6 +317,7 @@ export default function SecurityHubPage() {
           <div className="flex gap-6 overflow-x-auto">
             {[
               { id: 'tips', label: 'Daily Tips', icon: BookOpen },
+              { id: 'arena', label: 'Battle Arena', icon: Swords },
               { id: 'quiz', label: 'Security Quiz', icon: Brain },
               { id: 'challenges', label: 'Challenges', icon: Target },
               { id: 'phishing', label: 'Phishing Reports', icon: AlertTriangle }
@@ -556,6 +558,13 @@ export default function SecurityHubPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Battle Arena Tab */}
+        {activeTab === 'arena' && (
+          <div className="space-y-6">
+            <ChallengeArena />
           </div>
         )}
 
