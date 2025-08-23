@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/mongodb'
+import { ReferralServiceV2 } from '@/lib/services/referral-service-v2'
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,6 +45,20 @@ export async function GET(request: NextRequest) {
             tier: 1
           })
         }
+      }
+    }
+
+    // Final fallback: check explicit ref param or cookie, resolve to referrer info
+    const explicitRef = searchParams.get('ref') || request.cookies.get('referral-code')?.value
+    if (explicitRef) {
+      const info = await ReferralServiceV2.getReferrerInfo(explicitRef)
+      if (info?.walletAddress) {
+        return NextResponse.json({
+          walletAddress: info.walletAddress,
+          username: info.username || null,
+          referralCode: explicitRef,
+          tier: null
+        })
       }
     }
 
