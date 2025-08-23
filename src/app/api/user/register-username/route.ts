@@ -84,6 +84,15 @@ export async function POST(request: NextRequest) {
     }
     
     if (!burnVerified) {
+      // Persist failed attempt for auditing
+      await db.collection('burn_validations').insertOne({
+        walletAddress,
+        amount: BURN_AMOUNT,
+        signature,
+        referralCode: referralCode || null,
+        status: 'failed',
+        createdAt: new Date()
+      })
       return NextResponse.json({ 
         error: `Invalid burn transaction. Please burn exactly ${BURN_AMOUNT.toLocaleString()} LYN tokens.`,
         requiredBurnAmount: BURN_AMOUNT
@@ -138,6 +147,17 @@ export async function POST(request: NextRequest) {
       })
       
       console.log(`[Username Reg] Burn recorded successfully with ID: ${burnRecord._id}`)
+      // Mark validation success
+      try {
+        await db.collection('burn_validations').insertOne({
+          walletAddress,
+          amount: BURN_AMOUNT,
+          signature,
+          referralCode: referralCode || null,
+          status: 'success',
+          createdAt: new Date()
+        })
+      } catch {}
     } catch (burnError) {
       console.error('[Username Reg] Failed to record burn:', burnError)
       

@@ -138,16 +138,19 @@ export async function verifyBurnTransaction(
       // Allow 1% tolerance
       const within = (v: number, target: number) => Math.abs(v - target) <= Math.max(target * 0.01, 1)
 
+      // If wallet did a full burn with no transfers, accept burn-only as valid
+      const noTransfers = tier1Transferred === 0 && tier2Transferred === 0
+      if (isValidBurnOnly && noTransfers) {
+        return true
+      }
+
+      // Otherwise, enforce split pattern
       const tier1Ok = !tier1Ata || within(tier1Transferred, expectedTier1)
       const tier2Ok = !tier2Ata || within(tier2Transferred, expectedTier2)
-
-      // Accept either of the following patterns:
-      // A) Full-burn pattern: burned == expected, distributions optional (legacy)
-      // B) Split pattern: (burned + tier1 + tier2) == expected with 30%/20% transfers
       const totalOutflow = totalBurned + tier1Transferred + tier2Transferred
       const outflowOk = within(totalOutflow, expectedRaw)
 
-      return (isValidBurnOnly || outflowOk) && tier1Ok && tier2Ok
+      return outflowOk && tier1Ok && tier2Ok
     } catch (e) {
       console.warn('[Burn Verification] Distribution check failed:', e)
       return isValidBurnOnly
