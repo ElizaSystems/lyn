@@ -58,6 +58,7 @@ export default function ReportPhishingPage() {
       const response = await fetch('/api/phishing-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify(report)
       })
       

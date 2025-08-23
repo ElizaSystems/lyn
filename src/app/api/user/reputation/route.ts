@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     longestStreak = Math.max(longestStreak, currentStreak)
     
     const reputationData = {
-      reputationScore: reputation?.reputationScore || 0,
+      reputationScore: reputation?.totalPoints || reputationSummary?.totalPoints || 0,
       tier: reputation?.tier || 'novice',
       stats: {
         totalScans,
@@ -86,10 +86,13 @@ export async function GET(request: NextRequest) {
         longestStreak,
         feedbackProvided: 0, // Would need feedback collection to track
         stakedAmount: 0, // Would need staking system to track
-        isPremium: user?.isPremium || false
+        isPremium: user?.isPremium || false,
+        usernameRegistered: !!user?.username,
+        xAccountConnected: !!user?.xUsername
       },
       achievements: reputation?.achievements || [],
-      badges: reputation?.badges || []
+      badges: reputation?.badges || [],
+      events: reputation?.events || reputationSummary?.events || []
     }
     
     return NextResponse.json(reputationData)

@@ -36,19 +36,29 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await verifyAuth(req)
-    if (!authResult) {
+    const data = await req.json()
+    
+    // Validate required fields
+    if (!data.description) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Description is required' },
+        { status: 400 }
       )
     }
     
-    const data = await req.json()
+    if (!data.url && !data.domain) {
+      return NextResponse.json(
+        { error: 'Either URL or domain is required' },
+        { status: 400 }
+      )
+    }
+    
+    // Check for authentication (optional - allow anonymous reports)
+    const authResult = await verifyAuth(req)
     
     const report = await phishingReportService.createReport({
-      reporterId: authResult.userId,
-      reporterUsername: authResult.username || 'Anonymous',
+      reporterId: authResult?.userId || 'anonymous',
+      reporterUsername: authResult?.username || 'Anonymous',
       ...data
     })
     

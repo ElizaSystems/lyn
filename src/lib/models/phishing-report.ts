@@ -5,9 +5,10 @@ export interface IPhishingReport extends Document {
   reporterId: string
   reporterUsername: string
   url?: string
-  email?: string
+  domain?: string
+  reporterEmail?: string
   description: string
-  category: 'url' | 'email' | 'social' | 'app' | 'other'
+  category: 'phishing' | 'scam' | 'malware' | 'impersonation' | 'other'
   status: 'pending' | 'verified' | 'false_positive' | 'investigating'
   severity: 'low' | 'medium' | 'high' | 'critical'
   evidence?: {
@@ -43,7 +44,8 @@ const PhishingReportSchema = new Schema({
     required: true
   },
   url: String,
-  email: String,
+  domain: String,
+  reporterEmail: String,
   description: {
     type: String,
     required: true,
@@ -52,7 +54,7 @@ const PhishingReportSchema = new Schema({
   category: {
     type: String,
     required: true,
-    enum: ['url', 'email', 'social', 'app', 'other']
+    enum: ['phishing', 'scam', 'malware', 'impersonation', 'other']
   },
   status: {
     type: String,

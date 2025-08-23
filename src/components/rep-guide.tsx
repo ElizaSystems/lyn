@@ -160,6 +160,28 @@ export function RepGuide({ walletAddress }: RepGuideProps) {
 
   const fetchUserAchievements = async () => {
     try {
+      // Check if user needs reputation recalculation (for pre-existing accounts)
+      const recalcCheckRes = await fetch('/api/user/reputation/recalculate', {
+        credentials: 'include'
+      })
+      
+      if (recalcCheckRes.ok) {
+        const recalcStatus = await recalcCheckRes.json()
+        
+        // If recalculation is needed, trigger it
+        if (recalcStatus.needsRecalculation) {
+          const recalcRes = await fetch('/api/user/reputation/recalculate', {
+            method: 'POST',
+            credentials: 'include'
+          })
+          
+          if (recalcRes.ok) {
+            const recalcResult = await recalcRes.json()
+            console.log('Reputation recalculated:', recalcResult)
+          }
+        }
+      }
+      
       // Fetch user profile and achievements
       const [profileRes, reputationRes] = await Promise.all([
         fetch('/api/user/profile', {

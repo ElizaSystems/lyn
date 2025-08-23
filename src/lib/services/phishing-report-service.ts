@@ -234,6 +234,13 @@ class PhishingReportService {
       const report = await PhishingReport.findById(reportId)
       if (!report || report.xpRewarded) return
       
+      // Skip rewards for anonymous reports
+      if (reporterId === 'anonymous') {
+        report.verifiedAt = new Date()
+        await report.save()
+        return
+      }
+      
       // Award significant XP for verified threat
       const xpReward = report.severity === 'critical' ? 50 : 
                       report.severity === 'high' ? 30 : 20
@@ -254,6 +261,11 @@ class PhishingReportService {
   
   private async awardReportingXp(userId: string, xp: number): Promise<void> {
     try {
+      // Skip XP award for anonymous users
+      if (userId === 'anonymous') {
+        return
+      }
+      
       const user = await User.findOne({ wallet: userId })
       if (user) {
         user.totalXp = (user.totalXp || 0) + xp
