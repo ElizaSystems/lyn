@@ -571,9 +571,9 @@ export function SecurityChat({ initialMessage, onScanComplete }: SecurityChatPro
                     <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
                   ) : (
                     <img 
-                      src="/logo.png" 
+                      src="/logo.jpg" 
                       alt="LYN AI" 
-                      className="h-6 w-6 object-contain"
+                      className="h-6 w-6 object-contain rounded-full"
                     />
                   )}
                 </div>

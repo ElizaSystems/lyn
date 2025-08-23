@@ -390,9 +390,9 @@ export function ChallengeChat({ challenge, onComplete }: ChallengeChatProps) {
                 <AlertTriangle className="w-4 h-4 text-yellow-500" />
               ) : (
                 <img 
-                  src="/logo.png" 
+                  src="/logo.jpg" 
                   alt="LYN AI" 
-                  className="w-5 h-5 object-contain"
+                  className="w-5 h-5 object-contain rounded-full"
                 />
               )}
             </div>
