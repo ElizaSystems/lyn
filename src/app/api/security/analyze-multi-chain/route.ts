@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import { MultiChainConfig } from '@/lib/services/multi-chain-config'
 import { BlockchainType } from '@/lib/models/multi-chain'
 import { ThreatIntelligenceService } from '@/lib/services/threat-intelligence-service'
+import { fetchSolanaPrice, fetchTokenPrice } from '@/lib/services/price-service'
 
 interface ChainAnalysis {
   chain: string
@@ -277,13 +278,49 @@ export async function POST(req: NextRequest) {
     // Calculate overall risk
     const { score: overallRiskScore, level: overallRiskLevel } = calculateOverallRisk(chainAnalyses)
     
-    // Calculate total value (simplified - in production would use real price feeds)
+    // Fetch real-time prices for accurate value calculation
+    let solPrice = 120 // fallback price
+    let ethPrice = 3000 // fallback price
+    let bnbPrice = 300 // fallback price
+    let maticPrice = 0.8 // fallback price
+    
+    try {
+      // Fetch SOL price from CoinGecko
+      solPrice = await fetchSolanaPrice()
+      
+      // Fetch other token prices from CoinGecko API
+      const [ethResponse, bnbResponse, maticResponse] = await Promise.all([
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd'),
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd'),
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=matic-network&vs_currencies=usd')
+      ])
+      
+      if (ethResponse.ok) {
+        const ethData = await ethResponse.json()
+        ethPrice = ethData.ethereum?.usd || ethPrice
+      }
+      
+      if (bnbResponse.ok) {
+        const bnbData = await bnbResponse.json()
+        bnbPrice = bnbData.binancecoin?.usd || bnbPrice
+      }
+      
+      if (maticResponse.ok) {
+        const maticData = await maticResponse.json()
+        maticPrice = maticData['matic-network']?.usd || maticPrice
+      }
+    } catch (error) {
+      console.error('Failed to fetch real-time prices:', error)
+      // Continue with fallback prices
+    }
+    
+    // Calculate total value with real prices
     const totalValueUSD = chainAnalyses.reduce((sum, analysis) => {
       const value = parseFloat(analysis.balance) * (
-        analysis.chain === 'solana' ? 50 : // Approximate SOL price
-        analysis.chain === 'ethereum' ? 3000 : // Approximate ETH price
-        analysis.chain === 'bsc' ? 300 : // Approximate BNB price
-        analysis.chain === 'polygon' ? 0.8 : // Approximate MATIC price
+        analysis.chain === 'solana' ? solPrice :
+        analysis.chain === 'ethereum' ? ethPrice :
+        analysis.chain === 'bsc' ? bnbPrice :
+        analysis.chain === 'polygon' ? maticPrice :
         100 // Default for other chains
       )
       return sum + value

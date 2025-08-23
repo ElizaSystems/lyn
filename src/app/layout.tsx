@@ -22,30 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if (typeof global === 'undefined') {
-                window.global = window;
-              }
-              if (typeof Buffer === 'undefined') {
-                window.Buffer = {
-                  from: () => [],
-                  alloc: () => [],
-                  isBuffer: () => false
-                };
-              }
-              if (typeof process === 'undefined') {
-                window.process = {
-                  env: {},
-                  version: '',
-                  versions: {},
-                  browser: true
-                };
-              }
-            `,
-          }}
-        />
+        <script src="/polyfills.js" />
       </head>
       <body className={`antialiased`}>
         <AppProviders>

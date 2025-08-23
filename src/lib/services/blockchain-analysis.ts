@@ -276,18 +276,52 @@ export class BlockchainAnalysisService {
         }
       }
       
-      // Find the oldest transaction
-      const oldestTx = transactions[transactions.length - 1]
+      // Sort transactions by timestamp to find the oldest
+      // Helius API might not return transactions in chronological order
+      const sortedTransactions = [...transactions].sort((a, b) => a.timestamp - b.timestamp)
+      
+      // Find the oldest transaction (first after sorting)
+      const oldestTx = sortedTransactions[0]
       const createdAt = new Date(oldestTx.timestamp * 1000)
       const ageInDays = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
       
+      // If we hit the limit, the wallet might be older than what we can detect
+      // In this case, we should indicate it's at least this old
+      const isOlderThanDetected = transactions.length >= 1000
+      
       return {
         createdAt,
-        ageInDays,
+        ageInDays: isOlderThanDetected ? Math.max(ageInDays, 365) : ageInDays, // If we hit limit, assume at least 1 year old
         firstTransaction: oldestTx.signature
       }
     } catch (error) {
       console.error('[Wallet Age] Error:', error)
+      // Try alternative approach using Solana RPC
+      try {
+        const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed')
+        const pubkey = new PublicKey(walletAddress)
+        
+        // Get oldest signatures
+        const signatures = await connection.getSignaturesForAddress(pubkey, { limit: 1000 })
+        
+        if (signatures.length > 0) {
+          // Signatures are returned newest first, so get the last one
+          const oldestSig = signatures[signatures.length - 1]
+          if (oldestSig.blockTime) {
+            const createdAt = new Date(oldestSig.blockTime * 1000)
+            const ageInDays = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+            
+            return {
+              createdAt,
+              ageInDays: signatures.length >= 1000 ? Math.max(ageInDays, 365) : ageInDays,
+              firstTransaction: oldestSig.signature
+            }
+          }
+        }
+      } catch (rpcError) {
+        console.error('[Wallet Age] RPC fallback error:', rpcError)
+      }
+      
       return {
         createdAt: null,
         ageInDays: 0,
