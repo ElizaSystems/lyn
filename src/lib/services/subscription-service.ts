@@ -379,6 +379,80 @@ export class SubscriptionService {
   }
 
   /**
+   * Verify SOL payment where amount is distributed across agent, fee wallet, and optional referrer
+   */
+  static async verifyDistributedPayment(
+    connection: Connection,
+    signature: string,
+    expectedAmount: number = this.SUBSCRIPTION_PRICE_SOL,
+    referralCode?: string
+  ): Promise<boolean> {
+    try {
+      const tx = await connection.getTransaction(signature, {
+        commitment: 'confirmed',
+        maxSupportedTransactionVersion: 0
+      })
+
+      if (!tx || !tx.meta) return false
+      if (tx.meta.err !== null) return false
+
+      const accountKeys = tx.transaction.message.getAccountKeys()
+
+      const agentAddress = this.AGENT_WALLET
+      const feeAddress = process.env.NEXT_PUBLIC_FEE_WALLET || 'LYNAIfees111111111111111111111111111111111'
+
+      let referrerWallet: string | undefined
+      if (referralCode) {
+        try {
+          const refInfo = await ReferralServiceV2.getReferrerInfo(referralCode)
+          if (refInfo?.walletAddress) {
+            referrerWallet = refInfo.walletAddress
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const indexOf = (address: string) => {
+        try {
+          return accountKeys.staticAccountKeys.findIndex(k => k.toBase58() === address)
+        } catch {
+          return -1
+        }
+      }
+
+      const agentIndex = indexOf(agentAddress)
+      const feeIndex = indexOf(feeAddress)
+      const refIndex = referrerWallet ? indexOf(referrerWallet) : -1
+
+      const getDelta = (idx: number) => idx >= 0 ? (tx.meta!.postBalances[idx] - tx.meta!.preBalances[idx]) / LAMPORTS_PER_SOL : 0
+
+      const agentDelta = getDelta(agentIndex)
+      const feeDelta = getDelta(feeIndex)
+      const refDelta = getDelta(refIndex)
+
+      const hasReferral = !!referrerWallet
+      const expectedFee = expectedAmount * 0.05
+      const expectedRef = hasReferral ? expectedAmount * 0.10 : 0
+      const expectedAgent = expectedAmount - expectedFee - expectedRef
+
+      const within = (value: number, target: number) => Math.abs(value - target) <= Math.max(0.0005, target * 0.02) // ~2% tolerance or 0.0005 SOL
+
+      const agentOk = within(agentDelta, expectedAgent)
+      const feeOk = within(feeDelta, expectedFee)
+      const refOk = hasReferral ? within(refDelta, expectedRef) : true
+
+      const totalReceived = agentDelta + feeDelta + refDelta
+      const totalOk = within(totalReceived, expectedAmount)
+
+      return agentOk && feeOk && refOk && totalOk
+    } catch (error) {
+      console.error('[Subscription] Error verifying distributed payment:', error)
+      return false
+    }
+  }
+
+  /**
    * Create subscription using enhanced payment system (new method)
    */
   static async createEnhancedSubscription(

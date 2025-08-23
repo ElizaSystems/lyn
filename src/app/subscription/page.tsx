@@ -84,20 +84,49 @@ function SubscriptionContent() {
     try {
       // Get the agent wallet address from environment or use default
       const agentWallet = process.env.NEXT_PUBLIC_AGENT_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
+      const feeWallet = process.env.NEXT_PUBLIC_FEE_WALLET || 'H5fEsZs6QzZQfEEFeeWallet1111111111111111111'
       const agentPubkey = new PublicKey(agentWallet)
+      const feePubkey = new PublicKey(feeWallet)
       
-      // Create SOL transfer transaction
+      // Create SOL transfer transaction with recent blockhash
       const connection = new Connection(
-        process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com'
+        process.env.NEXT_PUBLIC_RPC_ENDPOINT || process.env.NEXT_PUBLIC_SOLANA_RPC || 'https://api.mainnet-beta.solana.com'
       )
-      
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: new PublicKey(publicKey.toString()),
-          toPubkey: agentPubkey,
-          lamports: 0.5 * LAMPORTS_PER_SOL
-        })
-      )
+
+      // Prepare transaction and set fee payer + recent blockhash
+      const transaction = new Transaction()
+      const from = new PublicKey(publicKey.toString())
+      const total = 0.5 * LAMPORTS_PER_SOL
+      const refCode = (customReferralCode || '').trim()
+      let referrerPubkey: PublicKey | null = null
+      try {
+        if (refCode) {
+          const resp = await fetch(`/api/referral/v2/info?code=${encodeURIComponent(refCode)}`)
+          if (resp.ok) {
+            const info = await resp.json()
+            if (info.walletAddress) {
+              referrerPubkey = new PublicKey(info.walletAddress)
+            }
+          }
+        }
+      } catch {}
+
+      const feeAmount = Math.floor(0.05 * total)
+      const refAmount = referrerPubkey ? Math.floor(0.10 * total) : 0
+      const agentAmount = total - feeAmount - refAmount
+
+      // Agent transfer
+      transaction.add(SystemProgram.transfer({ fromPubkey: from, toPubkey: agentPubkey, lamports: agentAmount }))
+      // Fee transfer
+      transaction.add(SystemProgram.transfer({ fromPubkey: from, toPubkey: feePubkey, lamports: feeAmount }))
+      // Optional referrer transfer
+      if (referrerPubkey && refAmount > 0) {
+        transaction.add(SystemProgram.transfer({ fromPubkey: from, toPubkey: referrerPubkey, lamports: refAmount }))
+      }
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized')
+      transaction.recentBlockhash = blockhash
+      transaction.lastValidBlockHeight = lastValidBlockHeight
+      transaction.feePayer = new PublicKey(publicKey.toString())
       
       // Get wallet adapter to sign and send
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,10 +137,11 @@ function SubscriptionContent() {
       }
       
       // Sign and send transaction
-      const signature = await solana.signAndSendTransaction(transaction)
+      const sendResult = await solana.signAndSendTransaction(transaction)
+      const signature = sendResult?.signature || sendResult
       
       // Wait for confirmation
-      await connection.confirmTransaction(signature, 'confirmed')
+      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
       
       // Create subscription with referral code
       setProcessing(true)

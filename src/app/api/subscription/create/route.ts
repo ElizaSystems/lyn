@@ -63,10 +63,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify the SOL payment (legacy)
-    const isValidPayment = await SubscriptionService.verifyPayment(
+    // Verify the SOL payment (legacy) with distribution check
+    const isValidPayment = await SubscriptionService.verifyDistributedPayment(
       connection,
-      transactionSignature
+      transactionSignature,
+      0.5,
+      referralCode
     )
     
     if (!isValidPayment) {
