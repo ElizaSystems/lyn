@@ -277,7 +277,7 @@ export class PaymentRetryService {
           payment.transactionSignature,
           payment.token as PaymentToken,
           payment.amount,
-          process.env.NEXT_PUBLIC_AGENT_WALLET || 'LYNAIagent1111111111111111111111111111111111'
+          process.env.NEXT_PUBLIC_AGENT_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
         )
 
         if (verificationResult.isValid) {

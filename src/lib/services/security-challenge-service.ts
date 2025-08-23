@@ -38,6 +38,16 @@ class SecurityChallengeService {
     }
   }
   
+  async getChallengeById(challengeId: string): Promise<ISecurityChallenge | null> {
+    try {
+      await connectToDatabase()
+      return await SecurityChallenge.findById(challengeId).exec()
+    } catch (error) {
+      console.error('Error getting challenge by ID:', error)
+      return null
+    }
+  }
+  
   async startChallenge(
     challengeId: string,
     userId: string,

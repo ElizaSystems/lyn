@@ -12,6 +12,11 @@ const PREMIUM_TOKEN_AMOUNT = 100000 // 100k LYN for 20 scans per day
 const BASIC_TOKEN_AMOUNT = 10000 // 10k LYN for 2 scans per day
 const FREE_QUESTIONS_LIMIT = 1 // Free questions per day for users with no tokens
 
+// Add GET handler for the route
+export async function GET(request: NextRequest) {
+  return POST(request)
+}
+
 // Helper to get user's daily usage (works with both userId and sessionId)
 async function getDailyUsage(identifier: string): Promise<{ scansToday: number; lastResetDate: Date }> {
   try {
@@ -348,76 +353,3 @@ export const POST = withMiddleware(
     },
   }
 )
-
-export async function GET() {
-  try {
-    return NextResponse.json({
-      tokenInfo: {
-        tokenSymbol: config.token.symbol,
-        tiers: {
-          free: {
-            tokens: 0,
-            scansPerDay: FREE_QUESTIONS_LIMIT,
-            description: `${FREE_QUESTIONS_LIMIT} free scan per day`
-          },
-          basic: {
-            tokens: BASIC_TOKEN_AMOUNT,
-            scansPerDay: 2,
-            description: '2 scans per day'
-          },
-          premium: {
-            tokens: PREMIUM_TOKEN_AMOUNT,
-            scansPerDay: 20,
-            description: '20 scans per day'
-          },
-          elite: {
-            tokens: ELITE_TOKEN_AMOUNT,
-            scansPerDay: 250,
-            description: '250 scans per day'
-          },
-          unlimited: {
-            tokens: UNLIMITED_TOKEN_AMOUNT,
-            scansPerDay: 'unlimited',
-            description: 'Unlimited scans'
-          }
-        }
-      },
-      message: `LYN Token Access Tiers:\n• Free: ${FREE_QUESTIONS_LIMIT} scan/day\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN: 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN: 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN: 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN: Unlimited scans`
-    })
-  } catch (error) {
-    console.error('Error in check-access GET:', error)
-    return NextResponse.json({
-      tokenInfo: {
-        tokenSymbol: 'LYN',
-        tiers: {
-          free: {
-            tokens: 0,
-            scansPerDay: FREE_QUESTIONS_LIMIT,
-            description: `${FREE_QUESTIONS_LIMIT} free scan per day`
-          },
-          basic: {
-            tokens: BASIC_TOKEN_AMOUNT,
-            scansPerDay: 2,
-            description: '2 scans per day'
-          },
-          premium: {
-            tokens: PREMIUM_TOKEN_AMOUNT,
-            scansPerDay: 20,
-            description: '20 scans per day'
-          },
-          elite: {
-            tokens: ELITE_TOKEN_AMOUNT,
-            scansPerDay: 250,
-            description: '250 scans per day'
-          },
-          unlimited: {
-            tokens: UNLIMITED_TOKEN_AMOUNT,
-            scansPerDay: 'unlimited',
-            description: 'Unlimited scans'
-          }
-        }
-      },
-      message: `LYN Token Access Tiers:\n• Free: ${FREE_QUESTIONS_LIMIT} scan/day\n• ${BASIC_TOKEN_AMOUNT.toLocaleString()} LYN: 2 scans/day\n• ${PREMIUM_TOKEN_AMOUNT.toLocaleString()} LYN: 20 scans/day\n• ${ELITE_TOKEN_AMOUNT.toLocaleString()} LYN: 250 scans/day\n• ${UNLIMITED_TOKEN_AMOUNT.toLocaleString()} LYN: Unlimited scans`
-    })
-  }
-}

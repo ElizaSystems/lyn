@@ -85,7 +85,7 @@ function SubscriptionContent() {
     try {
       // Get the agent wallet address from environment or use default
       const agentWallet = process.env.NEXT_PUBLIC_AGENT_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
-      const feeWallet = process.env.NEXT_PUBLIC_FEE_WALLET || 'H5fEsZs6QzZQfEEFeeWallet1111111111111111111'
+      const feeWallet = process.env.NEXT_PUBLIC_FEE_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq' // Use same as agent for now
       
       // Validate wallet addresses
       let agentPubkey: PublicKey

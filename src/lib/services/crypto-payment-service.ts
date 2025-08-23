@@ -134,9 +134,9 @@ export class CryptoPaymentService {
         }
       ],
       wallets: {
-        treasury: process.env.NEXT_PUBLIC_TREASURY_WALLET || 'LYNAItreasury11111111111111111111111111111',
-        agent: process.env.NEXT_PUBLIC_AGENT_WALLET || 'LYNAIagent1111111111111111111111111111111111',
-        fees: process.env.NEXT_PUBLIC_FEE_WALLET || 'LYNAIfees111111111111111111111111111111111'
+        treasury: process.env.NEXT_PUBLIC_TREASURY_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq',
+        agent: process.env.NEXT_PUBLIC_AGENT_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq',
+        fees: process.env.NEXT_PUBLIC_FEE_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
       },
       tokens: {
         [PaymentToken.SOL]: {

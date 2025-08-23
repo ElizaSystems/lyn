@@ -33,9 +33,9 @@ export class SubscriptionService {
   // Agent gets remaining 80%
   
   // Agent wallet for receiving SOL payments (85% of subscription)
-  static readonly AGENT_WALLET = process.env.NEXT_PUBLIC_AGENT_WALLET || 'LYNAIagent1111111111111111111111111111111111'
+  static readonly AGENT_WALLET = process.env.NEXT_PUBLIC_AGENT_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
   // Treasury wallet for overflow/admin
-  static readonly TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || 'LYNAItreasury11111111111111111111111111111'
+  static readonly TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || '75G6PEiVjgVPS13LNkRU7nzVqUvdRGLhGotZNQVUz3mq'
 
   // Enhanced service instance for new payment system
   private static enhancedService: EnhancedSubscriptionService | null = null

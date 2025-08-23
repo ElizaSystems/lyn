@@ -17,8 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get challenge details for context
-    const challenges = await securityChallengeService.getChallenges({ _id: challengeId })
-    const challenge = challenges[0]
+    const challenge = await securityChallengeService.getChallengeById(challengeId)
     
     if (!challenge) {
       return NextResponse.json({ error: 'Challenge not found' }, { status: 404 })
