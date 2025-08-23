@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
         signature,
         referralCode: referralCode || null,
         status: 'failed',
+        reason: 'verification_failed',
         createdAt: new Date()
       })
       return NextResponse.json({ 
@@ -128,6 +129,21 @@ export async function POST(request: NextRequest) {
     // Get the user document to get the user ID
     const userDoc = await usersCollection.findOne({ walletAddress })
     const userId = userDoc?._id
+
+    if (!userId) {
+      // Hard guard: if user upsert did not actually persist, persist a skeleton and continue
+      const insertRes = await usersCollection.updateOne(
+        { walletAddress },
+        {
+          $setOnInsert: {
+            walletAddress,
+            createdAt: registrationDate,
+            updatedAt: registrationDate
+          }
+        },
+        { upsert: true }
+      )
+    }
     
     // Record the burn in the burns collection
     try {
