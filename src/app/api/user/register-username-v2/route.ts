@@ -13,6 +13,23 @@ const BURN_AMOUNT = 1000 // 1,000 LYN tokens to burn for registration
 
 export async function POST(request: NextRequest) {
   try {
+    // Apply rate limiting
+    const { checkIPRateLimit, createRateLimitHeaders } = await import('@/lib/auth')
+    const rateLimitResult = await checkIPRateLimit(request, 'register-username', 60 * 1000, 3) // 3 attempts per minute
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many registration attempts. Please try again later.',
+          retryAfter: Math.ceil((rateLimitResult.resetTime.getTime() - Date.now()) / 1000)
+        },
+        { 
+          status: 429,
+          headers: createRateLimitHeaders(rateLimitResult, 3)
+        }
+      )
+    }
+    
     const { username, signature, transaction, walletAddress, referralCode } = await request.json()
     
     if (!walletAddress) {
@@ -34,16 +51,30 @@ export async function POST(request: NextRequest) {
     const db = await getDatabase()
     const usersCollection = db.collection('users')
 
-    // Check if username is already taken
-    const existingUser = await usersCollection.findOne({ username })
+    // Check if username is already taken (case-insensitive)
+    const normalizedUsername = username.toLowerCase()
+    const existingUser = await usersCollection.findOne({ 
+      $or: [
+        { username: { $regex: `^${username}$`, $options: 'i' } },
+        { 'profile.username': { $regex: `^${username}$`, $options: 'i' } }
+      ]
+    })
     if (existingUser) {
-      return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
+      console.log(`[Username Reg V2] Username "${username}" already taken by wallet: ${existingUser.walletAddress}`)
+      return NextResponse.json({ 
+        error: 'Username is already taken',
+        available: false
+      }, { status: 409 })
     }
 
     // Check if user already has a username
     const currentUser = await usersCollection.findOne({ walletAddress })
     if (currentUser?.username) {
-      return NextResponse.json({ error: 'User already has a registered username' }, { status: 409 })
+      console.log(`[Username Reg V2] Wallet ${walletAddress} already has username: ${currentUser.username}`)
+      return NextResponse.json({ 
+        error: 'User already has a registered username',
+        existingUsername: currentUser.username
+      }, { status: 409 })
     }
 
     // Check token balance

@@ -125,11 +125,31 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthUser | n
   // Check if session exists in database (normalize token)
   const normalizedToken = token.trim()
   const session = await db.sessions.findByToken(normalizedToken)
-  if (!session || session.expiresAt < new Date()) {
-    console.log('[Auth] Session not found or expired for token:', normalizedToken.substring(0, 20) + '...')
+  
+  // Check session validity
+  if (!session) {
+    console.log('[Auth] Session not found for token:', normalizedToken.substring(0, 20) + '...')
     return null
   }
-  console.log('[Auth] Session found for user:', session.userId)
+  
+  // Check if session is expired
+  const now = new Date()
+  if (session.expiresAt && session.expiresAt < now) {
+    console.log('[Auth] Session expired at', session.expiresAt, 'for user:', session.userId)
+    // Clean up expired session
+    await db.sessions.deleteByToken(normalizedToken)
+    return null
+  }
+  
+  // Extend session if it's getting close to expiry (within 1 day)
+  const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  if (session.expiresAt && session.expiresAt < oneDayFromNow) {
+    const newExpiry = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // Extend by 7 days
+    await db.sessions.updateExpiry(normalizedToken, newExpiry)
+    console.log('[Auth] Extended session expiry for user:', session.userId)
+  }
+  
+  console.log('[Auth] Valid session found for user:', session.userId)
 
   // Get user data - ensure we get the latest username
   const user = await db.users.findByWalletAddress(payload.walletAddress)

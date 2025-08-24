@@ -13,6 +13,23 @@ const BURN_AMOUNT = 1000 // 1,000 LYN tokens to burn for registration
 
 export async function POST(request: NextRequest) {
   try {
+    // Apply rate limiting
+    const { checkIPRateLimit, createRateLimitHeaders } = await import('@/lib/auth')
+    const rateLimitResult = await checkIPRateLimit(request, 'register-username', 60 * 1000, 3) // 3 attempts per minute
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many registration attempts. Please try again later.',
+          retryAfter: Math.ceil((rateLimitResult.resetTime.getTime() - Date.now()) / 1000)
+        },
+        { 
+          status: 429,
+          headers: createRateLimitHeaders(rateLimitResult, 3)
+        }
+      )
+    }
+    
     const { username, signature, transaction, walletAddress, referralCode } = await request.json()
     
     if (!walletAddress) {
@@ -34,16 +51,30 @@ export async function POST(request: NextRequest) {
     const db = await getDatabase()
     const usersCollection = db.collection('users')
 
-    // Check if username is already taken
-    const existingUser = await usersCollection.findOne({ username })
+    // Check if username is already taken (case-insensitive)
+    const normalizedUsername = username.toLowerCase()
+    const existingUser = await usersCollection.findOne({ 
+      $or: [
+        { username: { $regex: `^${username}$`, $options: 'i' } },
+        { 'profile.username': { $regex: `^${username}$`, $options: 'i' } }
+      ]
+    })
     if (existingUser) {
-      return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
+      console.log(`[Username Reg] Username "${username}" already taken by wallet: ${existingUser.walletAddress}`)
+      return NextResponse.json({ 
+        error: 'Username is already taken',
+        available: false
+      }, { status: 409 })
     }
 
     // Check if user already has a username
     const currentUser = await usersCollection.findOne({ walletAddress })
     if (currentUser?.username) {
-      return NextResponse.json({ error: 'User already has a registered username' }, { status: 409 })
+      console.log(`[Username Reg] Wallet ${walletAddress} already has username: ${currentUser.username}`)
+      return NextResponse.json({ 
+        error: 'User already has a registered username',
+        existingUsername: currentUser.username
+      }, { status: 409 })
     }
 
     // Check token balance
@@ -238,15 +269,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Force create vanity referral code with the username
+    // Force create vanity referral code with the username (case-preserved)
     try {
+      // Ensure username is unique in referral codes too
+      const existingReferral = await db.collection('referral_codes_v2').findOne({
+        code: { $regex: `^${username}$`, $options: 'i' }
+      })
+      
+      if (existingReferral && existingReferral.walletAddress !== walletAddress) {
+        console.warn(`[Username Reg] Referral code "${username}" already exists for different wallet`)
+      }
+      
       // Directly insert/update the referral code to use the username
       const referralCodesCollection = db.collection('referral_codes_v2')
       await referralCodesCollection.updateOne(
         { walletAddress },
         {
           $set: {
-            code: username,
+            code: username, // Preserve case
+            codeNormalized: normalizedUsername, // Add normalized version for lookups
             username,
             isVanity: true,
             updatedAt: new Date()

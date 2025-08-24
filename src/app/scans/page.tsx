@@ -61,6 +61,7 @@ export default function ScansPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [refreshing, setRefreshing] = useState(false)
   const [filteredUsername, setFilteredUsername] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   
   // Profile/Username related state
   const [userProfile, setUserProfile] = useState<{
@@ -213,8 +214,9 @@ export default function ScansPage() {
   // Fetch user profile and token balance
   const fetchUserProfile = async () => {
     try {
-      // Get auth token from localStorage
-      const authToken = localStorage.getItem('auth-token')
+      // Get auth token from multiple sources
+      const authToken = localStorage.getItem('auth-token') || 
+                       document.cookie.split('; ').find(row => row.startsWith('auth-token='))?.split('=')[1]
       
       // Build headers with multiple token sources
       const headers: HeadersInit = {
@@ -238,6 +240,9 @@ export default function ScansPage() {
         const user = userData.user || userData
         setUserProfile(user)
         
+        // Clear any error state
+        setError(null)
+        
         // Fetch token balance
         if (user.walletAddress) {
           const balanceResponse = await fetch(`/api/wallet/balance?address=${user.walletAddress}`)
@@ -246,9 +251,15 @@ export default function ScansPage() {
             setTokenBalance(balanceData.balance || 0)
           }
         }
-      } else if (response.status === 401 && publicKey) {
-        // Fallback to direct wallet lookup
-        console.log('[Profile] Auth failed, falling back to wallet lookup')
+      } else if (response.status === 401) {
+        // Session expired or invalid
+        console.log('[Profile] Auth failed, clearing stored tokens')
+        localStorage.removeItem('auth-token')
+        document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+        
+        if (publicKey) {
+          // Fallback to direct wallet lookup
+          console.log('[Profile] Attempting wallet lookup')
         try {
           const walletResponse = await fetch(`/api/user/by-wallet?walletAddress=${publicKey.toString()}`)
           if (walletResponse.ok) {
@@ -265,7 +276,11 @@ export default function ScansPage() {
           }
         } catch (e) {
           console.error('Failed to fetch user by wallet:', e)
+          setError('Failed to load profile')
         }
+        }
+      } else {
+        setError(`Failed to load profile: ${response.statusText}`)
       }
       
       // Fetch user stats (reputation, badges, etc)
@@ -293,6 +308,7 @@ export default function ScansPage() {
       }
     } catch (error) {
       console.error('Failed to fetch user profile:', error)
+      setError('Network error while loading profile')
     }
   }
 
@@ -422,32 +438,45 @@ export default function ScansPage() {
         setShowUsernameRegistration(false)
         setUsernameInput('')
         
-        // Show success message
-        alert(
-          `✅ Username registered successfully!\n\n` +
-          `Username: @${data.username || usernameInput}\n` +
-          `${burnAmount.toLocaleString()} LYN tokens burned\n` +
-          `Transaction: ${burnSignature.slice(0, 8)}...${burnSignature.slice(-8)}\n\n` +
-          `Your profile: ${data.profileUrl}\n` +
-          `Referral link: ${data.referralLink}`
-        )
+        // Show success toast instead of alert
+        const successMessage = `✅ Username @${data.username || usernameInput} registered successfully!`
+        console.log(successMessage)
+        setError(null) // Clear any errors
+        
+        // Store success in localStorage for onboarding
+        localStorage.setItem('registration-success', JSON.stringify({
+          username: data.username || usernameInput,
+          referralLink: data.referralLink,
+          timestamp: Date.now()
+        }))
         
         // Immediately refetch profile to verify persistence
         console.log('[Registration] Refetching profile to verify persistence')
         await fetchUserProfile()
         
-        // Then refresh the page after a delay
+        // Redirect to get-started page for onboarding
         setTimeout(() => {
-          console.log('[Registration] Reloading page')
-          window.location.reload()
-        }, 2000)
+          console.log('[Registration] Redirecting to onboarding')
+          window.location.href = '/get-started'
+        }, 1500)
       } else {
-        const error = await response.json()
-        alert(`Registration failed: ${error.error}\n\nYour tokens were burned but registration failed. Please contact support with transaction: ${burnSignature}`)
+        const errorData = await response.json()
+        const errorMessage = errorData.error || 'Registration failed'
+        
+        // Handle specific error cases
+        if (response.status === 409 && errorData.existingUsername) {
+          setError(`You already have the username @${errorData.existingUsername}`)
+        } else if (response.status === 409) {
+          setError('Username is already taken. Please try another.')
+        } else {
+          setError(`${errorMessage}. Transaction: ${burnSignature.slice(0, 8)}...`)
+        }
+        
+        console.error('Registration failed:', errorData)
       }
     } catch (error) {
       console.error('Registration error:', error)
-      alert('Registration failed. Please try again.')
+      setError(`Registration failed: ${(error as Error).message}`)
     } finally {
       setRegistering(false)
       setRegisterStep('idle')
@@ -593,6 +622,22 @@ export default function ScansPage() {
           </div>
         )}
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <p className="text-red-500">{error}</p>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-auto text-red-500 hover:text-red-400"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-4 mb-6">
