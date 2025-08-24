@@ -22,7 +22,6 @@ interface PhantomProvider {
   publicKey?: PublicKey
   isConnected?: boolean
   signTransaction: (transaction: Transaction) => Promise<Transaction>
-  signAndSendTransaction: (transaction: Transaction) => Promise<{ signature: string }>
   connect: () => Promise<{ publicKey: PublicKey }>
   disconnect: () => Promise<void>
 }
@@ -200,9 +199,19 @@ export async function burnTokensWithWallet(amount: number, referralCode?: string
 
     console.log(`[Burn] Transaction created, requesting signature...`)
 
-    // Sign and send transaction using Phantom
-    const result = await provider.signAndSendTransaction(transaction)
-    const signature = result.signature
+    // Sign transaction using wallet
+    const signedTransaction = await provider.signTransaction(transaction)
+    
+    console.log(`[Burn] Transaction signed, sending to network...`)
+    
+    // Send the signed transaction
+    const signature = await connection.sendRawTransaction(
+      signedTransaction.serialize(),
+      {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed'
+      }
+    )
 
     console.log(`[Burn] Transaction sent: ${signature}`)
     console.log(`[Burn] Waiting for confirmation...`)
