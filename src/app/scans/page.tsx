@@ -286,7 +286,7 @@ export default function ScansPage() {
     }
 
     try {
-      const response = await fetch(`/api/user/register-username-v2?username=${encodeURIComponent(username)}`)
+      const response = await fetch(`/api/user/register-username?username=${encodeURIComponent(username)}`)
       const data = await response.json()
       setUsernameAvailable(data.available)
     } catch (error) {
@@ -361,7 +361,7 @@ export default function ScansPage() {
       const walletAddress = publicKey?.toString() || userProfile?.walletAddress || ''
       
       console.log(`[Registration] Registering username with burn proof...`)
-      const response = await fetch('/api/user/register-username', {
+      const response = await fetch('/api/user/register-username-v2', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -376,8 +376,16 @@ export default function ScansPage() {
         })
       })
 
-      if (response.ok) {
+      if (response.ok || response.status === 202) {
         const data = await response.json()
+        
+        // Store the auth token if provided
+        if (data.token) {
+          localStorage.setItem('auth-token', data.token)
+          // Also set it as a cookie for server-side auth
+          document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+        }
+        
         setUserProfile({ ...userProfile, username: usernameInput })
         setShowUsernameRegistration(false)
         setUsernameInput('')
@@ -388,6 +396,11 @@ export default function ScansPage() {
           `Transaction: ${burnSignature.slice(0, 8)}...${burnSignature.slice(-8)}\n\n` +
           `Your profile: ${data.profileUrl}`
         )
+        
+        // Refresh the page to load the new auth state
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
       } else {
         const error = await response.json()
         alert(`Registration failed: ${error.error}\n\nYour tokens were burned but registration failed. Please contact support with transaction: ${burnSignature}`)
