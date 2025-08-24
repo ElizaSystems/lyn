@@ -6,14 +6,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, Flame, CheckCircle, Loader2, Info } from 'lucide-react'
 import { ShareOnX } from '@/components/share-on-x'
+import { USERNAME_BURN_COST, USERNAME_REQUIRED_BALANCE } from '@/lib/constants'
 
 interface UsernameRegistrationProps {
   tokenBalance: number
   onSuccess?: (username: string) => void
 }
 
-const REQUIRED_BALANCE = 10000 // Need to hold 10k LYN
-const BURN_AMOUNT = 1000 // Burn 1,000 LYN for registration
+const REQUIRED_BALANCE = USERNAME_REQUIRED_BALANCE // Need to hold 10k LYN
+const BURN_AMOUNT = USERNAME_BURN_COST // Burn 1,000 LYN for registration
 
 export function UsernameRegistration({ tokenBalance, onSuccess }: UsernameRegistrationProps) {
   const { publicKey } = useWallet()
