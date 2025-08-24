@@ -7,13 +7,20 @@ export async function GET(req: NextRequest) {
     // Try to get user from auth token first
     let user = await getCurrentUser(req)
     
-    // If we have a user but no username, fetch it from DB
-    if (user && !user.username) {
+    // If we have a user, ensure we have complete info from DB
+    if (user) {
       const db = await getDatabase()
       const dbUser = await db.collection('users').findOne({ walletAddress: user.walletAddress })
-      if (dbUser && dbUser.username) {
-        user.username = dbUser.username
+      if (dbUser) {
+        user.username = dbUser.username || user.username
         console.log(`[Auth Me] Found username ${dbUser.username} for wallet ${user.walletAddress}`)
+        
+        // Also get referral code
+        const referralCode = await db.collection('referral_codes_v2').findOne({ walletAddress: user.walletAddress })
+        if (referralCode) {
+          user.referralCode = referralCode.code
+          user.referralLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${referralCode.code}`
+        }
       }
     }
     

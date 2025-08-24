@@ -213,9 +213,15 @@ export default function ScansPage() {
   // Fetch user profile and token balance
   const fetchUserProfile = async () => {
     try {
+      // Get auth token from localStorage or cookie
+      const authToken = localStorage.getItem('auth-token')
+      
       // Check if user has a username
       const response = await fetch('/api/auth/me', {
-        credentials: 'include'
+        credentials: 'include',
+        headers: authToken ? {
+          'Authorization': `Bearer ${authToken}`
+        } : {}
       })
 
       if (response.ok) {
@@ -234,14 +240,18 @@ export default function ScansPage() {
         }
       } else if (response.status === 401 && publicKey) {
         // Fallback to direct wallet lookup
+        console.log('[Profile] Auth failed, falling back to wallet lookup')
         try {
           const walletResponse = await fetch(`/api/user/by-wallet?walletAddress=${publicKey.toString()}`)
           if (walletResponse.ok) {
             const walletData = await walletResponse.json()
+            console.log('[Profile] Wallet lookup result:', walletData)
             if (walletData.exists && walletData.username) {
               setUserProfile({ 
                 walletAddress: walletData.walletAddress, 
-                username: walletData.username 
+                username: walletData.username,
+                referralCode: walletData.referralCode,
+                referralLink: walletData.referralCode ? `${window.location.origin}?ref=${walletData.referralCode}` : undefined 
               })
             }
           }
@@ -386,15 +396,23 @@ export default function ScansPage() {
           document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
         }
         
-        setUserProfile({ ...userProfile, username: usernameInput })
+        // Update the user profile with all the returned data
+        setUserProfile({ 
+          ...userProfile, 
+          username: data.username || usernameInput,
+          referralCode: data.referralCode,
+          referralLink: data.referralLink
+        })
+        
         setShowUsernameRegistration(false)
         setUsernameInput('')
         alert(
           `✅ Username registered successfully!\n\n` +
-          `Username: @${usernameInput}\n` +
+          `Username: @${data.username || usernameInput}\n` +
           `${burnAmount.toLocaleString()} LYN tokens burned\n` +
           `Transaction: ${burnSignature.slice(0, 8)}...${burnSignature.slice(-8)}\n\n` +
-          `Your profile: ${data.profileUrl}`
+          `Your profile: ${data.profileUrl}\n` +
+          `Referral link: ${data.referralLink}`
         )
         
         // Refresh the page to load the new auth state

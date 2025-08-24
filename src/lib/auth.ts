@@ -17,6 +17,8 @@ export interface AuthUser {
   tokenBalance: number
   hasTokenAccess: boolean
   questionsAsked: number
+  referralCode?: string
+  referralLink?: string
 }
 
 export interface JWTPayload {
