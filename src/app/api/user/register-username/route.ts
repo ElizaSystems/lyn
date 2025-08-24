@@ -314,13 +314,29 @@ export async function POST(request: NextRequest) {
     // Generate auth token for the user
     const token = jwt.sign(
       { 
+        userId: userId?.toString() || walletAddress,
         walletAddress,
-        username,
-        userId: userId?.toString()
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
       },
-      process.env.JWT_SECRET || 'fallback-secret-change-in-production',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || 'fallback-secret-change-in-production'
     )
+    
+    // Create session in database
+    const sessionsCollection = db.collection('sessions')
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    await sessionsCollection.insertOne({
+      userId: userId?.toString() || walletAddress,
+      token,
+      expiresAt,
+      ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                 request.headers.get('x-real-ip') || 
+                 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+    console.log(`[Username Reg] Session created for user ${username}`)
     
     const response = NextResponse.json({
       success: true,
@@ -328,7 +344,8 @@ export async function POST(request: NextRequest) {
       profileUrl: `https://app.lynai.xyz/profile/${username}`,
       reputationScore: 100,
       referralCode: vanityReferralCode,
-      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${vanityReferralCode}`
+      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${vanityReferralCode}`,
+      token // Include token in response for client to set Authorization header
     })
     
     // Set auth cookie so user stays logged in after registration

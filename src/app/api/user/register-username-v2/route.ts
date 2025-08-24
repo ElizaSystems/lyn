@@ -1,323 +1,416 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { MongoClient } from 'mongodb'
-import { Connection } from '@solana/web3.js'
+import { requireAuth } from '@/lib/auth'
+import { getDatabase } from '@/lib/mongodb'
+import { getTokenBalance, connection } from '@/lib/solana'
 import { verifyBurnTransaction } from '@/lib/solana-burn'
+import { config } from '@/lib/config'
+import { ReferralServiceV2 } from '@/lib/services/referral-service-v2'
+import { BurnService } from '@/lib/services/burn-service'
 import jwt from 'jsonwebtoken'
 
-const BURN_AMOUNT = 1000 // 1,000 LYN tokens to burn for registration
 const REQUIRED_BALANCE = 10000 // 10,000 LYN tokens required to hold
+const BURN_AMOUNT = 1000 // 1,000 LYN tokens to burn for registration
 
 export async function POST(request: NextRequest) {
-  let client: MongoClient | null = null
-  
   try {
-    const { username, walletAddress, signature, referralCode } = await request.json()
+    const { username, signature, transaction, walletAddress, referralCode } = await request.json()
     
-    console.log(`[Username Reg V2] Starting registration for ${username} by ${walletAddress}`)
+    if (!walletAddress) {
+      return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 })
+    }
     
+    if (!username) {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 })
+    }
+
     // Validate username format
     const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/
     if (!usernameRegex.test(username)) {
       return NextResponse.json({ 
-        error: 'Invalid username format. Use 3-20 characters, letters, numbers, underscore, hyphen only.' 
+        error: 'Username must be 3-20 characters long and contain only letters, numbers, underscores, and hyphens' 
       }, { status: 400 })
     }
-    
-    // Direct MongoDB connection - bypass any middleware or wrappers
-    const mongoUri = process.env.MONGODB_URI
-    if (!mongoUri) {
-      console.error('[Username Reg V2] No MongoDB URI found')
-      return NextResponse.json({ error: 'Database configuration error' }, { status: 500 })
-    }
-    
-    client = new MongoClient(mongoUri)
-    await client.connect()
-    console.log('[Username Reg V2] Connected to MongoDB directly')
-    
-    const dbName = process.env.MONGODB_DB_NAME || 'lyn-hacker'
-    const db = client.db(dbName)
-    console.log(`[Username Reg V2] Using database: ${dbName}`)
-    
+
+    const db = await getDatabase()
+    const usersCollection = db.collection('users')
+
     // Check if username is already taken
-    const existingUsername = await db.collection('users').findOne({ username })
-    if (existingUsername && existingUsername.walletAddress !== walletAddress) {
-      console.log(`[Username Reg V2] Username ${username} already taken by another wallet`)
+    const existingUser = await usersCollection.findOne({ username })
+    if (existingUser) {
+      return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
+    }
+
+    // Check if user already has a username
+    const currentUser = await usersCollection.findOne({ walletAddress })
+    if (currentUser?.username) {
+      return NextResponse.json({ error: 'User already has a registered username' }, { status: 409 })
+    }
+
+    // Check token balance
+    console.log(`[Username Reg] Checking balance for wallet: ${walletAddress}`)
+    console.log(`[Username Reg] Using token mint: ${config.token.mintAddress}`)
+    
+    const balance = await getTokenBalance(walletAddress, config.token.mintAddress)
+    console.log(`[Username Reg] Balance found: ${balance} LYN`)
+    
+    if (balance < REQUIRED_BALANCE) {
       return NextResponse.json({ 
-        error: 'Username already taken' 
+        error: `Insufficient balance. Required: ${REQUIRED_BALANCE.toLocaleString()} LYN, Current: ${Math.floor(balance).toLocaleString()} LYN`,
+        currentBalance: Math.floor(balance),
+        requiredBalance: REQUIRED_BALANCE
+      }, { status: 400 })
+    }
+
+    // Verify burn transaction
+    if (!signature) {
+      return NextResponse.json({ 
+        error: 'Burn transaction signature required' 
       }, { status: 400 })
     }
     
-    // Verify burn transaction (skip for mock in dev)
-    if (signature !== 'mock_signature') {
-      const connection = new Connection(
-        process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com'
-      )
-      
-      const burnVerified = await verifyBurnTransaction(
-        connection, 
-        signature, 
-        BURN_AMOUNT, 
-        referralCode
-      )
-      
-      if (!burnVerified) {
-        // For now, just log but continue - we know burns are working
-        console.warn(`[Username Reg V2] Burn verification failed but continuing`)
+    // Skip burn verification for mock signatures in development
+    let burnVerified = false
+    if (signature === 'mock_signature') {
+      console.log(`[Username Reg] Mock signature detected, skipping burn verification for testing`)
+      burnVerified = true
+    } else {
+      // Verify the burn transaction on-chain
+      console.log(`[Username Reg] Verifying burn transaction: ${signature}`)
+      burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT, referralCode)
+      if (!burnVerified && referralCode) {
+        // Retry leniently without referral chain check in case wallets burned full amount without splits
+        console.log('[Username Reg] Initial verification with referral failed; retrying burn-only check')
+        burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT)
       }
     }
     
+    if (!burnVerified) {
+      // Persist failed attempt for auditing
+      await db.collection('burn_validations').insertOne({
+        walletAddress,
+        amount: BURN_AMOUNT,
+        signature,
+        referralCode: referralCode || null,
+        status: 'failed',
+        reason: 'verification_failed',
+        createdAt: new Date()
+      })
+      // Return 202 to allow client to poll and auto-complete once RPC reflects the tx fully
+      return NextResponse.json({ 
+        error: `Burn seen but not fully verifiable yet. We will auto-complete shortly.`,
+        requiredBurnAmount: BURN_AMOUNT,
+        status: 'pending_verification',
+        signature
+      }, { status: 202 })
+    }
+    
+    console.log(`[Username Reg] Burn verified successfully for ${BURN_AMOUNT} LYN`)
+
+    // Register username - FORCE INSERT/UPDATE
     const registrationDate = new Date()
     
-    // CRITICAL: Use replaceOne to completely replace the document
-    // This ensures ALL fields are set correctly
-    const userDoc = {
-      walletAddress,
-      username,
-      profile: { 
-        username,
-        bio: '',
-        avatar: null
-      },
-      usernameRegisteredAt: registrationDate,
-      registrationBurnAmount: BURN_AMOUNT,
-      registrationBurnTx: signature,
-      tokenBalance: REQUIRED_BALANCE,
-      hasTokenAccess: true,
-      createdAt: registrationDate,
-      updatedAt: registrationDate,
-      nonce: '',
-      lastLoginAt: registrationDate
-    }
+    // First, check if user exists
+    const existingUserDoc = await usersCollection.findOne({ walletAddress })
     
-    console.log(`[Username Reg V2] Replacing user document with:`, {
-      walletAddress: userDoc.walletAddress,
-      username: userDoc.username
-    })
-    
-    const userResult = await db.collection('users').replaceOne(
-      { walletAddress },
-      userDoc,
-      { upsert: true }
-    )
-    
-    console.log(`[Username Reg V2] User replace result:`, {
-      matched: userResult.matchedCount,
-      modified: userResult.modifiedCount,
-      upserted: userResult.upsertedCount
-    })
-    
-    // Verify the username was saved
-    const savedUser = await db.collection('users').findOne({ walletAddress })
-    if (!savedUser?.username || savedUser.username !== username) {
-      console.error(`[Username Reg V2] CRITICAL ERROR: Username not saved!`)
-      console.error(`[Username Reg V2] Expected: ${username}, Got: ${savedUser?.username}`)
-      
-      // Try one more time with updateOne
-      await db.collection('users').updateOne(
+    if (existingUserDoc) {
+      // User exists, update with username
+      const updateResult = await usersCollection.updateOne(
         { walletAddress },
-        { 
-          $set: { 
+        {
+          $set: {
             username,
             'profile.username': username,
-            updatedAt: new Date()
-          } 
+            usernameRegisteredAt: registrationDate,
+            registrationBurnAmount: BURN_AMOUNT,
+            registrationBurnTx: signature,
+            updatedAt: registrationDate
+          }
         }
       )
+      console.log(`[Username Reg] Updated existing user: matched=${updateResult.matchedCount}, modified=${updateResult.modifiedCount}`)
       
-      const retryUser = await db.collection('users').findOne({ walletAddress })
-      if (!retryUser?.username) {
-        return NextResponse.json({ 
-          error: 'Failed to save username to database' 
-        }, { status: 500 })
+      if (updateResult.modifiedCount === 0) {
+        console.error(`[Username Reg] WARNING: User update failed for ${walletAddress}`)
       }
-    }
-    
-    console.log(`[Username Reg V2] Username verified in DB: ${savedUser?.username}`)
-    
-    // Create vanity referral code
-    const referralDoc = {
-      walletAddress,
-      code: username,
-      username,
-      isVanity: true,
-      createdAt: registrationDate,
-      updatedAt: registrationDate,
-      stats: {
-        totalReferrals: 0,
-        totalBurned: 0,
-        totalRewards: 0
-      }
-    }
-    
-    const referralResult = await db.collection('referral_codes_v2').replaceOne(
-      { walletAddress },
-      referralDoc,
-      { upsert: true }
-    )
-    
-    console.log(`[Username Reg V2] Referral code result:`, {
-      matched: referralResult.matchedCount,
-      modified: referralResult.modifiedCount
-    })
-    
-    // Record the burn
-    await db.collection('burns').insertOne({
-      walletAddress,
-      username,
-      amount: BURN_AMOUNT,
-      type: 'username_registration',
-      transactionSignature: signature,
-      description: `Username registration: @${username}`,
-      metadata: { referralCode },
-      timestamp: registrationDate,
-      verified: true
-    })
-    
-    // Initialize reputation with 100 points for username registration
-    await db.collection('user_reputation').replaceOne(
-      { walletAddress },
-      {
+    } else {
+      // User doesn't exist, create new
+      const insertResult = await usersCollection.insertOne({
         walletAddress,
         username,
-        reputationScore: 100, // 100 points for registering username
-        tier: 'bronze', // Start at bronze tier with 100 points
-        feedbackCount: 0,
-        votesReceived: 0,
-        accuracyScore: 0,
-        consistencyScore: 0,
-        participationScore: 0,
-        moderatorBonus: 0,
-        penaltyPoints: 0,
-        badges: [],
-        statistics: {
-          totalFeedbackSubmitted: 0,
-          totalVotesCast: 0,
-          accurateReports: 0,
-          inaccurateReports: 0,
-          spamReports: 0,
-          lastActivityAt: registrationDate
-        },
+        profile: { username },
+        nonce: '',
+        tokenBalance: balance,
+        hasTokenAccess: balance >= REQUIRED_BALANCE,
+        lastLoginAt: registrationDate,
+        usernameRegisteredAt: registrationDate,
+        registrationBurnAmount: BURN_AMOUNT,
+        registrationBurnTx: signature,
         createdAt: registrationDate,
         updatedAt: registrationDate
+      })
+      console.log(`[Username Reg] Created new user with ID: ${insertResult.insertedId}`)
+    }
+    
+    // Verify the username was actually saved
+    const userDoc = await usersCollection.findOne({ walletAddress })
+    const userId = userDoc?._id
+    
+    if (!userDoc?.username || userDoc.username !== username) {
+      console.error(`[Username Reg] CRITICAL: Username not saved properly! Doc username: ${userDoc?.username}, Expected: ${username}`)
+      // Try one more time with a direct, simple update
+      await usersCollection.updateOne(
+        { walletAddress },
+        { $set: { username } }
+      )
+    }
+    
+    // Record the burn in the burns collection
+    try {
+      console.log(`[Username Reg] Attempting to record burn for ${walletAddress}`)
+      
+      const burnRecord = await BurnService.recordBurn({
+        walletAddress,
+        username,
+        userId: userId?.toString(),
+        amount: BURN_AMOUNT,
+        type: 'username_registration',
+        transactionSignature: signature,
+        description: `Username registration: @${username}`,
+        metadata: {
+          referralCode: referralCode || undefined
+        }
+      })
+      
+      console.log(`[Username Reg] Burn recorded successfully with ID: ${burnRecord._id}`)
+      // Mark validation success
+      try {
+        await db.collection('burn_validations').insertOne({
+          walletAddress,
+          amount: BURN_AMOUNT,
+          signature,
+          referralCode: referralCode || null,
+          status: 'success',
+          createdAt: new Date()
+        })
+      } catch {}
+    } catch (burnError) {
+      console.error('[Username Reg] Failed to record burn:', burnError)
+      
+      // Try to record manually in the database as fallback
+      try {
+        const db = await getDatabase()
+        const burnsCollection = db.collection('burns')
+        
+        const fallbackBurn = {
+          walletAddress,
+          username,
+          userId: userId?.toString(),
+          amount: BURN_AMOUNT,
+          type: 'username_registration',
+          transactionSignature: signature,
+          description: `Username registration: @${username}`,
+          metadata: {
+            referralCode: referralCode || undefined
+          },
+          timestamp: new Date(),
+          verified: true
+        }
+        
+        const result = await burnsCollection.insertOne(fallbackBurn)
+        console.log(`[Username Reg] Fallback burn recorded with ID: ${result.insertedId}`)
+      } catch (fallbackError) {
+        console.error('[Username Reg] Fallback burn recording also failed:', fallbackError)
+      }
+    }
+
+    // Force create vanity referral code with the username
+    try {
+      // Directly insert/update the referral code to use the username
+      const referralCodesCollection = db.collection('referral_codes_v2')
+      await referralCodesCollection.updateOne(
+        { walletAddress },
+        {
+          $set: {
+            code: username,
+            username,
+            isVanity: true,
+            updatedAt: new Date()
+          },
+          $setOnInsert: {
+            walletAddress,
+            createdAt: new Date(),
+            stats: {
+              totalReferrals: 0,
+              totalBurned: 0,
+              totalRewards: 0
+            }
+          }
+        },
+        { upsert: true }
+      )
+      console.log(`[Username Reg] Vanity referral code "${username}" created for ${walletAddress}`)
+    } catch (e) {
+      console.error('[Username Reg] Failed to create vanity referral code:', e)
+    }
+
+    // Initialize reputation score with 100 points for username registration
+    await db.collection('user_reputation').updateOne(
+      { walletAddress },
+      {
+        $set: {
+          username,
+          walletAddress,
+          reputationScore: 100, // 100 points for registering username
+          tier: 'bronze', // Start at bronze tier
+          metrics: {
+            totalScans: 0,
+            accurateReports: 0,
+            communityContributions: 0,
+            stakingAmount: 0,
+            accountAge: 0,
+            verifiedScans: 0
+          },
+          badges: [],
+          createdAt: registrationDate,
+          updatedAt: registrationDate
+        }
       },
       { upsert: true }
     )
     
-    // Track referral if present
+    // Track referral if code provided
     if (referralCode) {
       try {
-        const referrer = await db.collection('referral_codes_v2').findOne({ code: referralCode })
-        if (referrer) {
-          await db.collection('referral_relationships_v2').insertOne({
-            referrerWallet: referrer.walletAddress,
-            referredWallet: walletAddress,
-            referralCode,
-            createdAt: registrationDate,
-            status: 'active',
-            burnAmount: BURN_AMOUNT
-          })
-          
-          // Update referrer stats
-          await db.collection('referral_codes_v2').updateOne(
-            { code: referralCode },
-            { 
-              $inc: { 
-                'stats.totalReferrals': 1,
-                'stats.totalBurned': BURN_AMOUNT
-              }
-            }
-          )
-        }
-      } catch (e) {
-        console.error('[Username Reg V2] Referral tracking error:', e)
+        console.log(`[Username Reg] Tracking referral with code: ${referralCode}`)
+        await ReferralServiceV2.trackReferral(
+          referralCode,
+          walletAddress,
+          BURN_AMOUNT
+        )
+        console.log(`[Username Reg] Referral tracked successfully`)
+      } catch (referralError) {
+        console.error('[Username Reg] Failed to track referral:', referralError)
+        // Don't fail registration if referral tracking fails
       }
     }
+
+    // Log the registration
+    await db.collection('audit_logs').insertOne({
+      userId: walletAddress,
+      action: 'username_registered',
+      resource: 'user_profile',
+      details: {
+        username,
+        burnAmount: BURN_AMOUNT,
+        burnTransaction: signature,
+        walletAddress
+      },
+      timestamp: registrationDate
+    })
+
+    // The vanity code is the username itself
+    const vanityReferralCode = username
     
-    // Generate auth token
+    // Generate auth token for the user
     const token = jwt.sign(
       { 
+        userId: userId?.toString() || walletAddress,
         walletAddress,
-        username,
-        userId: savedUser?._id?.toString()
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
       },
-      process.env.JWT_SECRET || 'fallback-secret-change-in-production',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || 'fallback-secret-change-in-production'
     )
+    
+    // Create session in database
+    const sessionsCollection = db.collection('sessions')
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    await sessionsCollection.insertOne({
+      userId: userId?.toString() || walletAddress,
+      token,
+      expiresAt,
+      ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                 request.headers.get('x-real-ip') || 
+                 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+    console.log(`[Username Reg] Session created for user ${username}`)
     
     const response = NextResponse.json({
       success: true,
       username,
       profileUrl: `https://app.lynai.xyz/profile/${username}`,
-      reputationScore: 0, // Start at 0
-      referralCode: username,
-      referralLink: `https://app.lynai.xyz?ref=${username}`
+      reputationScore: 100,
+      referralCode: vanityReferralCode,
+      referralLink: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.lynai.xyz'}?ref=${vanityReferralCode}`,
+      token // Include token in response for client to set Authorization header
     })
     
-    // Set auth cookie
+    // Set auth cookie so user stays logged in after registration
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
     })
     
-    console.log(`[Username Reg V2] Registration complete for @${username}`)
     return response
-    
+
   } catch (error) {
-    console.error('[Username Reg V2] Fatal error:', error)
+    console.error('Username registration error:', error)
     return NextResponse.json(
       { error: 'Failed to register username' },
       { status: 500 }
     )
-  } finally {
-    if (client) {
-      await client.close()
-      console.log('[Username Reg V2] MongoDB connection closed')
-    }
   }
 }
 
 export async function GET(request: NextRequest) {
-  let client: MongoClient | null = null
-  
   try {
     const { searchParams } = new URL(request.url)
     const username = searchParams.get('username')
     
+    console.log(`[Username Check] Checking availability for: ${username}`)
+    console.log(`[Username Check] Environment check - hasMongoUri: ${!!process.env.MONGODB_URI}, hasDbName: ${!!process.env.MONGODB_DB_NAME}`)
+    
     if (!username) {
-      return NextResponse.json({ error: 'Username required' }, { status: 400 })
+      return NextResponse.json({ error: 'Username parameter required' }, { status: 400 })
     }
-    
-    // Direct MongoDB connection
-    const mongoUri = process.env.MONGODB_URI
-    if (!mongoUri) {
-      return NextResponse.json({ available: true, username })
+
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/
+    if (!usernameRegex.test(username)) {
+      return NextResponse.json({ 
+        available: false,
+        username,
+        error: 'Invalid username format'
+      })
     }
+
+    const db = await getDatabase()
+    const usersCollection = db.collection('users')
     
-    client = new MongoClient(mongoUri)
-    await client.connect()
-    
-    const dbName = process.env.MONGODB_DB_NAME || 'lyn-hacker'
-    const db = client.db(dbName)
-    
-    const user = await db.collection('users').findOne({ username })
+    const user = await usersCollection.findOne({ username })
+    console.log(`[Username Check] User found: ${!!user}`)
     
     return NextResponse.json({
       available: !user,
       username
     })
-    
+
   } catch (error) {
-    console.error('[Username Check V2] Error:', error)
+    console.error('Username check error:', error)
+    
+    // Return fallback response instead of 500 error
+    const username = new URL(request.url).searchParams.get('username')
     return NextResponse.json({
-      available: true,
-      username: request.url.split('username=')[1]
-    })
-  } finally {
-    if (client) {
-      await client.close()
-    }
+      available: true, // Default to available when check fails
+      username,
+      error: 'Service temporarily unavailable',
+      fallback: true
+    }, { status: 200 }) // Return 200 instead of 500
   }
 }

@@ -114,16 +114,19 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthUser | n
     return null
   }
 
-  // Get user data
+  // Get user data - ensure we get the latest username
   const user = await db.users.findByWalletAddress(payload.walletAddress)
   if (!user) return null
+
+  // Ensure username is included if it exists
+  const username = user.username || user.profile?.username || undefined
 
   return {
     id: user._id!.toString(),
     walletAddress: user.walletAddress,
-    username: user.username,
-    tokenBalance: user.tokenBalance,
-    hasTokenAccess: user.hasTokenAccess,
+    username: username,
+    tokenBalance: user.tokenBalance || 0,
+    hasTokenAccess: user.hasTokenAccess !== false,
     questionsAsked: 0, // This will be tracked separately in analytics
   }
 }
