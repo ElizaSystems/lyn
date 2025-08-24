@@ -213,15 +213,23 @@ export default function ScansPage() {
   // Fetch user profile and token balance
   const fetchUserProfile = async () => {
     try {
-      // Get auth token from localStorage or cookie
+      // Get auth token from localStorage
       const authToken = localStorage.getItem('auth-token')
+      
+      // Build headers with multiple token sources
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`
+        headers['x-auth-token'] = authToken // Backup header
+      }
       
       // Check if user has a username
       const response = await fetch('/api/auth/me', {
-        credentials: 'include',
-        headers: authToken ? {
-          'Authorization': `Bearer ${authToken}`
-        } : {}
+        credentials: 'include', // Include cookies
+        headers
       })
 
       if (response.ok) {
@@ -391,21 +399,30 @@ export default function ScansPage() {
         
         // Store the auth token if provided
         if (data.token) {
+          console.log('[Registration] Storing auth token')
           localStorage.setItem('auth-token', data.token)
-          // Also set it as a cookie for server-side auth
-          document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+          
+          // Also try to set cookie (may not work in all browsers)
+          try {
+            document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure`
+          } catch (e) {
+            console.log('[Registration] Could not set cookie:', e)
+          }
         }
         
         // Update the user profile with all the returned data
-        setUserProfile({ 
+        const updatedProfile = { 
           ...userProfile, 
           username: data.username || usernameInput,
           referralCode: data.referralCode,
           referralLink: data.referralLink
-        })
+        }
+        setUserProfile(updatedProfile)
         
         setShowUsernameRegistration(false)
         setUsernameInput('')
+        
+        // Show success message
         alert(
           `✅ Username registered successfully!\n\n` +
           `Username: @${data.username || usernameInput}\n` +
@@ -415,10 +432,15 @@ export default function ScansPage() {
           `Referral link: ${data.referralLink}`
         )
         
-        // Refresh the page to load the new auth state
+        // Immediately refetch profile to verify persistence
+        console.log('[Registration] Refetching profile to verify persistence')
+        await fetchUserProfile()
+        
+        // Then refresh the page after a delay
         setTimeout(() => {
+          console.log('[Registration] Reloading page')
           window.location.reload()
-        }, 1500)
+        }, 2000)
       } else {
         const error = await response.json()
         alert(`Registration failed: ${error.error}\n\nYour tokens were burned but registration failed. Please contact support with transaction: ${burnSignature}`)

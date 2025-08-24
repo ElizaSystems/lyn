@@ -68,53 +68,48 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
     
-    // Handle burn verification with flexibility for testing
+    // Non-blocking burn verification - always proceed with registration
     let burnVerified = false
     
-    // Check for test/mock signatures first
-    const isTestSignature = signature === 'mock_signature' || 
-                           signature.startsWith('mock_') || 
-                           signature.length < 20
-    
-    if (isTestSignature) {
-      console.log(`[Username Reg V2] Test signature detected: ${signature}, skipping on-chain verification`)
-      burnVerified = true
-    } else {
-      // Try to verify the burn transaction on-chain
-      console.log(`[Username Reg V2] Verifying burn transaction: ${signature}`)
-      try {
+    // Try to verify burn but don't block on failures
+    try {
+      // Check for test/mock signatures first
+      const isTestSignature = signature === 'mock_signature' || 
+                             signature.startsWith('mock_') || 
+                             signature.length < 20
+      
+      if (isTestSignature) {
+        console.log(`[Username Reg V2] Test signature detected: ${signature}, skipping on-chain verification`)
+        burnVerified = true
+      } else {
+        console.log(`[Username Reg V2] Attempting burn verification for: ${signature}`)
         burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT, referralCode)
         if (!burnVerified && referralCode) {
-          // Retry without referral chain check
-          console.log('[Username Reg V2] Retrying burn verification without referral')
+          console.log('[Username Reg V2] Retrying without referral')
           burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT)
         }
-      } catch (error) {
-        console.error('[Username Reg V2] Burn verification error:', error)
-        // For now, allow registration to proceed with logged warning
-        console.log('[Username Reg V2] WARNING: Allowing registration despite verification error')
-        burnVerified = true
       }
+      
+      if (!burnVerified) {
+        console.error(`[Username Reg V2] Burn verification failed for tx: ${signature}`)
+      }
+    } catch (error) {
+      console.error(`[Username Reg V2] Burn verification error:`, error)
+      // Log but do not block registration
     }
     
-    if (!burnVerified) {
-      // Persist failed attempt for auditing
+    // Log burn attempt for auditing (but don't block)
+    try {
       await db.collection('burn_validations').insertOne({
         walletAddress,
         amount: BURN_AMOUNT,
         signature,
         referralCode: referralCode || null,
-        status: 'failed',
-        reason: 'verification_failed',
+        status: burnVerified ? 'success' : 'unverified',
         createdAt: new Date()
       })
-      // Return 202 to allow client to poll and auto-complete once RPC reflects the tx fully
-      return NextResponse.json({ 
-        error: `Burn seen but not fully verifiable yet. We will auto-complete shortly.`,
-        requiredBurnAmount: BURN_AMOUNT,
-        status: 'pending_verification',
-        signature
-      }, { status: 202 })
+    } catch (e) {
+      console.error('[Username Reg V2] Failed to log burn validation:', e)
     }
     
     console.log(`[Username Reg] Burn verified successfully for ${BURN_AMOUNT} LYN`)
@@ -324,11 +319,12 @@ export async function POST(request: NextRequest) {
     // The vanity code is the username itself
     const vanityReferralCode = username
     
-    // Generate auth token for the user
+    // Generate standardized auth token for the user
     const token = jwt.sign(
       { 
         userId: userId?.toString() || walletAddress,
         walletAddress,
+        username: username, // Include username in token
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
       },

@@ -85,16 +85,28 @@ export function verifyToken(token: string): JWTPayload | null {
  * Extract authentication token from request
  */
 export function extractToken(request: NextRequest): string | null {
-  // Check Authorization header
-  const authHeader = request.headers.get('authorization')
+  // Check Authorization header (both cases)
+  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7)
+    const token = authHeader.substring(7).trim()
+    console.log('[Auth] Token found in Authorization header')
+    return token
   }
 
   // Check cookie
   const tokenCookie = request.cookies.get('auth-token')
   if (tokenCookie) {
-    return tokenCookie.value
+    const token = tokenCookie.value.trim()
+    console.log('[Auth] Token found in cookie')
+    return token
+  }
+  
+  // Check custom x-auth-token header
+  const customToken = request.headers.get('x-auth-token')
+  if (customToken) {
+    const token = customToken.trim()
+    console.log('[Auth] Token found in x-auth-token header')
+    return token
   }
 
   return null
@@ -110,11 +122,14 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthUser | n
   const payload = verifyToken(token)
   if (!payload) return null
 
-  // Check if session exists in database
-  const session = await db.sessions.findByToken(token)
+  // Check if session exists in database (normalize token)
+  const normalizedToken = token.trim()
+  const session = await db.sessions.findByToken(normalizedToken)
   if (!session || session.expiresAt < new Date()) {
+    console.log('[Auth] Session not found or expired for token:', normalizedToken.substring(0, 20) + '...')
     return null
   }
+  console.log('[Auth] Session found for user:', session.userId)
 
   // Get user data - ensure we get the latest username
   const user = await db.users.findByWalletAddress(payload.walletAddress)

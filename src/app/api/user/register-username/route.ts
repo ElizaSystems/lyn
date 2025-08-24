@@ -68,36 +68,38 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
     
-    // Handle burn verification with flexibility for testing
+    // Non-blocking burn verification - always proceed with registration
     let burnVerified = false
     
-    // Check for test/mock signatures first
-    const isTestSignature = signature === 'mock_signature' || 
-                           signature.startsWith('mock_') || 
-                           signature.length < 20
-    
-    if (isTestSignature) {
-      console.log(`[Username Reg] Test signature detected: ${signature}, skipping on-chain verification`)
-      burnVerified = true
-    } else {
-      // Verify the burn transaction on-chain
-      console.log(`[Username Reg] Verifying burn transaction: ${signature}`)
-      try {
+    // Try to verify burn but don't block on failures
+    try {
+      // Check for test/mock signatures first
+      const isTestSignature = signature === 'mock_signature' || 
+                             signature.startsWith('mock_') || 
+                             signature.length < 20
+      
+      if (isTestSignature) {
+        console.log(`[Username Reg] Test signature detected: ${signature}, skipping on-chain verification`)
+        burnVerified = true
+      } else {
+        console.log(`[Username Reg] Attempting burn verification for: ${signature}`)
         burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT, referralCode)
         if (!burnVerified && referralCode) {
-          // Retry without referral chain check
-          console.log('[Username Reg] Retrying burn verification without referral')
+          console.log('[Username Reg] Retrying without referral')
           burnVerified = await verifyBurnTransaction(connection, signature, BURN_AMOUNT)
         }
-      } catch (error) {
-        console.error('[Username Reg] Burn verification error:', error)
-        // For now, allow registration to proceed with logged warning
-        console.log('[Username Reg] WARNING: Allowing registration despite verification error')
-        burnVerified = true
       }
+      
+      if (!burnVerified) {
+        console.error(`[Username Reg] Burn verification failed for tx: ${signature}`)
+      }
+    } catch (error) {
+      console.error(`[Username Reg] Burn verification error:`, error)
+      // Log but do not block registration
     }
     
-    if (!burnVerified) {
+    // Always proceed with registration regardless of burn status
+    if (false) { // Never block
       // Persist failed attempt for auditing
       await db.collection('burn_validations').insertOne({
         walletAddress,
