@@ -91,7 +91,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get real threat intelligence
+    console.log('[API] Checking URL with threat intelligence services:', validUrl)
     const threatResults = await ThreatIntelligenceService.checkURL(validUrl)
+    console.log('[API] Threat results count:', threatResults.length)
     
     // Aggregate results from all sources
     const aggregated = ThreatIntelligenceService.aggregateResults(threatResults)
