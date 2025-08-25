@@ -437,8 +437,10 @@ export const db = {
       const database = await getDatabase()
       const collection = database.collection<MongoSession>('sessions')
       const now = new Date()
+      // Normalize token before storing
       const session: MongoSession = {
         ...sessionData,
+        token: sessionData.token.trim(),
         createdAt: now,
         updatedAt: now
       }
@@ -449,8 +451,10 @@ export const db = {
     async findByToken(token: string): Promise<MongoSession | null> {
       const database = await getDatabase()
       const collection = database.collection<MongoSession>('sessions')
+      // Normalize token for comparison
+      const normalizedToken = token.trim()
       return await collection.findOne({ 
-        token, 
+        token: normalizedToken, 
         expiresAt: { $gt: new Date() } 
       })
     },
@@ -458,13 +462,26 @@ export const db = {
     async deleteByToken(token: string): Promise<void> {
       const database = await getDatabase()
       const collection = database.collection<MongoSession>('sessions')
-      await collection.deleteOne({ token })
+      // Normalize token for comparison
+      const normalizedToken = token.trim()
+      await collection.deleteOne({ token: normalizedToken })
     },
 
     async deleteExpired(): Promise<void> {
       const database = await getDatabase()
       const collection = database.collection<MongoSession>('sessions')
       await collection.deleteMany({ expiresAt: { $lt: new Date() } })
+    },
+
+    async updateExpiry(token: string, expiresAt: Date): Promise<void> {
+      const database = await getDatabase()
+      const collection = database.collection<MongoSession>('sessions')
+      // Normalize token for comparison
+      const normalizedToken = token.trim()
+      await collection.updateOne(
+        { token: normalizedToken },
+        { $set: { expiresAt, updatedAt: new Date() } }
+      )
     }
   },
 

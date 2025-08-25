@@ -7,6 +7,7 @@ import OpenAI from 'openai'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { getDatabase } from './mongodb'
 import { config } from './config'
+import { getConnectionWithFallback, getAICompletionWithFallback, openaiCircuitBreaker } from './api-fallbacks'
 
 // Initialize OpenAI with proper error handling
 const getOpenAI = () => {
@@ -18,9 +19,14 @@ const getOpenAI = () => {
   return new OpenAI({ apiKey })
 }
 
-const solanaConnection = new Connection(
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL || config.solana.rpcUrl || 'https://api.mainnet-beta.solana.com'
-)
+// Get Solana connection with fallback support
+let solanaConnection: Connection | null = null
+const getSolanaConnection = async () => {
+  if (!solanaConnection) {
+    solanaConnection = await getConnectionWithFallback()
+  }
+  return solanaConnection
+}
 
 export interface AgentTask {
   id: string
@@ -193,11 +199,21 @@ async function perceive(data: any, agentType: AgentTask['type']): Promise<any> {
         break
     }
     
-    // Add current blockchain state
-    const slot = await solanaConnection.getSlot()
-    enrichedData.blockchainState = {
-      currentSlot: slot,
-      timestamp: new Date().toISOString()
+    // Add current blockchain state with fallback
+    try {
+      const connection = await getSolanaConnection()
+      const slot = await connection.getSlot()
+      enrichedData.blockchainState = {
+        currentSlot: slot,
+        timestamp: new Date().toISOString()
+      }
+    } catch (connError) {
+      console.warn('[Agent] Could not get blockchain state:', connError)
+      enrichedData.blockchainState = {
+        currentSlot: 0,
+        timestamp: new Date().toISOString(),
+        error: 'Connection failed'
+      }
     }
     
   } catch (error) {
@@ -231,20 +247,29 @@ async function reason(
   }
   
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { 
-          role: 'user', 
-          content: `Task: ${task}\n\nData: ${JSON.stringify(perceivedData, null, 2)}\n\nProvide a decision in JSON format with: action, confidence (0-1), reasoning, risks[], and requirements[].`
-        }
-      ],
-      temperature: 0.3, // Lower temperature for more deterministic decisions
-      max_tokens: 1000
+    // Try OpenAI with circuit breaker
+    const content = await openaiCircuitBreaker.execute(async () => {
+      if (!openai) {
+        // Use fallback if OpenAI not configured
+        const prompt = `${systemPrompt}\n\nTask: ${task}\n\nData: ${JSON.stringify(perceivedData, null, 2)}\n\nProvide a decision in JSON format with: action, confidence (0-1), reasoning, risks[], and requirements[].`
+        return await getAICompletionWithFallback(prompt, 'gpt-4')
+      }
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { 
+            role: 'user', 
+            content: `Task: ${task}\n\nData: ${JSON.stringify(perceivedData, null, 2)}\n\nProvide a decision in JSON format with: action, confidence (0-1), reasoning, risks[], and requirements[].`
+          }
+        ],
+        temperature: 0.3, // Lower temperature for more deterministic decisions
+        max_tokens: 1000
+      })
+      
+      return response.choices[0].message.content || '{}'
     })
-    
-    const content = response.choices[0].message.content || '{}'
     
     // Parse LLM response
     try {
