@@ -20,12 +20,20 @@ export class VeniceAIService {
         return null
       }
       
+      // Validate API key format (basic check)
+      if (apiKey.length < 10 || !apiKey.startsWith('vn-')) {
+        console.error('[Venice AI] Invalid API key format detected')
+        return null
+      }
+      
       this.client = new OpenAI({
         apiKey,
         baseURL: 'https://api.venice.ai/api/v1',
         maxRetries: 3,
+        timeout: 30000, // 30 second timeout
       })
       this.isConfigured = true
+      console.log('[Venice AI] Client initialized successfully')
     }
     return this.client
   }
@@ -61,9 +69,9 @@ export class VeniceAIService {
   ): Promise<string> {
     const client = this.getClient()
     
-    // If Venice AI is not configured, use intelligent fallback
+    // If Venice AI is not configured, use enhanced contextual fallback
     if (!client) {
-      return this.generateFallbackResponse(userMessage)
+      return this.generateEnhancedFallbackResponse(userMessage, conversationHistory, context)
     }
 
     try {
@@ -112,24 +120,48 @@ Remember: You have REAL security scanning capabilities through integrated APIs. 
         })
       }
 
-      const completion = await client.chat.completions.create({
-        model: 'llama-3.3-70b', // Venice AI's most capable model - fine-tuned model not available through Venice
-        messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
-        temperature: 0.7,
-        max_tokens: 500,
-        presence_penalty: 0.1,
-        frequency_penalty: 0.1,
-        // Venice-specific parameters to maintain uncensored responses
-        // @ts-expect-error Venice-specific parameter
-        venice_parameters: {
-          include_venice_system_prompt: false // We're using our own system prompt
+      // Retry logic for resilient API calls
+      let completion
+      let retries = 0
+      const maxRetries = 3
+      
+      while (retries < maxRetries) {
+        try {
+          completion = await client.chat.completions.create({
+            model: 'llama-3.3-70b', // Venice AI's most capable model - fine-tuned model not available through Venice
+            messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
+            temperature: 0.7,
+            max_tokens: 500,
+            presence_penalty: 0.1,
+            frequency_penalty: 0.1,
+            // Venice-specific parameters to maintain uncensored responses
+            // @ts-expect-error Venice-specific parameter
+            venice_parameters: {
+              include_venice_system_prompt: false // We're using our own system prompt
+            }
+          })
+          break // Success, exit retry loop
+        } catch (retryError) {
+          retries++
+          if (retries >= maxRetries) {
+            throw retryError // Final retry failed, throw the error
+          }
+          console.warn(`[Venice AI] Retry ${retries}/${maxRetries} after error:`, retryError)
+          await new Promise(resolve => setTimeout(resolve, 1000 * retries)) // Exponential backoff
         }
-      })
+      }
 
-      return completion.choices[0]?.message?.content || this.generateFallbackResponse(userMessage)
+      const response = completion.choices[0]?.message?.content
+      if (!response) {
+        console.warn('[Venice AI] Empty response from API, using enhanced fallback')
+        return this.generateEnhancedFallbackResponse(userMessage, conversationHistory, context)
+      }
+      
+      return response
     } catch (error) {
       console.error('[Venice AI] API call failed:', error)
-      return this.generateFallbackResponse(userMessage)
+      // Use enhanced fallback that maintains context
+      return this.generateEnhancedFallbackResponse(userMessage, conversationHistory, context)
     }
   }
 
@@ -373,10 +405,20 @@ Be encouraging but educational. Focus on helping them understand WHY certain sec
   }
 
   /**
-   * Fallback response generation when Venice AI is not available
+   * Enhanced fallback response with context awareness
    */
-  private static generateFallbackResponse(message: string): string {
+  private static generateEnhancedFallbackResponse(
+    message: string,
+    conversationHistory: ChatMessage[] = [],
+    context?: {
+      hasUrlToAnalyze?: boolean
+      hasFileToScan?: boolean
+      previousAnalysisResult?: Record<string, unknown>
+      username?: string
+    }
+  ): string {
     const lowerMessage = message.toLowerCase()
+    const username = context?.username
     
     // Check if message contains a URL - if so, provide analysis guidance
     const urlPatterns = [
@@ -387,49 +429,147 @@ Be encouraging but educational. Focus on helping them understand WHY certain sec
     
     const hasUrl = urlPatterns.some(pattern => pattern.test(message))
     if (hasUrl) {
-      return "I've detected a URL in your message. I'll analyze it for potential security threats using multiple threat intelligence sources including VirusTotal, Google Safe Browsing, URLVoid, and more. Starting the analysis now..."
+      const greeting = username ? `${username}, ` : ''
+      return `${greeting}I've detected a URL in your message. I'm now analyzing it for potential security threats using our comprehensive threat intelligence system. This includes checking against:
+
+• VirusTotal's database of known malicious sites
+• Google Safe Browsing threat lists
+• URLVoid reputation engine
+• IPQualityScore fraud detection
+• PhishTank phishing database
+• AbuseIPDB malicious IP database
+
+The analysis will complete in just a moment...`
     }
     
     // Check for greetings
     if (/^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening))/.test(lowerMessage)) {
-      return "Hello! I'm Lyn, your AI space agent. I'm here to protect you in the digital space by checking suspicious links for phishing attempts and scanning documents for malware using real-time threat intelligence. How can I help secure your digital journey today?"
+      const greeting = username ? `Hello ${username}!` : 'Hello!'
+      return `${greeting} I'm Lyn, your AI space agent. I'm here to protect you in the digital space by:
+
+🔍 Checking suspicious links for phishing and malware
+📄 Scanning documents for viruses and trojans
+🛡️ Providing real-time security guidance
+
+All my capabilities use real threat intelligence APIs - the same databases used by major security companies. How can I help secure your digital journey today?`
     }
 
     // Check for help requests
     if (lowerMessage.includes('help') || lowerMessage.includes('what can you do')) {
-      return `I'm equipped with real security capabilities to keep you safe online:
+      const greeting = username ? `${username}, here's what ` : "Here's what "
+      return `${greeting}I can do to keep you safe:
 
-🔍 **URL Analysis**: I check links against multiple threat databases including VirusTotal, Google Safe Browsing, and PhishTank to detect phishing and malicious sites.
+🔍 **URL Analysis**: I check links against 6+ threat databases including VirusTotal, Google Safe Browsing, and PhishTank to detect phishing and malicious sites.
 
-📄 **Malware Scanning**: I can scan documents up to 32MB using professional antivirus engines to detect viruses, trojans, and other malware.
+📄 **Malware Scanning**: I scan documents up to 32MB using professional antivirus engines to detect viruses, trojans, and other malware.
 
-🛡️ **Real-Time Protection**: All my scans use live threat intelligence APIs, not simulations. I check against the same databases used by major security companies.
+🛡️ **Real-Time Protection**: All scans use live threat intelligence APIs. I check against the same databases used by enterprise security tools.
+
+💡 **Security Education**: I explain threats in clear terms and provide actionable recommendations.
 
 Simply paste a suspicious link or upload a document to get started!`
     }
 
-    // Check for thanks
-    if (lowerMessage.includes('thank') || lowerMessage.includes('thanks')) {
-      return "You're welcome! Stay safe online, and don't hesitate to check any suspicious links or files with me. Prevention is the best protection!"
+    // Check for security questions
+    if (lowerMessage.includes('phish') || lowerMessage.includes('scam')) {
+      return this.getPhishingAdvice(username)
     }
 
-    // URL-related queries
-    if (lowerMessage.includes('url') || lowerMessage.includes('link') || lowerMessage.includes('website')) {
-      return "I can analyze any URL for security threats using multiple threat intelligence sources. Just paste the suspicious link in the chat, and I'll check it against databases like VirusTotal, Google Safe Browsing, and more to determine if it's safe."
+    if (lowerMessage.includes('malware') || lowerMessage.includes('virus')) {
+      return this.getMalwareAdvice(username)
     }
 
-    // File-related queries
-    if (lowerMessage.includes('file') || lowerMessage.includes('document') || lowerMessage.includes('scan')) {
-      return "I can scan files up to 32MB for malware using professional antivirus engines. Use the upload button to select your file, and I'll analyze it for viruses, trojans, and other threats. The scan typically takes 5-15 seconds."
-    }
-
-    // Security concerns
-    if (lowerMessage.includes('safe') || lowerMessage.includes('dangerous') || lowerMessage.includes('risk')) {
-      return "Your security is my priority. I use real-time threat intelligence from multiple sources to assess risks. Whether it's a suspicious link or an unknown file, I'll give you a detailed analysis with clear recommendations on whether it's safe to proceed."
+    if (lowerMessage.includes('password') || lowerMessage.includes('2fa')) {
+      return this.getPasswordAdvice(username)
     }
 
     // Default response
-    return "I'm here to help protect you from online threats. You can paste any suspicious URL or upload a document (up to 32MB) for security analysis. I use real threat intelligence APIs to provide accurate, real-time security assessments. What would you like me to check?"
+    const greeting = username ? `${username}, ` : ''
+    return `${greeting}I'm here to help with your cybersecurity concerns. You can:
+
+• Paste a suspicious link for instant security analysis
+• Upload a document to scan for malware
+• Ask me about phishing, scams, or security best practices
+
+What would you like me to help you with?`
+  }
+
+  /**
+   * Get phishing-specific advice
+   */
+  private static getPhishingAdvice(username?: string): string {
+    const greeting = username ? `${username}, here's ` : "Here's "
+    return `${greeting}how to identify and avoid phishing attacks:
+
+🎣 **Common Phishing Signs**:
+• Urgent language ("Act now!" or "Account will be closed!")
+• Generic greetings ("Dear customer" instead of your name)
+• Mismatched URLs (hover to see the real destination)
+• Poor grammar and spelling errors
+• Requests for passwords or sensitive info
+
+🛡️ **Protection Tips**:
+• Never click links in suspicious emails - go directly to the website
+• Verify sender addresses carefully (look for slight misspellings)
+• Enable 2FA on all important accounts
+• When in doubt, contact the company directly
+
+Paste any suspicious link here and I'll analyze it for you immediately!`
+  }
+
+  /**
+   * Get malware-specific advice
+   */
+  private static getMalwareAdvice(username?: string): string {
+    const greeting = username ? `${username}, here's ` : "Here's "
+    return `${greeting}what you need to know about malware protection:
+
+🦠 **Common Malware Types**:
+• **Trojans**: Disguised as legitimate software
+• **Ransomware**: Encrypts your files for ransom
+• **Spyware**: Steals your personal information
+• **Adware**: Bombards you with unwanted ads
+• **Rootkits**: Hides deep in your system
+
+🔒 **Prevention Strategies**:
+• Keep all software updated with latest patches
+• Only download from official sources
+• Use reputable antivirus software
+• Be cautious with email attachments
+• Regular backups protect against ransomware
+
+Upload any suspicious file (up to 32MB) and I'll scan it with multiple antivirus engines!`
+  }
+
+  /**
+   * Get password security advice
+   */
+  private static getPasswordAdvice(username?: string): string {
+    const greeting = username ? `${username}, let's ` : "Let's "
+    return `${greeting}strengthen your password security:
+
+🔐 **Strong Password Rules**:
+• Minimum 12 characters (longer is better)
+• Mix uppercase, lowercase, numbers, and symbols
+• Avoid dictionary words and personal info
+• Unique password for each account
+• Consider passphrases: "Coffee@7Makes$Me&Happy!"
+
+🛡️ **Additional Security**:
+• **2FA is essential**: Add an extra verification step
+• **Password managers**: Generate and store unique passwords
+• **Security keys**: Physical devices for ultimate protection
+• **Regular updates**: Change passwords after breaches
+
+Need me to check if a specific website is safe before creating an account? Just share the link!`
+  }
+
+  /**
+   * Fallback response generation when Venice AI is not available
+   */
+  private static generateFallbackResponse(message: string): string {
+    // Use the enhanced version for consistency
+    return this.generateEnhancedFallbackResponse(message, [], undefined)
   }
 
   /**
