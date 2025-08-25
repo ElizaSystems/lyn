@@ -12,5 +12,9 @@
     "src/app/api/tasks/execute/route.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "github": {
+    "silent": true
+  },
+  "public": true
 }
