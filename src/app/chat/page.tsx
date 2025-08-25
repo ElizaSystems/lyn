@@ -81,44 +81,58 @@ Just paste a link below to get started! 🔍`,
 
   const checkLink = async (url: string): Promise<{ score: number; verdict: 'safe' | 'suspicious' | 'dangerous'; details: string[] }> => {
     try {
-      const response = await fetch('/api/chat/lite', {
+      // Use the actual security analysis API
+      const response = await fetch('/api/security/analyze-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Check this link for security threats: ${url}` }],
-          sessionId: localStorage.getItem('lyn-session-id') || 'lite-' + Date.now()
-        })
+        body: JSON.stringify({ url })
       })
 
       if (!response.ok) throw new Error('Failed to check link')
       
       const data = await response.json()
       
-      // Parse the response to extract security score
-      const content = data.content || ''
-      let score = 50
+      // Map the API response to our format
       let verdict: 'safe' | 'suspicious' | 'dangerous' = 'suspicious'
-      const details = []
-
-      // Simple scoring based on keywords in response
-      if (content.toLowerCase().includes('safe') || content.toLowerCase().includes('legitimate')) {
-        score = 80 + Math.random() * 20
+      
+      if (data.safe === true) {
         verdict = 'safe'
-      } else if (content.toLowerCase().includes('dangerous') || content.toLowerCase().includes('scam') || content.toLowerCase().includes('phishing')) {
-        score = Math.random() * 30
+      } else if (data.risk_level === 'critical' || data.risk_level === 'high') {
         verdict = 'dangerous'
       } else {
-        score = 30 + Math.random() * 40
         verdict = 'suspicious'
       }
-
-      // Extract details from response
-      if (content.includes('•')) {
-        const bullets = content.split('•').slice(1).map(s => s.trim().split('\n')[0])
-        details.push(...bullets.filter(b => b.length > 0).slice(0, 3))
+      
+      // Extract details from the threat sources
+      const details: string[] = []
+      
+      // Add summary of checks
+      if (data.threat_sources && data.threat_sources.length > 0) {
+        details.push(`✅ Checked by ${data.threat_sources.length} security services`)
+        
+        // Add any specific threats found
+        data.threat_sources.forEach((source: any) => {
+          if (!source.safe && source.threats && source.threats.length > 0) {
+            details.push(`⚠️ ${source.name}: ${source.threats.join(', ')}`)
+          }
+        })
+      }
+      
+      // Add first few recommendations if available
+      if (data.recommendations && data.recommendations.length > 0) {
+        details.push(...data.recommendations.slice(0, 2))
+      }
+      
+      // If no details yet, add from the details field
+      if (details.length === 0 && data.details && data.details.length > 0) {
+        details.push(...data.details.slice(0, 3))
       }
 
-      return { score: Math.round(score), verdict, details }
+      return { 
+        score: data.confidence_score || 50, 
+        verdict, 
+        details: details.length > 0 ? details : ['Analysis complete']
+      }
     } catch (error) {
       console.error('Error checking link:', error)
       return {
