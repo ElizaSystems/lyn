@@ -1,7 +1,6 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import React from 'react'
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -9,11 +8,6 @@ export const metadata: Metadata = {
   title: "LYN AI Lite - Free Link Security Check",
   description: "Check suspicious links with LYN AI - Free crypto security assistant",
   keywords: "crypto security, link checker, phishing detection, scam detection, web3 security",
-  icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
-    apple: '/logo.png',
-  },
   openGraph: {
     title: "LYN AI Lite - Free Link Security Check",
     description: "Check suspicious links with LYN AI - Free crypto security assistant",
@@ -27,7 +21,11 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-black text-white antialiased`}>
@@ -50,7 +48,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 rel="noopener noreferrer"
                 className="relative group"
               >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
                 <button className="relative px-6 py-2 bg-black rounded-lg leading-none flex items-center divide-x divide-gray-600">
                   <span className="flex items-center space-x-2">
                     <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
@@ -93,14 +91,4 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </body>
     </html>
   )
-}
-// Patch BigInt so we can log it using JSON.stringify without any errors
-declare global {
-  interface BigInt {
-    toJSON(): string
-  }
-}
-
-BigInt.prototype.toJSON = function () {
-  return this.toString()
 }
