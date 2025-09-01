@@ -1,0 +1,45 @@
+{
+  "appName": "LYN Security Scanner",
+  "shortName": "LYN Scanner",
+  "description": "Check suspicious links for phishing, scams, and malicious content directly in Telegram",
+  "botUsername": "LYNSecurityBot",
+  "appUrl": "https://lyn-scanner.vercel.app/telegram",
+  "entryPoint": "/telegram",
+  "features": {
+    "linkScanner": true,
+    "smartContractScanner": false,
+    "walletScanner": false,
+    "tokenScanner": false
+  },
+  "colors": {
+    "primary": "#0088cc",
+    "secondary": "#00c5ff",
+    "background": "#1c1c1e",
+    "text": "#ffffff",
+    "success": "#34c759",
+    "warning": "#ff9500",
+    "danger": "#ff3b30"
+  },
+  "limits": {
+    "freeChecksPerDay": 5,
+    "premiumChecksPerDay": -1
+  },
+  "commands": [
+    {
+      "command": "start",
+      "description": "Start the security scanner"
+    },
+    {
+      "command": "scan",
+      "description": "Scan a link for security threats"
+    },
+    {
+      "command": "help",
+      "description": "Get help using the scanner"
+    },
+    {
+      "command": "stats",
+      "description": "View your scanning statistics"
+    }
+  ]
+}
