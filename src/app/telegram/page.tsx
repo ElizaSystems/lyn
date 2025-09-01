@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Send, Shield, AlertTriangle, CheckCircle, XCircle, Loader2, Share2, History } from 'lucide-react'
+import { Send, Shield, AlertTriangle, CheckCircle, XCircle, Loader2, Share2, History, Wallet, Trophy } from 'lucide-react'
 import { TelegramProvider, useTelegram } from '@/lib/telegram/telegram-provider'
+import { TelegramWalletLink } from '@/components/telegram/wallet-link'
 
 interface ScanResult {
   scanId: string
@@ -227,6 +228,22 @@ function TelegramMiniAppContent() {
             </button>
           </div>
         </div>
+
+        {/* Wallet Linking Component */}
+        {telegram.user && (
+          <div className="mb-4">
+            <TelegramWalletLink 
+              telegramId={telegram.user.id} 
+              onLinked={(address) => {
+                telegram.showPopup({
+                  title: 'Success!',
+                  message: `Wallet linked! You can now track your scans on the leaderboard.`,
+                  buttons: [{ type: 'ok' }]
+                })
+              }}
+            />
+          </div>
+        )}
 
         {/* History Toggle */}
         <button

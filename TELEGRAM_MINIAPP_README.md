@@ -11,6 +11,9 @@
 ### Bot Commands
 - `/start` - Start the security scanner and open Mini App
 - `/scan <url>` - Scan a link directly in chat
+- `/wallet` - Link or manage your Solana wallet
+- `/stats` - View your personal statistics
+- `/leaderboard` - See top security scanners
 - `/help` - Get help using the scanner
 
 ### Mini App Features
@@ -24,6 +27,9 @@
 - 💾 Scan history with cloud storage
 - 📤 Share scan results
 - 🔔 Haptic feedback
+- 💎 **Solana Wallet Linking** - Connect wallet to track scans
+- 🏆 **Global Leaderboard** - Compete with other security scanners
+- 📈 **Personal Statistics** - Track your security contributions
 
 ### Security Checks
 - SSL certificate validation
@@ -40,26 +46,47 @@
 2. Send `/start` to begin
 3. Send any URL to scan it instantly
 4. Or use `/scan <url>` command
+5. Use `/wallet` to link your Solana wallet
+6. Check `/stats` to see your scanning history
+7. View `/leaderboard` for top scanners
 
 ### Via Mini App
 1. Click "Open Scanner" button in bot chat
 2. Enter suspicious URL in the input field
 3. Click scan button or press enter
 4. View detailed security analysis
-5. Share results with friends
+5. Link your Solana wallet for tracking
+6. Check leaderboard rankings
+7. Share results with friends
 
-## 🎯 Usage Limits
+### Wallet Linking (Optional)
+1. Use `/wallet` command or tap "Link Wallet" button
+2. Connect your Solana wallet (Phantom, Solflare, etc.)
+3. Sign the verification message
+4. Your scans will now be tracked on the leaderboard
+5. Compete with other users globally
+
+## 🎯 Usage Limits & Rewards
 
 ### Free Tier
 - 5 scans per day
 - Basic threat detection
 - Standard response time
+- Leaderboard participation
 
 ### Premium (Telegram Premium Users)
 - Unlimited scans
 - Priority processing
 - Advanced threat analysis
 - Scan history sync
+- Enhanced leaderboard rewards
+
+### Wallet-Linked Benefits
+- Track all scans on blockchain
+- Appear on global leaderboard
+- Earn recognition for finding threats
+- Future: LYN token rewards
+- Sync with main LYN ecosystem
 
 ## 🔧 Technical Details
 
