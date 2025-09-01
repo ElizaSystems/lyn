@@ -84,25 +84,97 @@ async function handleStart(chatId: number, username?: string, userId?: number, i
 
   const stats = await TelegramPaymentService.getUserScanStats(userId || 0, isPremium)
   
-  const welcomeMessage = `👋 Welcome to LYN Security Scanner!
+  const welcomeMessage = `🛡️ **Welcome to LYN Security Scanner** 🛡️
+*Your AI-Powered Crypto Security Guard*
 
-I help you check suspicious links for:
-• 🎣 Phishing attempts
-• 💰 Scam websites  
-• 🦠 Malicious content
-• 🪙 Fake crypto sites
+━━━━━━━━━━━━━━━━━━━━━━
+🔍 **WHAT I DO**
+━━━━━━━━━━━━━━━━━━━━━━
 
-${isPremium ? '⭐ *Premium User Benefits:*\n• 20 daily scans (vs 5 for free users)\n• Priority processing\n• Advanced threat analysis\n\n' : ''}💎 Link your Solana wallet for +3 bonus daily scans!
+I protect you from crypto threats by scanning:
+• 🎣 **Phishing Sites** - Fake wallets & exchanges
+• 💰 **Scam Websites** - Ponzi schemes & rugpulls  
+• 🦠 **Malware Links** - Wallet drainers & keyloggers
+• 🪙 **Fake Token Sites** - Honeypots & scam coins
+• 🔗 **Malicious Contracts** - Hidden mint functions
+• 👤 **Impersonators** - Fake team & support sites
 
-📊 *Your Scan Balance:*
-• Daily: ${stats.dailyScansLimit - stats.dailyScansUsed}/${stats.dailyScansLimit} remaining
-• Purchased: ${stats.purchasedScans} scans
-${stats.walletLinked ? '• Wallet bonus: +3 daily scans ✅' : ''}
+━━━━━━━━━━━━━━━━━━━━━━
+⚡ **HOW TO USE ME**
+━━━━━━━━━━━━━━━━━━━━━━
 
-To scan a link:
-1️⃣ Send me any URL directly
-2️⃣ Use /scan command followed by URL
-3️⃣ Open the Mini App for advanced features`
+**Quick Scan Methods:**
+📎 Just paste any URL → Instant scan
+💬 \`/scan example.com\` → Direct command
+🚀 Mini App → Advanced features & history
+
+**Available Commands:**
+• /scan - Scan a suspicious URL
+• /stats - View your security statistics
+• /wallet - Link Solana wallet (+3 daily scans)
+• /leaderboard - Top threat hunters
+• /buy - Get more scans with Stars
+• /help - Detailed help guide
+
+━━━━━━━━━━━━━━━━━━━━━━
+📊 **YOUR SCAN BALANCE**
+━━━━━━━━━━━━━━━━━━━━━━
+
+${isPremium ? '⭐ **PREMIUM USER** ⭐\n' : ''}• **Daily Scans:** ${stats.dailyScansLimit - stats.dailyScansUsed}/${stats.dailyScansLimit} remaining
+• **Purchased:** ${stats.purchasedScans} scans
+${stats.walletLinked ? '• **Wallet Bonus:** +3 daily ✅' : '• **Wallet Bonus:** Not linked (get +3 daily)'}
+${stats.totalStarsSpent > 0 ? `• **Stars Invested:** ⭐ ${stats.totalStarsSpent}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━
+🎯 **FEATURES & BENEFITS**
+━━━━━━━━━━━━━━━━━━━━━━
+
+**🆓 Free Tier (You)**
+✓ 5 daily security scans
+✓ Real-time threat detection
+✓ Basic threat analysis
+✓ Share results with friends
+
+${!isPremium ? `**⭐ Telegram Premium**
+✓ 20 daily scans (4x more!)
+✓ Priority processing
+✓ Advanced threat analysis
+✓ Detailed security reports
+
+` : ''}**💎 Wallet Linked (+3 daily)**
+✓ Bonus daily scans
+✓ Global leaderboard ranking
+✓ On-chain reputation
+✓ Future: LYN token rewards
+
+**⭐ Scan Packages**
+• 10 scans - 50 Stars
+• 50 scans - 200 Stars 🔥
+• 100 scans - 350 Stars
+• 500 scans - 1500 Stars
+
+━━━━━━━━━━━━━━━━━━━━━━
+🚀 **MINI APP FEATURES**
+━━━━━━━━━━━━━━━━━━━━━━
+
+Open the Mini App for:
+• 📱 Beautiful scanning interface
+• 📜 Complete scan history
+• 🔔 Real-time notifications
+• 💾 Cloud storage sync
+• 📊 Detailed analytics
+• 🏆 Leaderboard access
+• 💳 Easy wallet linking
+
+━━━━━━━━━━━━━━━━━━━━━━
+🤝 **JOIN THE COMMUNITY**
+━━━━━━━━━━━━━━━━━━━━━━
+
+• 🌐 Website: lynai.xyz
+• 🐦 Twitter: @ailynagent
+• 💬 Support: @LYNGalacticBot
+
+**Ready to stay safe?** Send me any suspicious link now! 🔍`
 
   const keyboard = {
     inline_keyboard: [
@@ -403,34 +475,148 @@ Or use the web app for easier linking:`, {
 
     case 'help':
       await bot.answerCallbackQuery(query.id)
-      await bot.sendMessage(chatId, `❓ *How to use LYN Scanner*
+      await bot.sendMessage(chatId, `📚 **LYN Scanner Complete Guide**
 
-*Basic Commands:*
-/start - Welcome message
-/scan <url> - Scan a URL
-/wallet - Manage wallet link
-/stats - View your statistics
-/leaderboard - View top scanners
-/buy - Purchase scan packages
-/help - Show this help
+━━━━━━━━━━━━━━━━━━━━━━
+🎯 **QUICK START**
+━━━━━━━━━━━━━━━━━━━━━━
 
-*Scan Limits:*
-• Free users: 5 daily scans
-• Premium users: 20 daily scans
-• Wallet linked: +3 bonus daily scans
-• Purchase packages: ⭐ 50-1500 stars
+**3 Ways to Scan:**
+1️⃣ **Paste URL** → Auto-scan any link
+2️⃣ **Command** → \`/scan example.com\`
+3️⃣ **Mini App** → Full interface
 
-*Wallet Features:*
-• Link Solana wallet for tracking
-• Appear on global leaderboard
-• Sync with LYN ecosystem
-• Earn rewards (coming soon)
+━━━━━━━━━━━━━━━━━━━━━━
+📝 **ALL COMMANDS**
+━━━━━━━━━━━━━━━━━━━━━━
 
-*Scanning:*
-• Send any URL directly
-• Real-time threat detection
-• Multiple security sources
-• Share results with friends`, {
+• **/start** - Main menu & balance
+• **/scan** - Scan a URL for threats
+• **/stats** - Your security statistics
+• **/wallet** - Link/unlink Solana wallet
+• **/leaderboard** - Top threat hunters
+• **/buy** - Purchase scan packages
+• **/help** - This guide
+
+━━━━━━━━━━━━━━━━━━━━━━
+💰 **SCAN LIMITS**
+━━━━━━━━━━━━━━━━━━━━━━
+
+**Daily Limits (Reset at midnight):**
+• 🆓 Free: 5 scans/day
+• ⭐ Premium: 20 scans/day
+• 💎 +Wallet: +3 bonus scans
+• 🔥 Maximum: 23 daily scans
+
+**Purchase More (Stars):**
+• 10 scans = 50 ⭐
+• 50 scans = 200 ⭐ (Popular!)
+• 100 scans = 350 ⭐
+• 500 scans = 1500 ⭐
+
+━━━━━━━━━━━━━━━━━━━━━━
+🔍 **WHAT WE DETECT**
+━━━━━━━━━━━━━━━━━━━━━━
+
+✅ **We Check For:**
+• Phishing attempts
+• Wallet drainers
+• Fake token sites
+• Rugpull projects
+• Malware downloads
+• Scam exchanges
+• Impersonator sites
+• Malicious contracts
+
+📊 **Security Sources:**
+• VirusTotal (70+ engines)
+• Google Safe Browsing
+• PhishTank Database
+• URLVoid Analysis
+• IPQualityScore
+• AbuseIPDB
+
+━━━━━━━━━━━━━━━━━━━━━━
+💎 **WALLET BENEFITS**
+━━━━━━━━━━━━━━━━━━━━━━
+
+**Link Your Solana Wallet:**
+• +3 bonus daily scans
+• Track on leaderboard
+• Build reputation score
+• On-chain verification
+• Future: LYN rewards
+
+**How to Link:**
+1. Use /wallet command
+2. Connect wallet (Phantom, etc)
+3. Sign verification message
+4. Done! +3 daily scans
+
+━━━━━━━━━━━━━━━━━━━━━━
+🏆 **LEADERBOARD**
+━━━━━━━━━━━━━━━━━━━━━━
+
+**Compete Globally:**
+• Most threats detected
+• Highest accuracy rate
+• Total scans performed
+• Community protection score
+
+**Rewards (Coming Soon):**
+• LYN token airdrops
+• NFT badges
+• Premium features
+• Recognition rewards
+
+━━━━━━━━━━━━━━━━━━━━━━
+📱 **MINI APP FEATURES**
+━━━━━━━━━━━━━━━━━━━━━━
+
+**Exclusive Features:**
+• Beautiful UI interface
+• Scan history (cloud sync)
+• Detailed threat reports
+• Real-time notifications
+• Advanced analytics
+• Easy wallet linking
+• Share to social media
+
+━━━━━━━━━━━━━━━━━━━━━━
+⚡ **PRO TIPS**
+━━━━━━━━━━━━━━━━━━━━━━
+
+1. **Save Scans:** Link wallet for +3/day
+2. **Bulk Check:** Use Mini App for multiple URLs
+3. **Stay Updated:** Follow @ailynagent
+4. **Report Scams:** Help the community
+5. **Premium Value:** 4x more daily scans
+
+━━━━━━━━━━━━━━━━━━━━━━
+❓ **COMMON QUESTIONS**
+━━━━━━━━━━━━━━━━━━━━━━
+
+**Q: How accurate is scanning?**
+A: 95%+ accuracy using 6+ security sources
+
+**Q: Do purchased scans expire?**
+A: No, they never expire
+
+**Q: Can I get refunds?**
+A: Yes, contact support for issues
+
+**Q: Is my data safe?**
+A: Yes, no personal data stored
+
+━━━━━━━━━━━━━━━━━━━━━━
+📞 **NEED HELP?**
+━━━━━━━━━━━━━━━━━━━━━━
+
+• Bot: @LYNGalacticBot
+• Twitter: @ailynagent
+• Website: lynai.xyz
+
+*Stay safe in crypto! 🛡️*`, {
         parse_mode: 'Markdown'
       })
       break
