@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import TelegramBot from 'node-telegram-bot-api'
 import { ThreatIntelligenceService } from '@/lib/services/threat-intelligence'
-import { TelegramWalletService } from '@/lib/services/telegram-wallet'
-import { TelegramUser } from '@/lib/models/telegram-user'
-import { connectDB } from '@/lib/mongodb'
 
 // Disable polling as we're using webhooks
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || '', { polling: false })
@@ -43,21 +40,7 @@ interface TelegramUpdate {
   }
 }
 
-async function handleStart(chatId: number, username?: string, userId?: number) {
-  // Create or update user in database
-  if (userId) {
-    await connectDB()
-    await TelegramUser.findOneAndUpdate(
-      { telegramId: userId },
-      {
-        username,
-        telegramId: userId,
-        updatedAt: new Date()
-      },
-      { upsert: true }
-    )
-  }
-
+async function handleStart(chatId: number, username?: string) {
   const welcomeMessage = `👋 Welcome to LYN Security Scanner!
 
 I help you check suspicious links for:
@@ -71,24 +54,15 @@ To scan a link, you can:
 2️⃣ Use /scan command followed by URL
 3️⃣ Open the Mini App for advanced features
 
-💎 Link your Solana wallet to:
-• Track scans on leaderboard
-• Earn rewards for finding threats
-• Sync with LYN ecosystem
-
 Try it now! Just send me a link to check.`
 
   const keyboard = {
     inline_keyboard: [
       [
-        { text: '🚀 Open Scanner App', web_app: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lyn-scanner.vercel.app'}/telegram` } }
+        { text: '🚀 Open Scanner App', web_app: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lyn-hacker.vercel.app'}/telegram` } }
       ],
       [
-        { text: '💎 Link Wallet', callback_data: 'link_wallet' },
-        { text: '📊 My Stats', callback_data: 'stats' }
-      ],
-      [
-        { text: '🏆 Leaderboard', callback_data: 'leaderboard' },
+        { text: '📊 My Stats', callback_data: 'stats' },
         { text: '❓ Help', callback_data: 'help' }
       ]
     ]
@@ -100,7 +74,7 @@ Try it now! Just send me a link to check.`
   })
 }
 
-async function handleScan(chatId: number, url: string, userId?: number) {
+async function handleScan(chatId: number, url: string) {
   // Send typing indicator
   await bot.sendChatAction(chatId, 'typing')
 
@@ -173,18 +147,13 @@ async function handleScan(chatId: number, url: string, userId?: number) {
       })
     }
 
-    // Update user scan statistics if user ID is provided
-    if (userId) {
-      await TelegramWalletService.updateScanStats(userId, aggregated.overallSafe)
-    }
-
     // Delete scanning message and send result
     await bot.deleteMessage(chatId, scanningMsg.message_id)
     
     const keyboard = {
       inline_keyboard: [
         [
-          { text: '📱 Full Analysis', web_app: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lyn-scanner.vercel.app'}/telegram?url=${encodeURIComponent(validUrl)}` } }
+          { text: '📱 Full Analysis', web_app: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lyn-hacker.vercel.app'}/telegram?url=${encodeURIComponent(validUrl)}` } }
         ],
         [
           { text: '🔄 Scan Another', callback_data: 'scan_new' },
@@ -208,93 +177,16 @@ async function handleScan(chatId: number, url: string, userId?: number) {
 
 async function handleCallbackQuery(query: any) {
   const chatId = query.message.chat.id
-  const userId = query.from.id
   const data = query.data
 
   switch (data) {
-    case 'link_wallet':
-      await bot.answerCallbackQuery(query.id)
-      const linkingCode = TelegramWalletService.generateLinkingCode(userId)
-      
-      await bot.sendMessage(chatId, `💎 *Link Your Solana Wallet*
-
-To link your wallet, follow these steps:
-
-1️⃣ Open your Solana wallet (Phantom, Solflare, etc.)
-2️⃣ Sign this message:
-\`\`\`
-Link LYN wallet to Telegram
-Code: ${linkingCode}
-\`\`\`
-3️⃣ Send me your wallet address and signature
-
-Or use the web app for easier linking:`, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🔗 Link via Web App', web_app: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lyn-scanner.vercel.app'}/telegram?action=link_wallet&code=${linkingCode}` } }
-          ]]
-        }
-      })
-      break
-
     case 'stats':
       await bot.answerCallbackQuery(query.id)
-      const stats = await TelegramWalletService.getUserStats(userId)
-      
-      if (stats) {
-        let statsMessage = `📊 *Your Statistics*\n\n`
-        if (stats.walletLinked) {
-          statsMessage += `💎 Wallet: \`${stats.walletAddress?.slice(0, 4)}...${stats.walletAddress?.slice(-4)}\`\n`
-          statsMessage += `🏆 Rank: #${stats.rank || 'N/A'}\n\n`
-        }
-        statsMessage += `🔍 Total Scans: ${stats.totalScans}\n`
-        statsMessage += `✅ Safe Links: ${stats.safeScans}\n`
-        statsMessage += `⚠️ Threats Detected: ${stats.threatsDetected}\n`
-        statsMessage += `🎯 Accuracy: ${stats.totalScans > 0 ? Math.round((stats.safeScans / stats.totalScans) * 100) : 0}%`
-        
-        if (!stats.walletLinked) {
-          statsMessage += `\n\n💡 Link your wallet to track stats on the leaderboard!`
-        }
-        
-        await bot.sendMessage(chatId, statsMessage, {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              !stats.walletLinked ? [{ text: '💎 Link Wallet', callback_data: 'link_wallet' }] : [],
-              [{ text: '📱 View Full Stats', web_app: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lyn-scanner.vercel.app'}/telegram` } }]
-            ].filter(row => row.length > 0)
-          }
-        })
-      } else {
-        await bot.sendMessage(chatId, `📊 *Your Statistics*\n\nNo stats yet! Start scanning links to build your profile.`, {
-          parse_mode: 'Markdown'
-        })
-      }
-      break
-
-    case 'leaderboard':
-      await bot.answerCallbackQuery(query.id)
-      const leaderboard = await TelegramWalletService.getLeaderboard(10)
-      
-      let leaderboardMessage = `🏆 *LYN Scanner Leaderboard*\n\n`
-      
-      if (leaderboard.length > 0) {
-        leaderboard.forEach(user => {
-          const medal = user.rank === 1 ? '🥇' : user.rank === 2 ? '🥈' : user.rank === 3 ? '🥉' : '🏅'
-          leaderboardMessage += `${medal} #${user.rank} - @${user.username || 'Anonymous'}\n`
-          leaderboardMessage += `   💎 \`${user.walletAddress?.slice(0, 4)}...${user.walletAddress?.slice(-4)}\`\n`
-          leaderboardMessage += `   📊 ${user.totalScans} scans | ${user.accuracy}% accuracy\n\n`
-        })
-      } else {
-        leaderboardMessage += `No users on the leaderboard yet. Be the first!`
-      }
-      
-      await bot.sendMessage(chatId, leaderboardMessage, {
+      await bot.sendMessage(chatId, `📊 *Your Statistics*\n\nOpen the Mini App to view detailed statistics and scan history.`, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [[
-            { text: '💎 Link Your Wallet', callback_data: 'link_wallet' }
+            { text: '📱 View Stats', web_app: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://lyn-hacker.vercel.app'}/telegram` } }
           ]]
         }
       })
@@ -302,27 +194,7 @@ Or use the web app for easier linking:`, {
 
     case 'help':
       await bot.answerCallbackQuery(query.id)
-      await bot.sendMessage(chatId, `❓ *How to use LYN Scanner*
-
-*Basic Commands:*
-/start - Welcome message
-/scan <url> - Scan a URL
-/wallet - Manage wallet link
-/stats - View your statistics
-/leaderboard - View top scanners
-/help - Show this help
-
-*Wallet Features:*
-• Link Solana wallet for tracking
-• Appear on global leaderboard
-• Sync with LYN ecosystem
-• Earn rewards (coming soon)
-
-*Scanning:*
-• Send any URL directly
-• Real-time threat detection
-• Multiple security sources
-• Share results with friends`, {
+      await bot.sendMessage(chatId, `❓ *How to use LYN Scanner*\n\n1. Send any URL directly to scan it\n2. Use /scan <url> command\n3. Open Mini App for advanced features\n\n*Commands:*\n/start - Welcome message\n/scan - Scan a URL\n/help - Show this help\n\n*Features:*\n• Real-time threat detection\n• Multiple security sources\n• Phishing & scam detection\n• Malware identification`, {
         parse_mode: 'Markdown'
       })
       break
@@ -346,58 +218,20 @@ export async function POST(request: NextRequest) {
       const chatId = update.message.chat.id
       const text = update.message.text || ''
       const username = update.message.from.username
-      const userId = update.message.from.id
-      const firstName = update.message.from.first_name
-      const lastName = update.message.from.last_name
-
-      // Create or update user record
-      await connectDB()
-      await TelegramUser.findOneAndUpdate(
-        { telegramId: userId },
-        {
-          username,
-          firstName,
-          lastName,
-          updatedAt: new Date()
-        },
-        { upsert: true }
-      )
 
       // Check for commands
       if (text.startsWith('/start')) {
-        await handleStart(chatId, username, userId)
-      } else if (text.startsWith('/wallet')) {
-        await handleCallbackQuery({ 
-          id: 'link_wallet', 
-          data: 'link_wallet',
-          from: { id: userId },
-          message: { chat: { id: chatId } } 
-        })
-      } else if (text.startsWith('/stats')) {
-        await handleCallbackQuery({ 
-          id: 'stats', 
-          data: 'stats',
-          from: { id: userId },
-          message: { chat: { id: chatId } } 
-        })
-      } else if (text.startsWith('/leaderboard')) {
-        await handleCallbackQuery({ 
-          id: 'leaderboard', 
-          data: 'leaderboard',
-          from: { id: userId },
-          message: { chat: { id: chatId } } 
-        })
+        await handleStart(chatId, username)
       } else if (text.startsWith('/help')) {
         await handleCallbackQuery({ 
           id: 'help', 
-          data: 'help',
-          from: { id: userId },
+          data: 'help', 
           message: { chat: { id: chatId } } 
         })
       } else if (text.startsWith('/scan')) {
         const url = text.replace('/scan', '').trim()
         if (url) {
-          await handleScan(chatId, url, userId)
+          await handleScan(chatId, url)
         } else {
           await bot.sendMessage(chatId, 'Please provide a URL to scan. Example: /scan https://example.com')
         }
@@ -405,12 +239,12 @@ export async function POST(request: NextRequest) {
         // Auto-detect URLs
         const urlMatch = text.match(/https?:\/\/[^\s]+/)
         if (urlMatch) {
-          await handleScan(chatId, urlMatch[0], userId)
+          await handleScan(chatId, urlMatch[0])
         }
       } else {
         // Check if it might be a domain
         if (text.includes('.') && !text.includes(' ') && text.length < 100) {
-          await handleScan(chatId, text, userId)
+          await handleScan(chatId, text)
         } else {
           await bot.sendMessage(chatId, 'Please send me a URL to scan, or use /help for more information.')
         }
