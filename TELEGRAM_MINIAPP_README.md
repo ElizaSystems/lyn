@@ -14,6 +14,7 @@
 - `/wallet` - Link or manage your Solana wallet
 - `/stats` - View your personal statistics
 - `/leaderboard` - See top security scanners
+- `/buy` - Purchase scan packages with Stars
 - `/help` - Get help using the scanner
 
 ### Mini App Features
@@ -69,24 +70,37 @@
 ## 🎯 Usage Limits & Rewards
 
 ### Free Tier
-- 5 scans per day
+- 5 daily scans
 - Basic threat detection
 - Standard response time
 - Leaderboard participation
 
-### Premium (Telegram Premium Users)
-- Unlimited scans
+### Telegram Premium Users ⭐
+- 20 daily scans (4x more!)
 - Priority processing
 - Advanced threat analysis
 - Scan history sync
 - Enhanced leaderboard rewards
 
-### Wallet-Linked Benefits
+### Wallet-Linked Benefits 💎
+- +3 bonus daily scans
 - Track all scans on blockchain
 - Appear on global leaderboard
 - Earn recognition for finding threats
 - Future: LYN token rewards
 - Sync with main LYN ecosystem
+
+### Purchase Scan Packages with Stars ⭐
+- 10 scans - 50 Stars
+- 50 scans - 200 Stars (Popular!)
+- 100 scans - 350 Stars
+- 500 scans - 1500 Stars
+
+### How Scan Limits Work
+1. **Daily Limits Reset:** Every 24 hours at midnight
+2. **Priority Order:** Purchased scans used last (daily scans first)
+3. **Stackable Benefits:** Premium + Wallet = 23 daily scans
+4. **No Expiration:** Purchased scans never expire
 
 ## 🔧 Technical Details
 
