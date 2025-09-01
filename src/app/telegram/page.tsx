@@ -1,9 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Send, Shield, AlertTriangle, CheckCircle, XCircle, Loader2, Share2, History, Wallet, Trophy } from 'lucide-react'
-import { TelegramProvider, useTelegram } from '@/lib/telegram/telegram-provider'
-import { TelegramWalletLink } from '@/components/telegram/wallet-link'
+import { Send, Shield, AlertTriangle, CheckCircle, XCircle, Loader2, Share2, History, X } from 'lucide-react'
 
 interface ScanResult {
   scanId: string
@@ -30,8 +28,7 @@ interface ScanHistory {
   timestamp: Date
 }
 
-function TelegramMiniAppContent() {
-  const telegram = useTelegram()
+export default function TelegramMiniApp() {
   const [url, setUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
@@ -39,60 +36,78 @@ function TelegramMiniAppContent() {
   const [scanHistory, setScanHistory] = useState<ScanHistory[]>([])
   const [checksToday, setChecksToday] = useState(0)
   const [showHistory, setShowHistory] = useState(false)
+  const [telegramUser, setTelegramUser] = useState<any>(null)
 
   const MAX_FREE_CHECKS = 5
 
   useEffect(() => {
-    // Load scan history and checks count from Telegram Cloud Storage
-    if (window.Telegram?.WebApp?.CloudStorage) {
-      window.Telegram.WebApp.CloudStorage.getItems(['scanHistory', 'checksToday', 'checkDate'], (error, result) => {
-        if (!error && result) {
-          const today = new Date().toDateString()
-          if (result.checkDate === today) {
-            setChecksToday(parseInt(result.checksToday || '0'))
-          } else {
-            // Reset for new day
-            window.Telegram.WebApp.CloudStorage.setItem('checkDate', today)
-            window.Telegram.WebApp.CloudStorage.setItem('checksToday', '0')
-          }
-          
-          if (result.scanHistory) {
-            try {
-              setScanHistory(JSON.parse(result.scanHistory))
-            } catch (e) {
-              console.error('Failed to parse scan history:', e)
+    // Initialize Telegram Web App
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp
+      tg.ready()
+      tg.expand()
+      
+      // Set colors
+      tg.setHeaderColor('#1c1c1e')
+      tg.setBackgroundColor('#1c1c1e')
+      
+      // Get user data
+      if (tg.initDataUnsafe?.user) {
+        setTelegramUser(tg.initDataUnsafe.user)
+      }
+
+      // Load scan history
+      if (tg.CloudStorage) {
+        tg.CloudStorage.getItems(['scanHistory', 'checksToday', 'checkDate'], (error: any, result: any) => {
+          if (!error && result) {
+            const today = new Date().toDateString()
+            if (result.checkDate === today) {
+              setChecksToday(parseInt(result.checksToday || '0'))
+            } else {
+              tg.CloudStorage.setItem('checkDate', today)
+              tg.CloudStorage.setItem('checksToday', '0')
+            }
+            
+            if (result.scanHistory) {
+              try {
+                setScanHistory(JSON.parse(result.scanHistory))
+              } catch (e) {
+                console.error('Failed to parse scan history:', e)
+              }
             }
           }
-        }
-      })
-    }
+        })
+      }
 
-    // Set up main button
-    if (window.Telegram?.WebApp?.MainButton) {
-      window.Telegram.WebApp.MainButton.setText('Scan Link')
-      window.Telegram.WebApp.MainButton.color = '#0088cc'
-      window.Telegram.WebApp.MainButton.onClick(() => handleScan())
-    }
-
-    return () => {
-      if (window.Telegram?.WebApp?.MainButton) {
-        window.Telegram.WebApp.MainButton.offClick(() => handleScan())
+      // Set up main button
+      if (tg.MainButton) {
+        tg.MainButton.setText('Scan Link')
+        tg.MainButton.color = '#3b82f6'
+        tg.MainButton.show()
       }
     }
   }, [])
 
   const handleScan = async () => {
     if (!url.trim()) {
-      telegram.showAlert('Please enter a URL to scan')
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.showAlert('Please enter a URL to scan')
+      } else {
+        alert('Please enter a URL to scan')
+      }
       return
     }
 
-    if (checksToday >= MAX_FREE_CHECKS && !telegram.user?.isPremium) {
-      const upgrade = await telegram.showConfirm(
-        `You've reached your daily limit of ${MAX_FREE_CHECKS} free scans. Upgrade to premium for unlimited scans?`
-      )
-      if (upgrade) {
-        window.Telegram?.WebApp?.openTelegramLink('https://t.me/premium')
+    if (checksToday >= MAX_FREE_CHECKS && !telegramUser?.is_premium) {
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.showConfirm(
+          `You've reached your daily limit of ${MAX_FREE_CHECKS} free scans. Upgrade to premium for unlimited scans?`,
+          (confirmed: boolean) => {
+            if (confirmed) {
+              window.Telegram?.WebApp?.openTelegramLink('https://t.me/premium')
+            }
+          }
+        )
       }
       return
     }
@@ -100,14 +115,17 @@ function TelegramMiniAppContent() {
     setIsScanning(true)
     setError(null)
     setScanResult(null)
-    telegram.hapticFeedback.impactOccurred('light')
+    
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('light')
+    }
 
     try {
       const response = await fetch('/api/telegram/scan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Telegram-Init-Data': telegram.initDataRaw || ''
+          'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || ''
         },
         body: JSON.stringify({ url: url.trim() })
       })
@@ -136,25 +154,23 @@ function TelegramMiniAppContent() {
         window.Telegram.WebApp.CloudStorage.setItem('checksToday', newCount.toString())
       }
 
-      // Haptic feedback based on result
-      if (result.safe) {
-        telegram.hapticFeedback.notificationOccurred('success')
-      } else if (result.consensus === 'dangerous') {
-        telegram.hapticFeedback.notificationOccurred('error')
-      } else {
-        telegram.hapticFeedback.notificationOccurred('warning')
-      }
-
-      // Show main button for sharing
-      if (window.Telegram?.WebApp?.MainButton) {
-        window.Telegram.WebApp.MainButton.setText('Share Result')
-        window.Telegram.WebApp.MainButton.show()
+      // Haptic feedback
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        if (result.safe) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success')
+        } else if (result.consensus === 'dangerous') {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('error')
+        } else {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning')
+        }
       }
 
     } catch (err) {
       console.error('Scan error:', err)
       setError('Failed to scan URL. Please try again.')
-      telegram.hapticFeedback.notificationOccurred('error')
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error')
+      }
     } finally {
       setIsScanning(false)
     }
@@ -163,102 +179,190 @@ function TelegramMiniAppContent() {
   const shareResult = () => {
     if (!scanResult) return
     
-    const message = `🔍 LYN Security Scanner Result\n\nURL: ${scanResult.checked_url}\nStatus: ${scanResult.safe ? '✅ Safe' : '⚠️ Unsafe'}\nRisk Level: ${scanResult.risk_level}\nConfidence: ${scanResult.confidence_score}%\n\nScanned with @LYNSecurityBot`
+    const message = `🔍 LYN Security Scanner Result\n\nURL: ${scanResult.checked_url}\nStatus: ${scanResult.safe ? '✅ Safe' : '⚠️ Unsafe'}\nRisk Level: ${scanResult.risk_level}\nConfidence: ${scanResult.confidence_score}%\n\nScanned with @LYNGalacticBot`
     
-    window.Telegram?.WebApp?.switchInlineQuery(message, ['users', 'groups', 'channels'])
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.switchInlineQuery(message, ['users', 'groups', 'channels'])
+    }
   }
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case 'low': return 'text-green-500'
-      case 'medium': return 'text-yellow-500'
-      case 'high': return 'text-orange-500'
-      case 'critical': return 'text-red-500'
-      default: return 'text-gray-500'
+      case 'low': return '#22c55e'
+      case 'medium': return '#eab308'
+      case 'high': return '#f97316'
+      case 'critical': return '#ef4444'
+      default: return '#6b7280'
     }
   }
 
   const getRiskIcon = (consensus: string) => {
     switch (consensus) {
-      case 'safe': return <CheckCircle className="w-16 h-16 text-green-500" />
-      case 'suspicious': return <AlertTriangle className="w-16 h-16 text-yellow-500" />
-      case 'dangerous': return <XCircle className="w-16 h-16 text-red-500" />
-      default: return <Shield className="w-16 h-16 text-gray-500" />
+      case 'safe': return <CheckCircle style={{ width: 64, height: 64, color: '#22c55e' }} />
+      case 'suspicious': return <AlertTriangle style={{ width: 64, height: 64, color: '#eab308' }} />
+      case 'dangerous': return <XCircle style={{ width: 64, height: 64, color: '#ef4444' }} />
+      default: return <Shield style={{ width: 64, height: 64, color: '#6b7280' }} />
+    }
+  }
+
+  // Inline styles for Telegram Mini App
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      backgroundColor: '#111827',
+      color: '#ffffff',
+      padding: '16px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    },
+    maxWidth: {
+      maxWidth: '448px',
+      margin: '0 auto'
+    },
+    header: {
+      textAlign: 'center' as const,
+      marginBottom: '24px'
+    },
+    title: {
+      fontSize: '24px',
+      fontWeight: 'bold',
+      marginTop: '8px'
+    },
+    subtitle: {
+      fontSize: '14px',
+      color: '#9ca3af',
+      marginTop: '4px'
+    },
+    card: {
+      backgroundColor: '#1f2937',
+      borderRadius: '12px',
+      padding: '16px',
+      marginBottom: '16px'
+    },
+    input: {
+      flex: 1,
+      padding: '8px 12px',
+      backgroundColor: '#111827',
+      border: '1px solid #374151',
+      borderRadius: '8px',
+      color: '#ffffff',
+      fontSize: '14px',
+      outline: 'none',
+      width: '100%'
+    },
+    button: {
+      padding: '8px 16px',
+      backgroundColor: '#3b82f6',
+      color: '#ffffff',
+      border: 'none',
+      borderRadius: '8px',
+      fontSize: '14px',
+      fontWeight: '500',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+      cursor: 'not-allowed'
+    },
+    errorBox: {
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      border: '1px solid #ef4444',
+      borderRadius: '12px',
+      padding: '16px',
+      marginBottom: '16px',
+      color: '#ef4444'
+    },
+    resultCard: {
+      backgroundColor: '#1f2937',
+      borderRadius: '12px',
+      padding: '16px'
+    },
+    historyItem: {
+      padding: '8px',
+      backgroundColor: '#111827',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      marginBottom: '8px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between'
     }
   }
 
   return (
-    <div className="min-h-screen bg-[var(--tg-theme-bg-color)] text-[var(--tg-theme-text-color)] p-4">
-      <div className="max-w-md mx-auto">
+    <div style={styles.container}>
+      <div style={styles.maxWidth}>
         {/* Header */}
-        <div className="text-center mb-6">
-          <Shield className="w-12 h-12 mx-auto mb-2 text-[var(--tg-theme-button-color)]" />
-          <h1 className="text-2xl font-bold">LYN Security Scanner</h1>
-          <p className="text-sm text-[var(--tg-theme-hint-color)] mt-1">
-            Check links for phishing & scams
-          </p>
-          {telegram.user && (
-            <p className="text-xs text-[var(--tg-theme-hint-color)] mt-2">
-              Welcome, {telegram.user.firstName}! • {checksToday}/{MAX_FREE_CHECKS} scans today
+        <div style={styles.header}>
+          <Shield style={{ width: 48, height: 48, margin: '0 auto', color: '#3b82f6' }} />
+          <h1 style={styles.title}>LYN Security Scanner</h1>
+          <p style={styles.subtitle}>Check links for phishing & scams</p>
+          {telegramUser && (
+            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+              Welcome, {telegramUser.first_name}! • {checksToday}/{MAX_FREE_CHECKS} scans today
             </p>
           )}
         </div>
 
         {/* Input Section */}
-        <div className="bg-[var(--tg-theme-secondary-bg-color)] rounded-lg p-4 mb-4">
-          <div className="flex gap-2">
+        <div style={styles.card}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <input
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Enter suspicious URL..."
-              className="flex-1 px-3 py-2 bg-[var(--tg-theme-bg-color)] rounded-lg border border-[var(--tg-theme-hint-color)] focus:outline-none focus:border-[var(--tg-theme-button-color)]"
+              style={styles.input}
               disabled={isScanning}
             />
             <button
               onClick={handleScan}
               disabled={isScanning || !url.trim()}
-              className="px-4 py-2 bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] rounded-lg disabled:opacity-50 flex items-center gap-2"
+              style={{
+                ...styles.button,
+                ...(isScanning || !url.trim() ? styles.buttonDisabled : {})
+              }}
             >
               {isScanning ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
               ) : (
-                <Send className="w-5 h-5" />
+                <Send style={{ width: 20, height: 20 }} />
               )}
             </button>
           </div>
         </div>
 
-        {/* Wallet Linking Component */}
-        {telegram.user && (
-          <div className="mb-4">
-            <TelegramWalletLink 
-              telegramId={telegram.user.id} 
-              onLinked={(address) => {
-                telegram.showPopup({
-                  title: 'Success!',
-                  message: `Wallet linked! You can now track your scans on the leaderboard.`,
-                  buttons: [{ type: 'ok' }]
-                })
-              }}
-            />
-          </div>
-        )}
-
         {/* History Toggle */}
         <button
           onClick={() => setShowHistory(!showHistory)}
-          className="w-full mb-4 px-4 py-2 bg-[var(--tg-theme-secondary-bg-color)] rounded-lg flex items-center justify-center gap-2 text-sm"
+          style={{
+            ...styles.card,
+            width: '100%',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontSize: '14px'
+          }}
         >
-          <History className="w-4 h-4" />
+          <History style={{ width: 16, height: 16 }} />
           {showHistory ? 'Hide' : 'Show'} Scan History
         </button>
 
         {/* Scan History */}
         {showHistory && scanHistory.length > 0 && (
-          <div className="bg-[var(--tg-theme-secondary-bg-color)] rounded-lg p-4 mb-4">
-            <h3 className="font-semibold mb-2">Recent Scans</h3>
-            <div className="space-y-2">
+          <div style={styles.card}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h3 style={{ fontWeight: '600' }}>Recent Scans</h3>
+              <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X style={{ width: 16, height: 16, color: '#6b7280' }} />
+              </button>
+            </div>
+            <div>
               {scanHistory.map((item, index) => (
                 <div
                   key={index}
@@ -267,16 +371,16 @@ function TelegramMiniAppContent() {
                     setScanResult(item.result)
                     setShowHistory(false)
                   }}
-                  className="p-2 bg-[var(--tg-theme-bg-color)] rounded cursor-pointer"
+                  style={styles.historyItem}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs truncate flex-1">{item.url}</span>
-                    {item.result.safe ? (
-                      <CheckCircle className="w-4 h-4 text-green-500 ml-2" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-500 ml-2" />
-                    )}
-                  </div>
+                  <span style={{ fontSize: '12px', color: '#9ca3af', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.url}
+                  </span>
+                  {item.result.safe ? (
+                    <CheckCircle style={{ width: 16, height: 16, color: '#22c55e', flexShrink: 0 }} />
+                  ) : (
+                    <XCircle style={{ width: 16, height: 16, color: '#ef4444', flexShrink: 0 }} />
+                  )}
                 </div>
               ))}
             </div>
@@ -285,34 +389,38 @@ function TelegramMiniAppContent() {
 
         {/* Error Display */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500 rounded-lg p-4 mb-4">
-            <p className="text-red-500">{error}</p>
+          <div style={styles.errorBox}>
+            <p>{error}</p>
           </div>
         )}
 
         {/* Scan Result */}
         {scanResult && (
-          <div className="bg-[var(--tg-theme-secondary-bg-color)] rounded-lg p-4">
-            <div className="text-center mb-4">
+          <div style={{
+            ...styles.resultCard,
+            border: scanResult.safe ? '1px solid #22c55e' : scanResult.consensus === 'suspicious' ? '1px solid #eab308' : '1px solid #ef4444',
+            backgroundColor: scanResult.safe ? 'rgba(34, 197, 94, 0.05)' : scanResult.consensus === 'suspicious' ? 'rgba(234, 179, 8, 0.05)' : 'rgba(239, 68, 68, 0.05)'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               {getRiskIcon(scanResult.consensus)}
-              <h2 className="text-xl font-bold mt-2">
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '8px' }}>
                 {scanResult.safe ? 'Link Appears Safe' : 'Potential Threat Detected'}
               </h2>
-              <p className={`text-sm mt-1 ${getRiskColor(scanResult.risk_level)}`}>
+              <p style={{ fontSize: '14px', marginTop: '4px', color: getRiskColor(scanResult.risk_level) }}>
                 Risk Level: {scanResult.risk_level.toUpperCase()}
               </p>
-              <p className="text-xs text-[var(--tg-theme-hint-color)] mt-1">
+              <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                 Confidence: {scanResult.confidence_score}%
               </p>
             </div>
 
             {/* Details */}
             {scanResult.details.length > 0 && (
-              <div className="mb-4">
-                <h3 className="font-semibold mb-2">Analysis Details</h3>
-                <div className="space-y-1">
+              <div style={{ marginBottom: '16px' }}>
+                <h3 style={{ fontWeight: '600', marginBottom: '8px', fontSize: '14px' }}>Analysis Details</h3>
+                <div>
                   {scanResult.details.slice(0, 3).map((detail, index) => (
-                    <p key={index} className="text-xs text-[var(--tg-theme-hint-color)]">
+                    <p key={index} style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px' }}>
                       {detail}
                     </p>
                   ))}
@@ -322,12 +430,12 @@ function TelegramMiniAppContent() {
 
             {/* Recommendations */}
             {scanResult.recommendations.length > 0 && (
-              <div className="mb-4">
-                <h3 className="font-semibold mb-2">Recommendations</h3>
-                <ul className="space-y-1">
+              <div style={{ marginBottom: '16px' }}>
+                <h3 style={{ fontWeight: '600', marginBottom: '8px', fontSize: '14px' }}>Recommendations</h3>
+                <ul style={{ listStyle: 'none', padding: 0 }}>
                   {scanResult.recommendations.slice(0, 3).map((rec, index) => (
-                    <li key={index} className="text-xs text-[var(--tg-theme-hint-color)] flex items-start">
-                      <span className="mr-1">•</span>
+                    <li key={index} style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px', display: 'flex' }}>
+                      <span style={{ marginRight: '4px' }}>•</span>
                       <span>{rec}</span>
                     </li>
                   ))}
@@ -338,22 +446,26 @@ function TelegramMiniAppContent() {
             {/* Share Button */}
             <button
               onClick={shareResult}
-              className="w-full px-4 py-2 bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] rounded-lg flex items-center justify-center gap-2"
+              style={{
+                ...styles.button,
+                width: '100%',
+                justifyContent: 'center'
+              }}
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 style={{ width: 16, height: 16 }} />
               Share Result
             </button>
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-center mt-6 text-xs text-[var(--tg-theme-hint-color)]">
+        <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '12px', color: '#6b7280' }}>
           <p>Powered by LYN AI Security</p>
-          {!telegram.user?.isPremium && (
-            <p className="mt-1">
+          {!telegramUser?.is_premium && (
+            <p style={{ marginTop: '4px' }}>
               <button
                 onClick={() => window.Telegram?.WebApp?.openTelegramLink('https://t.me/premium')}
-                className="text-[var(--tg-theme-link-color)] underline"
+                style={{ color: '#3b82f6', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 Upgrade to Premium
               </button>
@@ -362,14 +474,14 @@ function TelegramMiniAppContent() {
           )}
         </div>
       </div>
-    </div>
-  )
-}
 
-export default function TelegramMiniApp() {
-  return (
-    <TelegramProvider>
-      <TelegramMiniAppContent />
-    </TelegramProvider>
+      {/* Add spinning animation */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
   )
 }
